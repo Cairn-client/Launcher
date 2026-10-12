@@ -781,7 +781,8 @@ namespace Cairn.Launcher.Pages
         private static async Task<bool> VerifyInjectionAsync(string dllPath, int pid)
         {
             var dir = Path.GetDirectoryName(dllPath) ?? "";
-            var logPath = Path.Combine(dir, "cairn-native.log");
+            // the pack names the plugin's log; the earlier Cairn mod's name is read too
+            var logPaths = new[] { Path.Combine(dir, Cairn.Launcher.Models.ModLua.NativeLog), Path.Combine(dir, "cairn-native.log") };
             var deadline = DateTime.UtcNow.AddSeconds(8);
             var attachMarker = $"pid={pid}";
 
@@ -789,8 +790,9 @@ namespace Cairn.Launcher.Pages
             {
                 try
                 {
-                    if (File.Exists(logPath))
+                    foreach (var logPath in logPaths)
                     {
+                        if (!File.Exists(logPath)) continue;
                         string text;
                         using (var stream = new FileStream(logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                         using (var reader = new StreamReader(stream))

@@ -60,7 +60,7 @@ public sealed record PackContract(
                 foreach (var p in lj.EnumerateObject())
                 {
                     string v = p.Value.ValueKind == JsonValueKind.String ? p.Value.GetString() ?? "" : "";
-                    if (!LuaKeys.Contains(p.Name) || !(p.Name == "eventPrefix" ? IsEventPrefix(v) : p.Name is "startGameEvent" or "helperTag" ? IsWord(v) : p.Name == "helperFlag" ? IsFlag(v) : IsLuaName(v))) { luaOk = false; break; }
+                    if (!LuaKeys.Contains(p.Name) || !(p.Name == "eventPrefix" ? IsEventPrefix(v) : p.Name is "startGameEvent" or "helperTag" ? IsWord(v) : p.Name == "helperFlag" ? IsFlag(v) : p.Name == "nativeLog" ? IsFileName(v) : IsLuaName(v))) { luaOk = false; break; }
                     lua[p.Name] = v;
                 }
             string kind = S("kind", PackKinds.Mod);
@@ -107,7 +107,7 @@ public sealed record PackContract(
     /// </summary>
     public static readonly IReadOnlySet<string> LuaKeys = new HashSet<string>(StringComparer.Ordinal)
     {
-        "eventPrefix", "startGameEvent", "startGameModel", "startGameTick", "startGameRecapStart", "startGameDisarm", "joinFlowLoad", "menuRequest", "helperFlag", "helperTag",
+        "eventPrefix", "startGameEvent", "startGameModel", "startGameTick", "startGameRecapStart", "startGameDisarm", "joinFlowLoad", "menuRequest", "helperFlag", "helperTag", "nativeLog",
     };
 
     private static bool IsLuaName(string s) => s.Length is > 0 and <= 60 && (char.IsAsciiLetter(s[0]) || s[0] == '_') && s.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
