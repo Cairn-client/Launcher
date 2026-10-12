@@ -140,6 +140,7 @@ namespace Cairn.Launcher.Pages
             showTour = !listPrefs.TourSeen;   // the first-run tour
             CheckInstallIntegrity();
             Globals.OnStyleChanged += OnStyleChanged;
+            Downloads.Changed += OnDownloadsChanged;
             await EnsureLocalMasterServerAsync();
             StartPresence();   // friends on Cairn: who is online, invitations
             await RefreshApp();
@@ -216,9 +217,13 @@ namespace Cairn.Launcher.Pages
             }
         }
 
+        // a download moved or the queue changed: repaint the game page, Home and the footer
+        private void OnDownloadsChanged() => _ = InvokeAsync(StateHasChanged);
+
         public void Dispose()
         {
             Globals.OnStyleChanged -= OnStyleChanged;
+            Downloads.Changed -= OnDownloadsChanged;
             gameWatchCts.Cancel();
             StopPresence();
             objRef?.Dispose();

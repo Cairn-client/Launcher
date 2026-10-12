@@ -244,14 +244,15 @@ namespace Cairn.Launcher.Pages
 
         private IReadOnlyList<HomeModRow> ModUpdates() => HomeModRows().Where(r => r.State == ModState.UpdateAvailable).ToList();
 
-        /// <summary>Downloads every mod that has a newer version (a download also installs it), one after the other.</summary>
-        private async Task UpdateAllModsAsync()
+        /// <summary>Queues every mod that has a newer version (a download also installs it); the queue runs them one after the other.</summary>
+        private Task UpdateAllModsAsync()
         {
-            foreach (var row in ModUpdates())
-            {
-                if (packBusyId is not null) break;
-                await DownloadPackAsync(row.Game.Id);
-            }
+            foreach (var row in ModUpdates()) _ = DownloadPackAsync(row.Game.Id);
+            return Task.CompletedTask;
         }
+
+        // the footer's buttons: fire and forget, the queue shows what happens
+        private void FooterUpdate(string gameId) => _ = DownloadPackAsync(gameId);
+        private Task FooterCheckAsync() => LoadPackIndexAsync();
     }
 }

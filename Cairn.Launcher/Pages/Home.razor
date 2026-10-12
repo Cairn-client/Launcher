@@ -369,7 +369,7 @@
                     <HomeView Games="@GameProfileRegistry.All()" OnPc="@IsGameFound" GamesOnPc="@HomeGamesOnPc" ModsInstalled="@HomeModsInstalled"
                               Latest="@(changelog?.FirstOrDefault())" SetupReady="@(setupSnapshot is null ? null : SystemSetupGood)"
                               UpdateTag="@upd.Tag" UpdateNotes="@upd.Notes" UpdateBusy="@updateBusy" OnUpdate="@HomeUpdateClickAsync"
-                              Last="@HomeLast" FriendsState="@homeFriendsState" Friends="@homeFriends" OnJoinFriend="@JoinFriendFromHomeAsync" History="@HomeHistory()"  ModBusyId="@packBusyId" ModProgress="@packProgressValue" ModUpdates="@ModUpdates()" OnUpdateMods="@UpdateAllModsAsync"
+                              Last="@HomeLast" FriendsState="@homeFriendsState" Friends="@homeFriends" OnJoinFriend="@JoinFriendFromHomeAsync" History="@HomeHistory()"
                               Favorites="@HomeFavorites" OnToggleFavorite="@ToggleFavorite"
                               OnOpenGame="@OpenGameFromHome" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenVersions="@(() => NavigateTo(AppView.Versions))"
                               OnOpenHelp="@(() => NavigateTo(AppView.Help))" OnOpenSetup="@OpenSetupChecklist" />
@@ -394,6 +394,10 @@
             }
         </main>
     }
+
+    @* the strip at the bottom of every page: the downloads, like Steam's *@
+    <DownloadFooter Manager="@Downloads" Updates="@ModUpdates()" Checking="@packIndexLoading" LastChecked="@packIndexCheckedUtc" Offline="@(packIndexTried && packIndex is null)"
+                    OnUpdate="@FooterUpdate" OnUpdateAll="@UpdateAllModsAsync" OnCheck="@FooterCheckAsync" />
 
 </div>
 
