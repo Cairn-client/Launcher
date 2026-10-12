@@ -29,7 +29,7 @@ namespace Cairn.Launcher.Pages
             try
             {
                 // CAIRN_GAMES_URL: a local copy of the games repository (a folder served over http), for working on the catalog
-                var client = new CatalogClient(PackHttp, CatalogClient.DefaultCacheDir, Environment.GetEnvironmentVariable("CAIRN_GAMES_URL"));
+                var client = new CatalogClient(PackHttp, CatalogClient.DefaultCacheDir, Environment.GetEnvironmentVariable("CAIRN_GAMES_URL")) { FollowsBeta = id => ChannelOf(id) == PackChannels.Beta };
                 var snapshot = await client.LoadAsync();
                 if (snapshot is null) { Log.Information("catalog: not available, the games are what the launcher knew"); return; }
                 var missing = snapshot.List.Games.Where(e => snapshot.Games.All(g => g.Entry.Id != e.Id)).Select(e => e.Id).ToList();
@@ -94,7 +94,7 @@ namespace Cairn.Launcher.Pages
             ShowToast(ChannelOf(gameId) == PackChannels.Beta
                 ? "You will be offered beta versions of this mod too. Both players should use the same one."
                 : "You will be offered stable versions of this mod only.");
-            await LoadPackIndexAsync();
+            await RefreshCatalogAndPacksAsync();   // the game's own game.json follows the channel too
         }
 
         // used when a game's catalog entry has no how-to lines of its own

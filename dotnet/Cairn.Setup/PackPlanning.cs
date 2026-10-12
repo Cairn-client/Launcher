@@ -113,6 +113,27 @@ public static class PackChannels
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException && !ct.IsCancellationRequested) { return null; }
     }
 
+    /// <summary>The newest published release of the repository, pre-releases included (a bare X.Y.Z tag), or null. Beta follows it for the pack and for the game's own game.json.</summary>
+    public static async Task<string?> NewestTagAsync(HttpClient http, string? repo, CancellationToken ct = default)
+    {
+        if (!PackCatalog.IsRepo(repo)) return null;
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, $"https://api.github.com/repos/{repo}/releases?per_page=10");
+            req.Headers.Accept.ParseAdd("application/vnd.github+json");
+            using var resp = await http.SendAsync(req, ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode) return null;
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            foreach (var rel in doc.RootElement.EnumerateArray())
+            {
+                if (rel.TryGetProperty("draft", out var d) && d.ValueKind == JsonValueKind.True) continue;
+                string tag = rel.TryGetProperty("tag_name", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString() ?? "" : "";
+                if (System.Text.RegularExpressions.Regex.IsMatch(tag, @"^[0-9]+\.[0-9]+\.[0-9]+$")) return tag;
+            }
+            return null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException && !ct.IsCancellationRequested) { return null; }
+    }
     /// <summary>The newer of the two catalogs' packs for the channel: beta follows the newest release, stable only the stable one.</summary>
     public static PackInfo? Choose(string? channel, PackInfo? stable, PackInfo? beta)
     {
