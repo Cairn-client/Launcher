@@ -79,10 +79,10 @@ public static class OptionRunner
         return new OptionRun(false, run.StartError ?? "The program did not answer.");
     }
 
-    private sealed record Run(string? Last, bool TimedOut, string? StartError);
+    internal sealed record Run(string? Last, bool TimedOut, string? StartError, IReadOnlyList<string>? Lines = null);
 
     // starts the program with its arguments as a list (never a command line to be split), reads its output as lines, stops it at the timeout
-    private static async Task<Run> RunAsync(string program, IReadOnlyList<string> args, TimeSpan timeout, Action<string> say, CancellationToken ct)
+    internal static async Task<Run> RunAsync(string program, IReadOnlyList<string> args, TimeSpan timeout, Action<string> say, CancellationToken ct)
     {
         if (!File.Exists(program)) return new Run(null, false, "The program of the mod is not there.");
         if (args.Skip(2).Take(1).Any(a => !CatalogLimits.IsId(a))) return new Run(null, false, "Not a valid option.");
@@ -102,6 +102,7 @@ public static class OptionRunner
         using (p)
         {
             string? last = null;
+            var all = new List<string>();
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(timeout);
             try
@@ -111,6 +112,7 @@ public static class OptionRunner
                 {
                     if (line.Length is 0 or > 4096) continue;
                     last = line;
+                    if (all.Count < 50) all.Add(line);
                     try
                     {
                         using var doc = JsonDocument.Parse(line);
@@ -120,13 +122,13 @@ public static class OptionRunner
                     catch (JsonException) { }
                 }
                 await p.WaitForExitAsync(cts.Token).ConfigureAwait(false);
-                return new Run(last, false, null);
+                return new Run(last, false, null, all);
             }
             catch (OperationCanceledException)
             {
                 try { if (!p.HasExited) p.Kill(entireProcessTree: true); } catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception) { }
                 if (ct.IsCancellationRequested) throw;
-                return new Run(last, true, null);
+                return new Run(last, true, null, all);
             }
         }
     }

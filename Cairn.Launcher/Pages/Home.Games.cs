@@ -44,7 +44,7 @@ namespace Cairn.Launcher.Pages
             var taken = settingsStore.Refresh(settings);
             if (taken.Count > 0) Log.Information("settings: changed outside the launcher since it read them: {Keys}", string.Join(", ", taken));
             showGameSettings = true;
-            if (SelectedProfile is { } og) _ = LoadOptionStatusesAsync(og);
+            if (SelectedProfile is { } og) { _ = LoadOptionStatusesAsync(og); _ = LoadSavesAsync(og); }
         }
 
         private void SaveGameSettings()

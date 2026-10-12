@@ -107,14 +107,15 @@ namespace Cairn.Launcher.Pages
         // The bridge the launcher listens on for external games whose mod has a companion; one per launcher run, given to the companion when it starts.
         private BridgeServer? externalBridge;
 
-        // The saves the connected game's bridge lists, shown on the game's page; and the one whose Delete was pressed once (a second press confirms).
+        // The game's saves, shown in its settings window (read from its bridge while it runs, from its program otherwise); and the one whose Delete was pressed once (a second press confirms).
         private IReadOnlyList<BridgeSaveSlot> externalSaves = Array.Empty<BridgeSaveSlot>();
         private string? deleteSaveAsked;
         private bool showAllSaves;
-        private const int SavesShown = 6;   // the list can be long (Kingdom Come II rotates its autosaves): the newest few, the rest on a click
+        private bool savesKnown;      // the list on screen is the game's own (read from its program or its bridge), not a guess
+        private bool savesLoading;
         private bool externalBridgeConnected;
 
-        /// <summary>The bridge of this game is connected (the game runs and its mod has a bridge): its saves are listed on the page.</summary>
+        /// <summary>The bridge of this game is connected (the game runs and its mod has a bridge).</summary>
         private bool BridgeConnectedFor(GameProfile g) => externalBridge is { Connected: true } b && string.Equals(b.Game, g.Id, StringComparison.OrdinalIgnoreCase);
 
         private void EnsureExternalBridge()
@@ -133,20 +134,59 @@ namespace Cairn.Launcher.Pages
                 if (msg is BridgeToast toast) { _ = InvokeAsync(() => ShowToast(toast.Text, toast.Error)); return; }
                 if (msg is not BridgeSaves saves) return;
                 externalSaves = saves.Slots;
+                savesKnown = true;
+                savesLoading = false;
                 deleteSaveAsked = null;
                 _ = InvokeAsync(StateHasChanged);
             };
         }
 
-        /// <summary>Delete on a save: the first press asks, the second asks the game's bridge to delete it (it answers with the new list).</summary>
-        private void DeleteExternalSave(string id)
+        /// <summary>The game's saves for its settings window: from its bridge while it runs, else from its pack's program (which answers with the game closed).</summary>
+        private async Task LoadSavesAsync(GameProfile g)
+        {
+            savesKnown = false;
+            savesLoading = true;
+            deleteSaveAsked = null;
+            showAllSaves = false;
+            externalSaves = Array.Empty<BridgeSaveSlot>();
+            await InvokeAsync(StateHasChanged);
+            try
+            {
+                if (BridgeConnectedFor(g)) { externalBridge!.Send(BridgeProtocol.AskSaves()); return; }   // the bridge answers: Received sets the list
+                if (ExternalInstall.OptionsProgramPath(PacksRoot, g.Id) is { } program && await SavesRunner.ListAsync(program) is { } slots)
+                {
+                    externalSaves = slots;
+                    savesKnown = true;
+                }
+            }
+            finally
+            {
+                if (!BridgeConnectedFor(g) || savesKnown) savesLoading = false;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+
+        /// <summary>Delete on a save: the first press asks, the second does it (through the bridge while the game runs, else through the pack's program).</summary>
+        private async Task DeleteExternalSaveAsync(string id)
         {
             if (deleteSaveAsked != id) { deleteSaveAsked = id; return; }
             deleteSaveAsked = null;
-            if (BridgeProtocol.DeleteSave(id) is { } msg && externalBridge?.Send(msg) == true) Log.Information("games: asked the bridge to delete save {Id}", id);
-            else SetPackMessage("The game's program did not answer. Is the game running?", error: true);
+            if (SelectedProfile is not { } g) return;
+            if (BridgeConnectedFor(g))
+            {
+                if (BridgeProtocol.DeleteSave(id) is { } msg && externalBridge!.Send(msg)) Log.Information("games: asked the bridge to delete save {Id}", id);
+                else ShowToast("The game's program did not answer. Is the game running?", true);   // the bridge answers with a toast and the new list
+                return;
+            }
+            if (ExternalInstall.OptionsProgramPath(PacksRoot, g.Id) is not { } program) { ShowToast("The mod's program is not there.", true); return; }
+            var (ok, message, slots) = await SavesRunner.DeleteAsync(program, id);
+            Log.Information("games: {Game} save {Id} deleted: {Ok} {Message}", g.Id, id, ok, message);
+            if (slots is not null) externalSaves = slots;
+            ShowToast(message, !ok);
+            await InvokeAsync(StateHasChanged);
         }
 
+        private void ToggleShowAllSaves() => showAllSaves = !showAllSaves;
         /// <summary>Waits for the game's process (the game starts through Steam, so there is no process to hold), then draws the mod's menu over it from the bridge.</summary>
         private async Task ShowExternalMenuWhenUpAsync(GameProfile game, string folder)
         {
