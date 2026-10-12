@@ -221,33 +221,36 @@
                             @{ var pack = InstalledPackOf(game); var offered = CatalogPackOf(game); }
                             <div class="wide mod-row">
                                 <dt>Mod</dt>
-                                <dd>
-                                    @if (packBusyId == game.Id)
-                                    {
-                                        <span class="mod-state">Downloading @((int)(packProgressValue * 100))%</span>
-                                        <span class="mod-bar"><span style="width: @((int)(packProgressValue * 100))%"></span></span>
-                                    }
-                                    else if (pack is not null)
-                                    {
-                                        <span class="mod-state ok">Downloaded (@pack.Version)@(IsModInstalled(game) ? "" : ", not installed")</span>
-                                        @if (!IsModInstalled(game) && game.Id == Cairn.Setup.ModInstall.PackId) { <button class="link-btn strong" disabled="@(gameRunning)" @onclick="() => InstallModAsync(game.Id)">Install</button> }
-                                        @if (offered is not null && offered.Version != pack.Version) { <button class="link-btn" @onclick="() => DownloadPackAsync(game.Id)">Update to @offered.Version</button> }
-                                        <button class="link-btn" title="Remove the downloaded mod" @onclick="() => RemovePackAsync(game.Id)">Remove</button>
-                                    }
-                                    else if (offered is not null)
-                                    {
-                                        <span class="mod-state">Not downloaded</span>
-                                        <button class="link-btn strong" @onclick="() => DownloadPackAsync(game.Id)">Download mod (@(offered.Size / 1024) KB)</button>
-                                    }
-                                    else if (!packIndexTried)
-                                    {
-                                        <span class="mod-state">Checking for the mod...</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="mod-state">@(packIndex is null ? "The mod catalog is not available right now." : "No mod for this game yet.")</span>
-                                        @if (packIndex is null) { <button class="link-btn" @onclick="LoadPackIndexAsync">Retry</button> }
-                                    }
+                                <dd class="mod-dd">
+                                    <div class="mod-status-line">
+                                        @if (packBusyId == game.Id)
+                                        {
+                                            <span class="mod-state">Downloading @((int)(packProgressValue * 100))%</span>
+                                            <span class="mod-bar"><span style="width: @((int)(packProgressValue * 100))%"></span></span>
+                                        }
+                                        else if (pack is not null)
+                                        {
+                                            <span class="mod-state ok">Downloaded (@pack.Version)@(IsModInstalled(game) ? "" : ", not installed")</span>
+                                            @if (!IsModInstalled(game) && game.Id == Cairn.Setup.ModInstall.PackId) { <button class="link-btn strong" disabled="@(gameRunning)" @onclick="() => InstallModAsync(game.Id)">Install</button> }
+                                            @if (offered is not null && offered.Version != pack.Version) { <button class="link-btn" @onclick="() => DownloadPackAsync(game.Id)">Update to @offered.Version</button> }
+                                            <button class="link-btn" title="Remove the downloaded mod" @onclick="() => RemovePackAsync(game.Id)">Remove</button>
+                                        }
+                                        else if (offered is not null)
+                                        {
+                                            <div class="mod-download-block">
+                                                <button class="link-btn strong download-cta" @onclick="() => DownloadPackAsync(game.Id)">Download mod (@(offered.Size / 1024) KB)</button>
+                                            </div>
+                                        }
+                                        else if (!packIndexTried)
+                                        {
+                                            <span class="mod-state">Checking for the mod...</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="mod-state">@(packIndex is null ? "The mod catalog is not available right now." : "No mod for this game yet.")</span>
+                                            @if (packIndex is null) { <button class="link-btn" @onclick="LoadPackIndexAsync">Retry</button> }
+                                        }
+                                    </div>
                                     @if (BlockedReasonOfInstalled(game) is { } badMod) { <span class="mod-note err">This version has a known problem: @badMod </span> }
                                     @if (blockedOffers.TryGetValue(game.Id, out var heldBack)) { <span class="mod-note err">The newest version (@heldBack) is on hold and is not offered.</span> }
                                     @if (packMessage.Length > 0) { <span class="mod-note @(packMessageIsError ? "err" : "")">@packMessage</span> }
@@ -255,16 +258,18 @@
                             </div>
                         @if (game.Requirements.Count > 0)
                         {
-                            <div class="wide mod-row">
+                            <div class="wide mod-row req-row">
                                 <dt>Requires</dt>
-                                <dd>
-                                    @foreach (var req in game.Requirements)
-                                    {
-                                        <span class="req-item">
-                                            <span class="mod-state">@req.Name</span>
-                                            <button class="link-btn" title="Open it in your Steam library" @onclick="() => OpenSteamLibrary(req.AppId)">Steam library</button>
-                                        </span>
-                                    }
+                                <dd class="req-dd">
+                                    <ul class="req-list">
+                                        @foreach (var req in game.Requirements)
+                                        {
+                                            <li class="req-item">
+                                                <span class="req-name">@req.Name</span>
+                                                <button class="link-btn" title="Open it in your Steam library" @onclick="() => OpenSteamLibrary(req.AppId)">Steam library</button>
+                                            </li>
+                                        }
+                                    </ul>
                                 </dd>
                             </div>
                         }
