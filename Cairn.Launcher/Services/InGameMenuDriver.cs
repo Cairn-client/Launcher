@@ -333,7 +333,8 @@ namespace Cairn.Launcher.Services
             _nav.Hide();
         }
 
-        private static string BlockedText(string why) => $"The menu is not available now ({why}).";
+        // a load (or no world yet) is not a refusal: the menu is on its way, so it says so, in the calm colour
+        private static string BlockedText(string why) => why is "a load" or "no world" ? "Loading the mod menu..." : $"The menu is not available now ({why}).";
 
         private static bool IsForeground(int pid)
         {
