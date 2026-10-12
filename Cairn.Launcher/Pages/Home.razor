@@ -273,6 +273,7 @@
                             </div>
                         }
                     </dl>
+                    </div>
 
                     @if (!gameFound && game.IsSupported)
                     {
@@ -318,7 +319,6 @@
                             }
                         </dl>
                         </div>
-                    </div>
                     </div>
 
                     @if (GameFeatures.For(game.Id) is { Count: > 0 } featureGroups)

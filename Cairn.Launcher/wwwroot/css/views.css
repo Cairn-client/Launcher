@@ -251,28 +251,71 @@
     right: clamp(32px, 6vw, 96px);
     bottom: 30px;
     display: flex;
-    gap: 7px;
+    align-items: center;
+    gap: 8px;
+    z-index: 5;
 }
 
 .dot {
-    width: 22px;
-    height: 4px;
+    position: relative;
+    width: 28px;
+    height: 5px;
     padding: 0;
     border: none;
-    border-radius: 3px;
-    background: rgba(255, 255, 255, 0.28);
+    border-radius: 999px;
+    background: transparent;
     cursor: pointer;
-    transition: background 0.2s, width 0.2s;
+    transition: width 0.25s ease;
 }
 
-    .dot:hover {
-        background: rgba(255, 255, 255, 0.5);
-    }
+.dot:hover {
+    filter: brightness(1.2);
+}
 
-    .dot.on {
-        width: 36px;
-        background: var(--cairn-gold);
+.dot.on {
+    width: 48px;
+}
+
+.dot-track {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.22);
+    overflow: hidden;
+    position: relative;
+}
+
+.dot-fill {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 999px;
+}
+
+.dot-fill.full {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.45);
+}
+
+.dot-fill.active-fill {
+    background: var(--cairn-gold, #e8c872);
+    animation: dotProgress 7s linear forwards;
+}
+
+.showcase:hover .dot-fill.active-fill {
+    animation-play-state: paused;
+}
+
+@keyframes dotProgress {
+    from {
+        width: 0%;
     }
+    to {
+        width: 100%;
+    }
+}
 
 /* the shelves under it */
 .home-body {
@@ -310,6 +353,25 @@
     padding: 4px 2px 14px;
     overflow-x: auto;
     scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+.shelf-row::-webkit-scrollbar {
+    height: 5px;
+}
+
+.shelf-row::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.shelf-row::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+}
+
+.shelf-row::-webkit-scrollbar-thumb:hover {
+    background: var(--cairn-gold, #e8c872);
 }
 
 .poster {

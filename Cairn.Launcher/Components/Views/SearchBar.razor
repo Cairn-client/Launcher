@@ -21,7 +21,7 @@
         <kbd class="sb-kbd">Ctrl K</kbd>
     }
 
-    @if (open)
+    @if (open && !string.IsNullOrWhiteSpace(query))
     {
         var found = Results();
         <ul id="search-results" class="sb-list" role="listbox">
@@ -30,9 +30,9 @@
                 var g = found[i];
                 int row = i;
                 <li>
-                    @* the mouse goes down without taking the focus from the box, so the list is still there when the click lands *@
+                    @* mouse down selects immediately before blur can destroy the list, click is also handled *@
                     <button class="sb-item @(i == selected ? "on" : "")" role="option" aria-selected="@(i == selected ? "true" : "false")"
-                            @onmousedown:preventDefault="true" @onclick="() => Pick(g.Id)" @onmouseenter="() => selected = row">
+                            @onmousedown="() => Pick(g.Id)" @onclick="() => Pick(g.Id)" @onmouseenter="() => selected = row">
                         <span class="sb-logo">@if (g.LogoImage.Length > 0) { <img src="@g.LogoImage" alt="" /> }</span>
                         <span class="sb-text">
                             <span class="sb-name">@g.DisplayName@if (Favorites.Contains(g.Id)) { <span class="fav-mark">&#9829;</span> }</span>
@@ -78,26 +78,39 @@
         StateHasChanged();
     }
 
-    private List<GameProfile> Results() =>
-        Games.Where(g => GameListView.Matches(g, query.Trim()))
+    private List<GameProfile> Results()
+    {
+        if (string.IsNullOrWhiteSpace(query)) return new List<GameProfile>();
+        return Games.Where(g => GameListView.Matches(g, query.Trim()))
              .OrderByDescending(g => Favorites.Contains(g.Id)).ThenByDescending(g => g.IsSupported)
              .ThenBy(g => g.DisplayName, StringComparer.OrdinalIgnoreCase).Take(8).ToList();
+    }
 
     private void OnInput(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         query = e.Value?.ToString() ?? "";
         selected = 0;
-        open = true;
+        open = !string.IsNullOrWhiteSpace(query);
     }
 
-    private void OnFocus() { open = true; }
+    private void OnFocus()
+    {
+        open = !string.IsNullOrWhiteSpace(query);
+    }
 
-    private void OnBlur() { open = false; }
+    private async Task OnBlur()
+    {
+        // Small delay so click / mousedown events on dropdown items register before tearing down the list
+        await Task.Delay(200);
+        open = false;
+        StateHasChanged();
+    }
 
     private void Clear()
     {
         query = "";
         selected = 0;
+        open = false;
     }
 
     private async Task Pick(string gameId)
@@ -110,6 +123,7 @@
 
     private async Task OnKey(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
     {
+        if (string.IsNullOrWhiteSpace(query)) return;
         var found = Results();
         if (e.Key == "ArrowDown") { open = true; selected = Math.Min(found.Count - 1, selected + 1); }
         else if (e.Key == "ArrowUp") selected = Math.Max(0, selected - 1);
