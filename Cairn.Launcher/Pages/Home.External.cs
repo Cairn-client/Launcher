@@ -23,6 +23,7 @@ namespace Cairn.Launcher.Pages
     {
         /// <summary>The game's mod is an external one: its downloaded pack says so, or, before any download, the catalog's entry for it.</summary>
         private bool IsExternalMod(GameProfile g) =>
+            g.OwnSession ||
             (InstalledPackOf(g)?.Contract?.Kind ?? CatalogPackOf(g)?.Kind) == PackKinds.External;
 
         /// <summary>The game's own folder on this PC (where the exe is), when it was found.</summary>

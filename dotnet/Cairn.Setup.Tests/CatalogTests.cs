@@ -465,3 +465,15 @@ public class PackFormatTests
         Assert.True(PackChannels.IsKnown("beta") && PackChannels.IsKnown("stable") && !PackChannels.IsKnown("nightly"));
     }
 }
+
+public class OwnSessionTests
+{
+    [Fact]
+    public void AGameCanSayItsModRunsTheSessionItself()
+    {
+        string Json(string extra) => "{ \"schema\": 1, \"id\": \"noita\", \"name\": \"Noita\", \"exe\": \"noita.exe\", \"accent\": \"#E8A35A\"" + extra + " }";
+        Assert.True(GameManifest.Parse(Json(", \"ownSession\": true"))!.OwnSession);
+        Assert.False(GameManifest.Parse(Json(""))!.OwnSession);
+        Assert.False(GameManifest.Parse(Json(", \"ownSession\": \"yes\""))!.OwnSession);   // only a real true counts
+    }
+}

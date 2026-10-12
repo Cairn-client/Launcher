@@ -65,6 +65,9 @@ namespace Cairn.Launcher.Models
         public System.Collections.Generic.List<string> HostSteps { get; set; } = new();
         public System.Collections.Generic.List<string> JoinSteps { get; set; } = new();
 
+        /// <summary>The game's mod runs the session itself (its own window or menu): the page shows Play, not Host and Join. Known before any mod is downloaded.</summary>
+        public bool OwnSession { get; set; }
+
         /// <summary>The ids of the content packs (start saves) the game offers; their repositories are in the catalog.</summary>
         public System.Collections.Generic.List<string> ContentPacks { get; set; } = new();
     }

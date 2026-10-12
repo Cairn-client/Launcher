@@ -118,6 +118,7 @@ namespace Cairn.Launcher.Models
                 ContentPacks = m.Content.ToList(),
                 HostSteps = (m.HostSteps ?? Array.Empty<string>()).ToList(),
                 JoinSteps = (m.JoinSteps ?? Array.Empty<string>()).ToList(),
+                OwnSession = m.OwnSession,
             };
         }
 
