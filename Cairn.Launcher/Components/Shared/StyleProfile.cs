@@ -24,29 +24,29 @@ namespace Cairn.Launcher.Components.Shared
         public string Id { get; set; } = Guid.NewGuid().ToString();
 
         public string ProfileName { get; set; } = string.Empty;
-        public string FontFamily { get; set; } = "Segoe UI";
-        public string SpecialFontFamily { get; set; } = "Segoe UI Semibold";
+        public string FontFamily { get; set; } = "Plus Jakarta Sans";
+        public string SpecialFontFamily { get; set; } = "Plus Jakarta Sans";
         public int FontSize { get; set; } = 14;
         public int FontWeight { get; set; } = 400;
         public string FontColor { get; set; } = "#1e1e1e";
 
-        public string ColorGold { get; set; } = "#E8C872";
-        public string ColorGoldBright { get; set; } = "#F3DB9B";
-        public string ColorParchment { get; set; } = "#ECECEE";
-        public string ColorParchmentDim { get; set; } = "#B6B8BE";
-        public string ColorOak { get; set; } = "#26282D";
-        public string ColorOakLit { get; set; } = "#3A3D44";
-        public string ColorIron { get; set; } = "#8A8E97";
-        public string ColorInk { get; set; } = "#15161A";
-        public string ColorShadow { get; set; } = "#0B0C0E";
+        public string ColorGold { get; set; } = "#E8A35A";
+        public string ColorGoldBright { get; set; } = "#F2BA80";
+        public string ColorParchment { get; set; } = "#FBFBFA";
+        public string ColorParchmentDim { get; set; } = "#B5BCC0";
+        public string ColorOak { get; set; } = "#1D2125";
+        public string ColorOakLit { get; set; } = "#2B3036";
+        public string ColorIron { get; set; } = "#8A949B";
+        public string ColorInk { get; set; } = "#0B0C0D";
+        public string ColorShadow { get; set; } = "#0C0C0C";
         public string ColorBlood { get; set; } = "#C24D43";
-        public string ColorDangerBright { get; set; } = "#E5695E";
-        public string ColorWarn { get; set; } = "#D9944E";
-        public string ColorDim { get; set; } = "#4A4D55";
-        public string ColorMuted { get; set; } = "#8A8E97";
-        public string ColorMutedDim { get; set; } = "#5C6068";
+        public string ColorDangerBright { get; set; } = "#F87171";
+        public string ColorWarn { get; set; } = "#E8A35A";
+        public string ColorDim { get; set; } = "#4B5258";
+        public string ColorMuted { get; set; } = "#8A949B";
+        public string ColorMutedDim { get; set; } = "#646D74";
         public string ColorOnline { get; set; } = "#6FCF8A";
-        public string ColorTrack { get; set; } = "#101113";
+        public string ColorTrack { get; set; } = "#060707";
 
         /// <summary>
         /// CSS custom-property name/value pairs for this profile. Applied to
@@ -76,8 +76,8 @@ namespace Cairn.Launcher.Components.Shared
             ["--cairn-muted-dim"] = ColorMutedDim,
             ["--cairn-online"] = ColorOnline,
             ["--cairn-track"] = ColorTrack,
-            ["--cairn-font-family"] = $"'{FontFamily}', sans-serif",
-            ["--cairn-font-special"] = $"'{SpecialFontFamily}', sans-serif",
+            ["--cairn-font-family"] = $"'{FontFamily}', ui-sans-serif, system-ui, 'Segoe UI', sans-serif",
+            ["--cairn-font-special"] = $"'{SpecialFontFamily}', ui-sans-serif, system-ui, 'Segoe UI', sans-serif",
         };
 
         private static string HexToRgbTriple(string hex)

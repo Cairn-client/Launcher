@@ -31,7 +31,7 @@
     max-width: 92vw;
     max-height: 92vh;
     background: var(--cairn-ink);
-    border: 1px solid var(--cairn-oak);
+    border: 1px solid var(--cairn-hairline);
     border-radius: 12px;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
     overflow: hidden;
@@ -40,11 +40,7 @@
 }
 
     .modal-box::before {
-        content: "";
-        display: block;
-        flex: none;
-        height: 3px;
-        background: linear-gradient(90deg, var(--cairn-oak-lit), var(--cairn-gold), var(--cairn-oak-lit));
+        content: none;
     }
 
 .modal-frame-top,
@@ -65,12 +61,13 @@
     }
 
 .modal-title {
+    font-weight: 700;
     font-family: var(--cairn-font-special);
-    font-size: 20px;
-    letter-spacing: 3px;
+    font-size: 14px;
+    letter-spacing: 0.12em;
     margin-bottom: 18px;
     text-align: center;
-    color: var(--cairn-gold);
+    color: var(--cairn-parchment);
 }
 
 .modal-actions {
@@ -151,13 +148,14 @@
         }
 
     .settings-tab:focus-visible {
-        outline: 2px solid var(--cairn-gold);
+        outline: 2px solid var(--cairn-focus);
     }
 
 .settings-section {
+    font-family: var(--cairn-font-mono);
     margin: 4px 0 14px;
     font-size: 11px;
-    letter-spacing: 2.5px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--cairn-muted-dim);
 }
@@ -170,10 +168,11 @@
 }
 
 .settings-scope {
+    font-family: var(--cairn-font-mono);
     margin: -10px 0 22px;
     text-align: center;
     font-size: 11px;
-    letter-spacing: 3px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--cairn-muted-dim);
 }

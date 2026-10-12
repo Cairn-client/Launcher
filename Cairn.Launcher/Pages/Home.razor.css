@@ -19,7 +19,7 @@
     height: 52px;
     padding: 0 14px 0 0;
     background: var(--cairn-shadow);
-    border-bottom: 1px solid var(--cairn-oak);
+    border-bottom: 1px solid var(--cairn-hairline);
 }
 
 .brand {
@@ -39,7 +39,8 @@
 .brand-name {
     font-family: var(--cairn-font-special);
     font-size: 14px;
-    letter-spacing: 5px;
+    font-weight: 600;
+    letter-spacing: 0.32em;
     color: var(--cairn-parchment);
 }
 
@@ -70,6 +71,7 @@
         margin-left: 6px;
     }
 
+/* the navbar: text links, the open page marked by a line under it on the bar's own border */
 .nav-btn {
     position: relative;
     padding: 0 14px;
@@ -92,23 +94,22 @@
         color: var(--cairn-parchment);
     }
 
-        /* the active page: a gold line under it, on the bar's own border */
+        /* the active page: a line under it that rests on the bar's bottom border without covering it */
         .nav-btn.active::after {
             content: "";
             position: absolute;
             left: 12px;
             right: 12px;
-            bottom: -1px;
+            bottom: 0;
             height: 2px;
             border-radius: 2px 2px 0 0;
             background: var(--cairn-gold);
         }
 
     .nav-btn:focus-visible {
-        outline: 2px solid var(--cairn-gold);
+        outline: 2px solid var(--cairn-focus);
         outline-offset: -2px;
     }
-
 /* the pages that are not the Library fill the window under the bar and scroll on their own */
 .page-view {
     grid-column: 1 / -1;
@@ -128,8 +129,9 @@
 }
 
 .side-label {
+    font-family: var(--cairn-font-mono);
     font-size: 11px;
-    letter-spacing: 2.5px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--cairn-muted-dim);
     padding: 0 10px 8px;
@@ -168,7 +170,7 @@
     }
 
     .game-item:focus-visible {
-        outline: 2px solid var(--cairn-gold);
+        outline: 2px solid var(--cairn-focus);
     }
 
 .game-badge {
@@ -189,7 +191,7 @@
 .game-item.selected .game-badge {
     background: var(--cairn-gold);
     border-color: var(--cairn-gold);
-    color: #17130a;
+    color: #0c0c0c;
 }
 
 .game-item-text {
@@ -304,9 +306,9 @@
     margin: 0 0 14px;
     font-family: var(--cairn-font-special);
     font-size: clamp(34px, 4vw, 60px);
-    font-weight: 600;
+    font-weight: 400;
     line-height: 1.05;
-    letter-spacing: -0.5px;
+    letter-spacing: -0.03em;
     color: #fff;
     text-shadow: 0 4px 24px rgba(0, 0, 0, 0.55);
 }
@@ -329,10 +331,10 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-size: 12.5px;
+    font-size: 12px;
     padding: 5px 12px;
     border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     background: rgba(var(--cairn-shadow-rgb), 0.55);
     color: var(--cairn-parchment-dim);
     backdrop-filter: blur(6px);
@@ -355,7 +357,7 @@
 
     .chip.live {
         color: var(--cairn-gold);
-        border-color: rgba(232, 200, 114, 0.45);
+        border-color: rgba(var(--cairn-gold-rgb), 0.45);
     }
 
     .chip.muted {
@@ -409,24 +411,26 @@
         .split-action .split-copy.copied svg {
             color: #2ecc71;
         }
+
 .action {
     display: inline-flex;
     align-items: center;
     gap: 12px;
-    min-width: 200px;
-    min-height: 54px;
+    min-width: 190px;
+    min-height: 48px;
     justify-content: center;
-    padding: 15px 28px;
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    padding: 12px 26px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
     background: rgba(var(--cairn-shadow-rgb), 0.55);
     backdrop-filter: blur(8px);
     color: var(--cairn-parchment);
-    font-family: var(--cairn-font-special);
-    font-size: 15px;
-    letter-spacing: 0.3px;
+    font-family: var(--cairn-font-family);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
     cursor: pointer;
-    transition: background 0.12s, border-color 0.12s;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s;
 }
 
     .action svg {
@@ -440,20 +444,19 @@
     }
 
     .action.primary {
-        background: var(--cairn-gold);
-        box-shadow: 0 10px 30px color-mix(in srgb, var(--cairn-gold) 32%, transparent);
-        border-color: var(--cairn-gold);
-        color: #17130a;
-        font-weight: 700;
+        background: #E9ECEE;
+        border-color: #E9ECEE;
+        color: #0C0C0C;
+        font-weight: 600;
     }
 
         .action.primary:hover:not(:disabled) {
-            background: var(--cairn-gold-bright);
-            border-color: var(--cairn-gold-bright);
+            background: #FFFFFF;
+            border-color: #FFFFFF;
         }
 
     .action:focus-visible {
-        outline: 2px solid var(--cairn-gold-bright);
+        outline: 2px solid var(--cairn-focus);
         outline-offset: 2px;
     }
 
@@ -485,8 +488,8 @@
     gap: 32px 40px;
     padding: 24px 30px 26px;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 14px;
-    background: rgba(var(--cairn-shadow-rgb), 0.62);
+    border-radius: 12px;
+    background: rgba(11, 12, 13, 0.82);
     backdrop-filter: blur(10px);
 }
 
@@ -551,8 +554,9 @@
         }
 
     .details dt {
+        font-family: var(--cairn-font-mono);
         font-size: 10.5px;
-        letter-spacing: 2px;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
         color: var(--cairn-muted-dim);
     }
@@ -655,7 +659,7 @@ button.chip {
     }
 
     button.chip:focus-visible {
-        outline: 2px solid var(--cairn-gold-bright);
+        outline: 2px solid var(--cairn-focus);
     }
 
 /* ---- the game list's filter, grouping and folder tools ---- */
@@ -718,8 +722,9 @@ button.chip {
 }
 
 .group-label {
+    font-family: var(--cairn-font-mono);
     font-size: 11px;
-    letter-spacing: 1.5px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--cairn-muted-dim);
     white-space: nowrap;
@@ -827,7 +832,7 @@ button.chip {
 
 .req-item {
     display: list-item;
-    color: var(--cairn-gold, #e8c872);
+    color: var(--cairn-gold, var(--cairn-gold));
     padding-left: 4px;
 }
 
@@ -841,20 +846,20 @@ button.chip {
     align-items: center;
     margin: 2px 6px 2px 12px;
     padding: 4px 12px;
-    border: 1px solid var(--cairn-oak-lit);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.03);
+    background: transparent;
     font-family: inherit;
     font-size: 12px;
     line-height: 1.3;
-    color: var(--cairn-parchment);
+    color: rgba(255, 255, 255, 0.75);
     cursor: pointer;
-    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 }
 
     .link-btn:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.08);
-        border-color: var(--cairn-gold);
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.3);
         color: #fff;
     }
 
@@ -864,15 +869,16 @@ button.chip {
     }
 
     .link-btn.strong {
-        border-color: var(--cairn-gold);
-        background: var(--cairn-gold);
-        color: #17130a;
+        border-color: #E9ECEE;
+        background: #E9ECEE;
+        color: #0C0C0C;
         font-weight: 600;
     }
 
         .link-btn.strong:hover:not(:disabled) {
-            background: var(--cairn-gold-bright);
-            color: #17130a;
+            background: #FFFFFF;
+            border-color: #FFFFFF;
+            color: #0C0C0C;
         }
 
 .mod-state.ok {

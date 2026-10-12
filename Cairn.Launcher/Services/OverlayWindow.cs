@@ -272,14 +272,14 @@ namespace Cairn.Launcher.Services
 
         // ---- the look ---------------------------------------------------------------------------------------------------
 
-        private static readonly Brush Ink = Frozen(new SolidColorBrush(Color.FromArgb(0xF2, 0x15, 0x16, 0x1A)));
-        private static readonly Brush Track = Frozen(new SolidColorBrush(Color.FromRgb(0x10, 0x11, 0x13)));
-        private static readonly Brush Oak = Frozen(new SolidColorBrush(Color.FromRgb(0x3A, 0x3D, 0x44)));
-        private static readonly Brush Gold = Frozen(new SolidColorBrush(Color.FromRgb(0xE8, 0xC8, 0x72)));
-        private static readonly Brush Parchment = Frozen(new SolidColorBrush(Color.FromRgb(0xEC, 0xEC, 0xEE)));
-        private static readonly Brush Dim = Frozen(new SolidColorBrush(Color.FromRgb(0xB6, 0xB8, 0xBE)));
-        private static readonly Brush Muted = Frozen(new SolidColorBrush(Color.FromRgb(0x8A, 0x8E, 0x97)));
-        private static readonly Brush Warn = Frozen(new SolidColorBrush(Color.FromRgb(0xD9, 0x94, 0x4E)));
+        private static readonly Brush Ink = Frozen(new SolidColorBrush(Color.FromArgb(0xF2, 0x0B, 0x0C, 0x0D)));
+        private static readonly Brush Track = Frozen(new SolidColorBrush(Color.FromRgb(0x06, 0x07, 0x07)));
+        private static readonly Brush Oak = Frozen(new SolidColorBrush(Color.FromRgb(0x2B, 0x30, 0x36)));
+        private static readonly Brush Gold = Frozen(new SolidColorBrush(Color.FromRgb(0xE8, 0xA3, 0x5A)));
+        private static readonly Brush Parchment = Frozen(new SolidColorBrush(Color.FromRgb(0xFB, 0xFB, 0xFA)));
+        private static readonly Brush Dim = Frozen(new SolidColorBrush(Color.FromRgb(0xB5, 0xBC, 0xC0)));
+        private static readonly Brush Muted = Frozen(new SolidColorBrush(Color.FromRgb(0x8A, 0x94, 0x9B)));
+        private static readonly Brush Warn = Frozen(new SolidColorBrush(Color.FromRgb(0xE8, 0xA3, 0x5A)));
         private static readonly Brush SelBg = Frozen(new SolidColorBrush(Color.FromArgb(0x26, 0xFF, 0xFF, 0xFF)));
         private static readonly FontFamily Font = new("Segoe UI");
 
@@ -411,9 +411,9 @@ namespace Cairn.Launcher.Services
 
         private static readonly Brush TrackOn = Frozen(new SolidColorBrush(Color.FromRgb(0x3E, 0x8E, 0x58)));
         private static readonly Brush TrackOff = Frozen(new SolidColorBrush(Color.FromRgb(0x2A, 0x2C, 0x32)));
-        private static readonly Brush ChipBg = Frozen(new SolidColorBrush(Color.FromRgb(0x24, 0x26, 0x2B)));
-        private static readonly Brush KeyBg = Frozen(new SolidColorBrush(Color.FromRgb(0x2B, 0x2D, 0x33)));
-        private static readonly Brush KeyEdge = Frozen(new SolidColorBrush(Color.FromRgb(0x14, 0x15, 0x18)));
+        private static readonly Brush ChipBg = Frozen(new SolidColorBrush(Color.FromRgb(0x14, 0x17, 0x1A)));
+        private static readonly Brush KeyBg = Frozen(new SolidColorBrush(Color.FromRgb(0x1D, 0x21, 0x25)));
+        private static readonly Brush KeyEdge = Frozen(new SolidColorBrush(Color.FromRgb(0x0A, 0x0B, 0x0C)));
 
         /// <summary>A switch: a track with a knob, green and to the right when on. The host's levers on a joiner are dimmed and tagged.</summary>
         private static UIElement Toggle(bool on, bool locked)

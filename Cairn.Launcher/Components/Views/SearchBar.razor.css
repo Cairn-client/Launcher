@@ -7,20 +7,19 @@
     width: 280px;
     height: 34px;
     margin-right: 10px;
-    padding: 0 8px 0 10px;
-    border: 1px solid var(--cairn-oak);
-    border-radius: 8px;
-    background: var(--cairn-ink);
-    transition: border-color 0.12s, box-shadow 0.12s;
+    padding: 0 10px 0 14px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+    background: var(--cairn-track);
+    transition: border-color 0.15s;
 }
 
     .searchbar:hover {
-        border-color: var(--cairn-oak-lit);
+        border-color: rgba(255, 255, 255, 0.3);
     }
 
     .searchbar:focus-within {
-        border-color: var(--cairn-gold);
-        box-shadow: 0 0 0 1px rgba(232, 200, 114, 0.25);
+        border-color: rgba(255, 255, 255, 0.5);
     }
 
 .sb-icon {
