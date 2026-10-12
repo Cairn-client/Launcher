@@ -104,4 +104,39 @@ public class BridgeProtocolTests
     [InlineData("ok", "delete")]
     [InlineData("", "enter")]
     public void ADoCallNeverCarriesAnythingButAPlainIdAndAKnownVerb(string id, string verb) => Assert.Null(BridgeProtocol.Do(id, verb));
+
+    [Fact]
+    public void TheSavesAreReadSlotBySlot()
+    {
+        var s = Assert.IsType<BridgeSaves>(BridgeProtocol.Parse("""
+            {"t":"saves","slots":[
+              {"id":"run-12","name":"Ann's run","detail":"depth 4, 3 perks","kind":"world","when":"2026-10-12T10:30:00Z"},
+              {"id":"ann","name":"Ann","kind":"character"},
+              {"id":"../x","name":"escapes","kind":"world"},
+              {"id":"ok","name":"","kind":"world"},
+              {"id":"ok2","name":"Strange","kind":"sandwich"}]}
+            """));
+        Assert.Equal(new[] { "run-12", "ann" }, s.Slots.Select(x => x.Id));   // unsafe ids, nameless and unknown-kind slots are left out
+        Assert.Equal(new DateTime(2026, 10, 12, 10, 30, 0, DateTimeKind.Utc), s.Slots[0].When);
+        Assert.Null(s.Slots[1].When);
+        Assert.Equal("character", s.Slots[1].Kind);
+    }
+
+    [Fact]
+    public void TheSavesListIsCapped()
+    {
+        var rows = string.Join(",", Enumerable.Range(0, 300).Select(i => $"{{\"id\":\"s{i}\",\"name\":\"S{i}\",\"kind\":\"world\"}}"));
+        Assert.Equal(BridgeProtocol.MaxSaves, ((BridgeSaves)BridgeProtocol.Parse("{\"t\":\"saves\",\"slots\":[" + rows + "]}")!).Slots.Count);
+        Assert.Null(BridgeProtocol.Parse("""{"t":"saves"}"""));
+    }
+
+    [Fact]
+    public void TheSaveRequestsAreBuiltOnlyFromPlainIds()
+    {
+        Assert.Equal("""{"t":"saves_ask"}""", BridgeProtocol.AskSaves());
+        Assert.Equal("""{"t":"save_delete","id":"run-12"}""", BridgeProtocol.DeleteSave("run-12"));
+        Assert.Null(BridgeProtocol.DeleteSave("../run"));
+        Assert.Null(BridgeProtocol.DeleteSave("a b"));
+        Assert.Null(BridgeProtocol.DeleteSave(""));
+    }
 }

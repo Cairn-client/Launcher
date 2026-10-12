@@ -153,6 +153,8 @@
                             <h1>@game.DisplayName</h1>
                         }
                         <div class="chips">
+                            @if (!externalMod)
+                            {
                             <button class="chip chip-btn ready-check @(readyCheckStatus == CheckStatus.Ok ? "ok" : readyCheckStatus == CheckStatus.Warn ? "warn" : "fail")" title="Check the game, the mod, Steam and the port before you play" @onclick="OpenPreflightAsync">
                                 @if (readyCheckStatus == CheckStatus.Ok)
                                 {
@@ -168,6 +170,7 @@
                                 }
                                 <span>Ready check</span>
                             </button>
+                            }
                         </div>
                         @if (game.Description.Length > 0)
                         {
@@ -225,10 +228,13 @@
                             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="@(IsFavorite(game.Id) ? "currentColor" : "none")"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
                             <span>@(IsFavorite(game.Id) ? "Favourited" : "Favourite")</span>
                         </button>
+                        @if (!externalMod)
+                        {
                         <button class="action ghost" title="Settings for this game" disabled="@(!game.IsSupported)" @onclick="OpenGameSettings">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
                             <span>Settings</span>
                         </button>
+                        }
                     </div>
 
                     <dl class="details modbar">
@@ -270,6 +276,30 @@
                                     @if (packMessage.Length > 0) { <span class="mod-note @(packMessageIsError ? "err" : "")">@packMessage</span> }
                                 </dd>
                             </div>
+                        @if (externalMod && externalBridgeConnected)
+                        {
+                            <div class="wide mod-row req-row">
+                                <dt>Saves</dt>
+                                <dd class="req-dd">
+                                    @if (externalSaves.Count == 0)
+                                    {
+                                        <span class="mod-state">No saves yet.</span>
+                                    }
+                                    else
+                                    {
+                                        <ul class="req-list">
+                                            @foreach (var slot in externalSaves)
+                                            {
+                                                <li class="req-item">
+                                                    <span class="req-name">@slot.Name@(slot.Detail.Length > 0 ? " · " + slot.Detail : "")@(slot.When is { } w ? " · " + w.ToLocalTime().ToString("d MMM HH:mm") : "")</span>
+                                                    <button class="link-btn @(deleteSaveAsked == slot.Id ? "strong" : "")" @onclick="() => DeleteExternalSave(slot.Id)">@(deleteSaveAsked == slot.Id ? "Sure? Delete" : "Delete")</button>
+                                                </li>
+                                            }
+                                        </ul>
+                                    }
+                                </dd>
+                            </div>
+                        }
                         @if (game.Requirements.Count > 0)
                         {
                             <div class="wide mod-row req-row">
