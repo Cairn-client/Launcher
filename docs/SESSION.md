@@ -51,3 +51,11 @@ Anything either side does not understand is ignored. Nothing is started before t
 | `log` | `line` | a line for the launcher's log (redacted there) |
 
 The launcher copies `state` into the fields its screens already read, so the launch panel, the host window and the banners are the same with or without a session program.
+
+## The start-game flow (launcher 0.3.19)
+
+The session also owns **Start Game / Join Game on the game's main menu**: before the game starts it checks the first-run pages are accepted, stages the host's start save and lists the
+player's worlds (through the agent's helper); while the game sits at its main menu it draws the menu through the game's console, reads the player's choices from the game's log and carries
+them out (a load, a new adventure, the joiner's first-join answer), connects the host by itself once the loaded world has settled, and puts the mod's logo in for that game only. The
+launcher's part is `config.menuTakeover` (the player's setting), `config.startSaves` (where the start saves are) and showing that the flow is on. A pack that asks for launcher 0.3.19 in its
+`launcherMin` does this; older launchers do it themselves and are not given such a pack.
