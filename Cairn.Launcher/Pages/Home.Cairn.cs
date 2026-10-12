@@ -71,6 +71,20 @@ namespace Cairn.Launcher.Pages
         private static bool CheckPassed(JsonElement result, string name) =>
             result.TryGetProperty("checks", out var cs) && cs.EnumerateArray().Any(c => c.GetProperty("name").GetString() == name && c.GetProperty("pass").GetBoolean());
 
+        /// <summary>Settings > Saves: every save of the game and every character and chest the mod kept goes, so a new adventure starts clean.</summary>
+        private async Task DeleteAllSavesAsync()
+        {
+            if (gameRunning)
+            {
+                UiService.ShowError("Close the game first: its saves cannot be deleted while it is running.");
+                return;
+            }
+            var r = await Task.Run(() => Cairn.Launcher.Models.SaveCleaner.Clean(Cairn.Launcher.Models.SaveCleaner.DefaultSavesRoot, Cairn.Launcher.Models.SaveCleaner.DefaultDataRoots));
+            Log.Information("saves: deleted {Saves} save(s) and {Folders} mod item(s); error: {Error}", r.Saves, r.ModFolders, r.Error);
+            if (r.Error.Length > 0) UiService.ShowError("Some saves could not be deleted (is the game closed?): " + r.Error);
+            else ShowToast(r.Saves + r.ModFolders == 0 ? "There were no saves to delete." : $"Deleted {r.Saves} save(s) and the mod's characters and chests.");
+            await InvokeAsync(StateHasChanged);
+        }
         private async Task AddStartSaveAsync()
         {
             try

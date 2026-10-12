@@ -382,42 +382,33 @@
     gap: 12px;
 }
 
+/* while hosting: Stop hosting, Invite and Copy code are three buttons of the same size and look as the others (Stop in red) */
 .split-action {
     display: inline-flex;
-    align-items: stretch;
-    border-radius: 12px;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+    flex-wrap: wrap;
+    gap: 12px;
 }
 
 .split-action .split-main {
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-    min-width: 150px;
-    padding: 15px 20px;
-    border-right: 1px solid rgba(255, 255, 255, 0.15);
+    min-width: 200px;
 }
 
 .split-action .split-copy {
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-    min-width: 130px;
-    padding: 15px 18px;
-    background: rgba(var(--cairn-gold-rgb, 218, 165, 32), 0.16);
-    border-color: rgba(var(--cairn-gold-rgb, 218, 165, 32), 0.4);
-    color: var(--cairn-gold);
+    min-width: 0;
 }
 
-.split-action .split-copy:hover:not(:disabled) {
-    background: rgba(var(--cairn-gold-rgb, 218, 165, 32), 0.28);
-    border-color: var(--cairn-gold);
-}
+    .split-action .split-copy svg {
+        color: var(--cairn-gold);
+    }
 
-.split-action .split-copy.copied {
-    background: rgba(46, 204, 113, 0.25);
-    border-color: #2ecc71;
-    color: #2ecc71;
-}
+    .split-action .split-copy.copied {
+        border-color: #2ecc71;
+        color: #2ecc71;
+    }
 
+        .split-action .split-copy.copied svg {
+            color: #2ecc71;
+        }
 .action {
     display: inline-flex;
     align-items: center;

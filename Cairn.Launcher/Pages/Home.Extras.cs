@@ -133,7 +133,6 @@ namespace Cairn.Launcher.Pages
 
         private bool showPreflight;
         private PortOwner? portOwner;        // who holds the host port, when it is taken
-        private bool confirmClosePort;
         private IReadOnlyList<PreflightItem> preflightItems = Array.Empty<PreflightItem>();
 
         private static bool PortIsFree(int port)
@@ -186,7 +185,6 @@ namespace Cairn.Launcher.Pages
                 portFree = (gameRunning && launchedAs == "host") || PortIsFree(port);   // our own relay holds it while we host
             });
             portOwner = portFree ? null : await Task.Run(() => PortOwnerFinder.Find(port));
-            confirmClosePort = false;
             var upd = HomeUpdate();
             preflightItems = Preflight.Build(new PreflightInput(
                 g.IsSupported, IsGameFound(g), IsModInstalled(g), SetupAllGood, steam, portFree, gameRunning, upd.Tag, BlockedReasonOfInstalled(g)));

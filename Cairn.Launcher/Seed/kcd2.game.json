@@ -17,16 +17,19 @@
     "screenshots": [ "kcd2-shot-1.jpg", "kcd2-shot-2.jpg" ]
   },
   "hostSteps": [
-    "Download the mod above, then press Host a game. Cairn starts Kingdom Come: Deliverance II for you.",
-    "In the game's menu choose Start Game, then New adventure or one of your saves.",
-    "Wait for the game to have loaded before the player joins."
+    "Download the mod above, then press Host a game. Cairn starts Kingdom Come: Deliverance II and its main menu shows Start Game.",
+    "Choose Start Game, then New adventure, or one of your saves to continue a world.",
+    "For a new adventure pick a playstyle (Soldier, Adviser or Scout), then Skip the prologue so a friend can join right away, or watch its cutscenes (16 min).",
+    "Wait for the game to have loaded before the player joins. Cairn connects by itself once your world has loaded.",
+    "Press Invite to ask a friend on Cairn, or Copy code and send it to them."
   ],
   "joinSteps": [
-    "Download the mod above, then press Join a game.",
+    "Download the mod above, the same version as the host's, then press Join a game.",
     "Pick your friend in the list, or type the host's code. Cairn starts the game for you.",
-    "In the game's menu choose Join Game once the host is in the world. You arrive beside them."
-  ],
-  "requires": [ "kcd2-game", "kcd2-modding-tools" ],
+    "On the main menu choose Join Game (Start Game is for the host).",
+    "Choose Join with a new character, then your playstyle, or Bring my character to use your newest save.",
+    "Wait for the host: you join as soon as their world has loaded, and you arrive beside them."
+  ],  "requires": [ "kcd2-game", "kcd2-modding-tools" ],
   "features": [
     { "title": "Sessions", "items": [
       { "name": "Host and join", "detail": "Join by Steam code, address or from the friends who are hosting. Both players need the same version of the mod." },
@@ -55,7 +58,7 @@
     { "title": "Menu and tools", "items": [
       { "name": "In-game mod menu", "detail": "Insert opens the mod's menu, drawn by the launcher: name badges, partner on the map, friendly fire, crime, leash, sleep vote, connection and more.", "status": "inTest" },
       { "name": "Collect everyone's logs", "detail": "The host can collect every player's logs into one folder with one button; the joiners are told when this happens.", "status": "inTest" },
-      { "name": "DLSS 5 (RTX cards)", "detail": "A tick in the game's settings puts DLSS 5 into the game through DLSS 5 Autopilot and OptiScaler, and takes it out again. Community software, never tried with Cairn in a real session.", "status": "inTest" }
+      { "name": "DLSS 5 (RTX cards)", "detail": "A tick in the game's settings puts DLSS 5 into the game through DLSS 5 Autopilot and OptiScaler, and takes it out again.", "status": "inTest" }
     ] }
   ]
 }

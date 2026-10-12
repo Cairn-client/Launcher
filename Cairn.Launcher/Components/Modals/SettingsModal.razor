@@ -161,6 +161,22 @@
                         <div class="cairn-hint">Needed once, to <i>Join with a new character</i> or start a <i>New adventure</i>. Pick a save of your own Modding Tools game, played past the prologue; the launcher checks it and puts it in place.</div>
                     </div>
 
+                    <div class="cairn-input-group">
+                        @if (!confirmDeleteSaves)
+                        {
+                            <button class="cairn-btn danger" disabled="@GameRunning" @onclick="() => confirmDeleteSaves = true">DELETE ALL SAVES</button>
+                            <div class="cairn-hint">Deletes every save of the game and the characters and chests the mod kept, to start clean. The start saves stay. Close the game first.</div>
+                        }
+                        else
+                        {
+                            <div class="cairn-hint" style="color: var(--cairn-warn);">Delete every save of the game and everything the mod kept? This cannot be undone.</div>
+                            <div style="display: flex; gap: 10px; margin-top: 8px;">
+                                <button class="cairn-btn danger" @onclick="DeleteSavesAsync">YES, DELETE ALL</button>
+                                <button class="cairn-btn" @onclick="() => confirmDeleteSaves = false">CANCEL</button>
+                            </div>
+                        }
+                    </div>
+
                     @* Release channel: stable or beta versions of the mod *@
                     @if (game.ModRepo.Length > 0)
                     {
@@ -186,7 +202,7 @@
                             <div class="cairn-hint" style="color: var(--cairn-warn);">Close the game first: DLSS 5 (OptiScaler) can only be installed or uninstalled while the game is not running.</div>
                         }
                         <div class="cairn-hint">@Dlss5GpuText</div>
-                        <div class="cairn-hint">When you save, Cairn downloads DLSS 5 Autopilot (once, checked against its published checksum) and it puts DLSS 5 into the game's folder through OptiScaler; clearing the tick takes it all out again. While it is in, the game's menu has a row that opens its overlay. Community software: it can crash the game, and the game must be closed to change it.</div>
+                        <div class="cairn-hint">When you save, Cairn downloads DLSS 5 Autopilot (once, checked against its published checksum) and it puts DLSS 5 into the game's folder through OptiScaler; clearing the tick takes it all out again. While it is in, the game's menu has a row that opens its overlay.</div>
                     </div>
                 }
                 else
@@ -242,6 +258,9 @@
     [Parameter] public EventCallback OnUninstall { get; set; }
     [Parameter] public EventCallback OnCollectLogs { get; set; }
     [Parameter] public EventCallback OnAddStartSave { get; set; }
+    [Parameter] public EventCallback OnDeleteSaves { get; set; }
+    private bool confirmDeleteSaves;
+    private async Task DeleteSavesAsync() { confirmDeleteSaves = false; await OnDeleteSaves.InvokeAsync(); }
     [Parameter] public EventCallback OnOpenStartSave { get; set; }
     [Parameter] public GpuClass Dlss5Gpu { get; set; } = GpuClass.None;
     [Parameter] public string Dlss5GpuText { get; set; } = "";
