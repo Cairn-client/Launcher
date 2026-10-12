@@ -17,7 +17,7 @@ public sealed record BridgeHello(int Protocol, string Game) : BridgeIn;
 public sealed record BridgeMenuItem(string Id, string Group, string Kind, bool? On, bool Locked, string Value, string Label, string Help, string Gate, bool Disabled);
 
 /// <summary>The whole menu as the game's bridge describes it.</summary>
-public sealed record BridgeMenu(string Title, string Blocked, string Note, IReadOnlyList<BridgeMenuItem> Items) : BridgeIn;
+public sealed record BridgeMenu(string Title, string Blocked, string Note, IReadOnlyList<BridgeMenuItem> Items, bool Back = false) : BridgeIn;
 
 /// <summary>A notice to show (several lines joined by "^^") until it is hidden.</summary>
 public sealed record BridgeNotice(bool Show, string Text) : BridgeIn;
@@ -91,7 +91,7 @@ public static class BridgeProtocol
                         bool disabled = e.TryGetProperty("disabled", out var d) && d.ValueKind == JsonValueKind.True;
                         items.Add(new BridgeMenuItem(id, S(e, "group", 40), kind, on, locked, S(e, "value", 60), S(e, "label", 80), S(e, "help", 200), S(e, "gate", 4), disabled));
                     }
-                    return new BridgeMenu(S(r, "title", 60), S(r, "blocked", 60), S(r, "note", 200), items);
+                    return new BridgeMenu(S(r, "title", 60), S(r, "blocked", 60), S(r, "note", 200), items, r.TryGetProperty("back", out var bk) && bk.ValueKind == JsonValueKind.True);
                 }
                 case "notice":
                 {
@@ -161,8 +161,14 @@ public static class BridgeProtocol
     public static string Bye(string reason) => Line(w => { w.WriteString("t", "bye"); w.WriteString("reason", Clean(reason, 120)); });
 
     /// <summary>"Do this to that row"; null when the id is not a plain id or the verb is not one the menu has.</summary>
-    public static string? Do(string id, string verb) =>
-        IsId(id) && verb is "enter" or "nudge" ? Line(w => { w.WriteString("t", "do"); w.WriteString("id", id); w.WriteString("verb", verb); }) : null;
+    /// <summary><c>dir</c> is the way a nudge goes (-1 for Left, 1 for Right); it is sent only when it is -1, so a bridge that does not know it sees what it always saw.</summary>
+    public static string? Do(string id, string verb, int dir = 1) =>
+        IsId(id) && verb is "enter" or "nudge"
+            ? Line(w => { w.WriteString("t", "do"); w.WriteString("id", id); w.WriteString("verb", verb); if (verb == "nudge" && dir < 0) w.WriteNumber("dir", -1); })
+            : null;
+
+    /// <summary>"Back": the player pressed Back inside a menu the bridge marked as a submenu (<see cref="BridgeMenu.Back"/>); the bridge decides where that goes.</summary>
+    public static string Back() => Line(w => w.WriteString("t", "back"));
 
     private static string Line(Action<Utf8JsonWriter> write)
     {
