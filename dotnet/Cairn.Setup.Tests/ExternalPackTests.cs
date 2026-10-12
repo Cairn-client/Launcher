@@ -296,3 +296,24 @@ public class ModCompanionTests
     public void ContentHasNoCompanion() =>
         Assert.Null(PackContract.Parse("{ \"schema\": 2, \"id\": \"saves\", \"version\": \"1.0.0\", \"kind\": \"content\", \"companion\": \"bin/x.exe\" }"));
 }
+
+public class CompanionStartsGameTests
+{
+    private static string Json(string extra) =>
+        "{ \"schema\": 2, \"id\": \"noita\", \"version\": \"1.0.0\", \"kind\": \"external\", \"installDir\": \"mods/quant.ew\"" + extra + " }";
+
+    [Fact]
+    public void AnExternalModCanSayItsProgramStartsTheGame()
+    {
+        var c = PackContract.Parse(Json(", \"companion\": \"bin/noita_proxy.exe\", \"companionStartsGame\": true"));
+        Assert.True(c!.CompanionStartsGame);
+        Assert.False(PackContract.Parse(Json(", \"companion\": \"bin/noita_proxy.exe\""))!.CompanionStartsGame);
+    }
+
+    [Fact]
+    public void ItNeedsAProgramToStartIt() => Assert.Null(PackContract.Parse(Json(", \"companionStartsGame\": true")));
+
+    [Fact]
+    public void OnlyAnExternalModCanSayIt() =>
+        Assert.Null(PackContract.Parse(FakeSteam.ContractJson.Replace("\"lua\": {", "\"companion\": \"bin/B.exe\", \"companionStartsGame\": true, \"lua\": {")));
+}

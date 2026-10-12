@@ -93,3 +93,6 @@ under "How it works".
 With `installDir: "."` there is no folder to call foreign, so the check is per file: a file of the game (or the player's) with the same name and
 other bytes is never overwritten (the install says which), a file that is already exactly the pack's is adopted, and removing the mod takes out
 only the files Cairn listed in its `.cairn-pack` marker, then the folders that emptied; the game's folder itself stays.
+
+`companionStartsGame: true` (external mods with a `companion`) says the companion starts the game itself (Noita Entangled Worlds' proxy hosts or
+joins and then starts Noita): **Play** then only opens the companion and does not start the game a second time.

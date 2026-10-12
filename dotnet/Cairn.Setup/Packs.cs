@@ -38,7 +38,7 @@ public sealed record PackContract(
     string Agent, string Relay, string Native, string BrandPak, string AgentConfig, string LauncherMin,
     IReadOnlyList<string> ReplacesFolders, IReadOnlyDictionary<string, string>? Lua = null,
     string Kind = PackKinds.Mod, IReadOnlyList<PackDependency>? DependsOn = null, int MenuProtocol = 1, string InstallTo = "",
-    string InstallDir = "", string Companion = "")
+    string InstallDir = "", string Companion = "", bool CompanionStartsGame = false)
 {
     public const string FileName = "pack.json";
     /// <summary>The version of the mod-menu messages (the launcher draws the menu; the mod sends its items) this launcher speaks; a pack that needs a newer one is refused.</summary>
@@ -75,18 +75,19 @@ public sealed record PackContract(
             int menuProtocol = r.TryGetProperty("menuProtocol", out var mp) && mp.ValueKind == JsonValueKind.Number && mp.TryGetInt32(out var mpv) ? mpv : 1;
             var c = new PackContract(S("id"), S("version"), S("upstream"), S("modFolder"), S("luaPrefix"),
                 S("agent"), S("relay"), S("native"), S("brandPak"), S("agentConfig"), S("launcherMin"), replaces, lua,
-                kind, deps, menuProtocol, S("installTo"), S("installDir"), S("companion"));
+                kind, deps, menuProtocol, S("installTo"), S("installDir"), S("companion"),
+                r.TryGetProperty("companionStartsGame", out var csg) && csg.ValueKind == JsonValueKind.True);
             bool common = IsPlainName(c.Id) && c.Version.Length > 0 && PackKinds.IsKnown(kind) && deps is not null && menuProtocol >= 1
                           && (c.InstallTo.Length == 0 || c.InstallTo == StartSaveTarget) && replaces.All(IsPlainName) && luaOk;
             bool noPrograms = c.Agent.Length == 0 && c.Relay.Length == 0 && c.Native.Length == 0;
             // a game's mod names its programs and its mod folder (and may carry a companion: its bridge to the launcher, docs/BRIDGE.md); content is
             // only files; an external mod names a folder inside the game's own folder (and may carry a companion to start with the game); only
             // an external mod has an install folder, and content has no companion
-            bool ok = common && (c.InstallDir.Length == 0 || kind == PackKinds.External) && (c.Companion.Length == 0 || kind != PackKinds.Content) && kind switch
+            bool ok = common && (c.InstallDir.Length == 0 || kind == PackKinds.External) && (c.Companion.Length == 0 || kind != PackKinds.Content) && (!c.CompanionStartsGame || kind == PackKinds.External) && kind switch
             {
                 PackKinds.Content => noPrograms,
                 PackKinds.External => noPrograms && c.InstallTo.Length == 0 && IsGameRelativeDir(c.InstallDir)
-                                      && (c.Companion.Length == 0 || IsPackPath(c.Companion)),
+                                      && (c.Companion.Length == 0 || IsPackPath(c.Companion)) && (!c.CompanionStartsGame || c.Companion.Length > 0),
                 _ => IsPlainName(c.ModFolder) && c.LuaPrefix.Length is > 0 and <= 40
                      && IsPackPath(c.Agent) && IsPackPath(c.Relay) && IsPackPath(c.Native)
                      && (c.BrandPak.Length == 0 || IsPackPath(c.BrandPak)) && (c.AgentConfig.Length == 0 || IsFileName(c.AgentConfig))
