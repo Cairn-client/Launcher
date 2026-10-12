@@ -21,16 +21,17 @@
     "Choose Start Game, then New adventure, or one of your saves to continue a world.",
     "For a new adventure pick a playstyle (Soldier, Adviser or Scout), then Skip the prologue so a friend can join right away, or watch its cutscenes (16 min).",
     "Wait for the game to have loaded before the player joins. Cairn connects by itself once your world has loaded.",
-    "Press Invite to ask a friend on Cairn, or Copy code and send it to them."
+    "Press Invite to ask a friend on Cairn, or Copy code and send it to them.",
+    "Your friend picks their own playstyle when they join: your game builds their character from your start saves and keeps it for next time."
   ],
   "joinSteps": [
     "Download the mod above, the same version as the host's, then press Join a game.",
     "Pick your friend in the list, or type the host's code. Cairn starts the game for you.",
     "On the main menu choose Join Game (Start Game is for the host).",
-    "Choose Join with a new character, then your playstyle, or Bring my character to use your newest save.",
-    "Wait for the host: you join as soon as their world has loaded, and you arrive beside them."
-  ],  "requires": [ "kcd2-game", "kcd2-modding-tools" ],
-  "features": [
+    "Choose Join with a new character and pick your playstyle: your host builds it for you, nothing to set up. Or choose Bring my character to use your newest save.",
+    "Wait for the host: you join as soon as their world has loaded, and you arrive beside them.",
+    "Join the same host again later and you come back as the same character: your host keeps it."
+  ],  "features": [
     { "title": "Sessions", "items": [
       { "name": "Host and join", "detail": "Join by Steam code, address or from the friends who are hosting. Both players need the same version of the mod." },
       { "name": "Same world", "detail": "The host's world is sent to the joiner, who loads it: the same NPCs, horses, items, chests, doors and weather." },
