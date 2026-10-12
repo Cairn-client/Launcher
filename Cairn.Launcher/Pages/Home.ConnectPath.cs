@@ -256,6 +256,8 @@ namespace Cairn.Launcher.Pages
                 CreateNoWindow = true,   // Cairn: the launcher is a window app now; the agent must not open a console of its own
                 WorkingDirectory = Path.GetDirectoryName(agentPath)
             };
+            // where the start saves are: the agent builds a host's or a joiner's new character from them, or sends the host's to a joiner
+            if (StartSaveRootPath() is { Length: > 0 } startSaves && Directory.Exists(startSaves)) agentStartInfo.Environment["KCDMP_START_SAVE"] = startSaves;
 
             StopExistingAgent();
             agentProcess = StartChecked(agentStartInfo);   // Windows refusing it is told plainly by the caller
