@@ -164,7 +164,8 @@ public sealed record GameImages(string Background, string Logo, string Hero, str
 public sealed record GameManifest(
     string Id, string Name, string Developer, string Franchise, bool Supported, uint SteamAppId, uint StoreAppId, string Exe,
     string Description, string Accent, GameImages Images, IReadOnlyList<string> Requires, IReadOnlyList<Component> InlineRequires,
-    IReadOnlyList<FeatureGroup> Features, IReadOnlyList<string> Content)
+    IReadOnlyList<FeatureGroup> Features, IReadOnlyList<string> Content,
+    IReadOnlyList<string>? HostSteps = null, IReadOnlyList<string>? JoinSteps = null)
 {
     public const string FileName = "game.json";
     public const int CurrentSchema = 1;
@@ -231,10 +232,20 @@ public sealed record GameManifest(
             var content = new List<string>();
             foreach (var c in GameList.Items(r, "content")) { string cid = c.ValueKind == JsonValueKind.String ? c.GetString() ?? "" : ""; if (!CatalogLimits.IsId(cid)) return null; content.Add(cid); }
 
+            List<string>? Steps(string n)
+            {
+                var list = new List<string>();
+                foreach (var s in GameList.Items(r, n)) { if (s.ValueKind != JsonValueKind.String) return null; string line = CatalogLimits.Text(s.GetString() ?? "", 200); if (line.Length > 0) list.Add(line); }
+                return list;
+            }
+            var hostSteps = Steps("hostSteps");
+            var joinSteps = Steps("joinSteps");
+            if (hostSteps is null || joinSteps is null || hostSteps.Count > 8 || joinSteps.Count > 8) return null;
+
             uint U(string n) => r.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetUInt32(out var u) ? u : 0;
             return new GameManifest(id, name, CatalogLimits.Text(GameList.Str(r, "developer"), 80), CatalogLimits.Text(GameList.Str(r, "franchise"), 80),
                 !r.TryGetProperty("supported", out var sup) || sup.ValueKind != JsonValueKind.False, U("steamAppId"), U("storeAppId"), exe,
-                CatalogLimits.Text(GameList.Str(r, "description"), 400), accent, images, requires, inline, groups, content);
+                CatalogLimits.Text(GameList.Str(r, "description"), 400), accent, images, requires, inline, groups, content, hostSteps, joinSteps);
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or FormatException) { return null; }
     }

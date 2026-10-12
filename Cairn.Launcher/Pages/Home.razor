@@ -12,9 +12,9 @@
 @using System.Diagnostics
 @using System.Text.Json
 
-@* Cairn: the top bar is the navbar: Home and Library on the left, Settings, Versions and Help on the right, each a page of the window.
-   About, Report a bug); under it the game list is on the left and the selected game's page (Host / Join) on the right. Nothing in
-   the bar is per game. *@
+@* Cairn: the top bar. Left: the brand, then Home and Library. Right: the search, then Versions, Help and Settings, then Manage updates in the
+   corner (its panel slides in from the right). Under it, in the Library, the game list is on the left and the selected game's page (Host /
+   Join) on the right. Nothing in the bar is per game; leaving the launcher is the window's own close button, or Esc. *@
 <div class="shell">
 
     <header class="topbar">
@@ -28,18 +28,21 @@
             <button class="nav-btn @(currentView == AppView.Library ? "active" : "")" aria-current="@(currentView == AppView.Library ? "page" : null)" @onclick="() => NavigateTo(AppView.Library)">Library</button>
         </nav>
 
-        <nav class="nav right" aria-label="Launcher">
+        <div class="topbar-right">
             <SearchBar @ref="searchBar" Games="@GameProfileRegistry.All()" OnPc="@IsGameFound" Favorites="@HomeFavorites" OnPick="@PickFromSearch" />
-            <button class="nav-btn @(currentView == AppView.Settings ? "active" : "")" aria-current="@(currentView == AppView.Settings ? "page" : null)" title="Settings (F10)" @onclick="() => NavigateTo(AppView.Settings)">Settings</button>
-            <button class="nav-btn @(currentView == AppView.Versions ? "active" : "")" aria-current="@(currentView == AppView.Versions ? "page" : null)" @onclick="() => NavigateTo(AppView.Versions)">Versions</button>
-            <button class="nav-btn @(currentView == AppView.Help ? "active" : "")" aria-current="@(currentView == AppView.Help ? "page" : null)" @onclick="() => NavigateTo(AppView.Help)">Help</button>
-        </nav>
 
-        <button class="topbar-exit" title="Exit (Esc)" aria-label="Exit" @onclick="ExitApp">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
-        </button>
+            <nav class="nav" aria-label="Launcher">
+                <button class="nav-btn @(currentView == AppView.Versions ? "active" : "")" aria-current="@(currentView == AppView.Versions ? "page" : null)" @onclick="() => NavigateTo(AppView.Versions)">Versions</button>
+                <button class="nav-btn @(currentView == AppView.Help ? "active" : "")" aria-current="@(currentView == AppView.Help ? "page" : null)" @onclick="() => NavigateTo(AppView.Help)">Help</button>
+                <button class="nav-btn @(currentView == AppView.Settings ? "active" : "")" aria-current="@(currentView == AppView.Settings ? "page" : null)" title="Settings (F10)" @onclick="() => NavigateTo(AppView.Settings)">Settings</button>
+            </nav>
+
+            <span class="topbar-sep" aria-hidden="true"></span>
+
+            <DownloadFooter Manager="@Downloads" Updates="@ModUpdates()" Checking="@(packIndexLoading || catalogLoading)" LastChecked="@packIndexCheckedUtc" Offline="@(packIndexTried && packIndex is null)"
+                            OnUpdate="@FooterUpdate" OnUpdateAll="@UpdateAllModsAsync" OnCheck="@FooterCheckAsync" />
+        </div>
     </header>
-
     @if (currentView == AppView.Library)
     {
 
@@ -282,46 +285,47 @@
                     }
 
                     <div class="glass info">
-                        <div class="info-col">
-                        <div class="info-title">How it works</div>
-                        <ol class="steps">
-                            <li><span class="step-n">1</span><span>The host starts the game from Cairn and presses Start Game.</span></li>
-                            <li><span class="step-n">2</span><span>A friend picks the host in the Join list, or types the code.</span></li>
-                            <li><span class="step-n">3</span><span>Both play in the same world.</span></li>
-                        </ol>
-                        </div>
-                        <div class="info-col">
-                        @{ var info = InfoOf(game); }
-                        <div class="info-title">The game</div>
-                        <dl class="details stack">
-                            <div><dt>Developer</dt><dd>@(game.Developer.Length > 0 ? game.Developer : "-")</dd></div>
-                            <div><dt>Franchise</dt><dd>@(game.Franchise.Length > 0 ? game.Franchise : "-")</dd></div>
-                            <div><dt>Released</dt><dd>@(info?.Released ?? "-")</dd></div>
-                            <div><dt>Genres</dt><dd title="@(info is null ? "" : string.Join(", ", info.Genres))">@(info is { Genres.Count: > 0 } ? string.Join(", ", info.Genres) : "-")</dd></div>
-                            <div><dt>Steam app</dt><dd>@game.SteamAppId
-                                <button class="link-btn" title="Open this game in your Steam library" @onclick="() => OpenSteamLibrary(game)">Library</button>
-                                </dd></div>
-                        </dl>
-                        </div>
-                        <div class="info-col">
-                        <div class="info-title">What people think</div>
-                        <dl class="details stack">
-                            <div><dt>Steam reviews</dt><dd class="@ReviewClass(info)">@ReviewText(info)</dd></div>
-                            <div><dt>Metacritic</dt><dd>@if (info?.Metacritic is int mc) { <span class="score @ScoreClass(mc)">@mc</span> } else { <span>-</span> }</dd></div>
-                        </dl>
-                        <div class="info-title sub">On this PC</div>
-                        <dl class="details stack">
-                            <div class="wide"><dt>Install</dt><dd class="path" title="@game.InstallPath">@(gameFound ? game.InstallPath : "Not found")
-                                @if (!gameFound && game.Id != GameProfileRegistry.Kcd2Id) { <button class="link-btn" @onclick="() => LocateGame(game)">Locate game...</button> }
-                            </dd></div>
-                            @if (PlayedOf(game.Id) is { } played)
-                            {
-                                <div><dt>Last played</dt><dd>@(played.Role == "host" ? "Hosted" : "Joined") @HomeLogic.Ago(played.LastUtc, DateTime.UtcNow) (@(played.Sessions == 1 ? "1 session" : $"{played.Sessions} sessions"))</dd></div>
+                        <div class="info-col info-steps">
+                            <div class="info-title">How it works</div>
+                            @{
+                                var hostSteps = game.HostSteps.Count > 0 ? game.HostSteps : GenericHostSteps;
+                                var joinSteps = game.JoinSteps.Count > 0 ? game.JoinSteps : GenericJoinSteps;
                             }
-                        </dl>
+                            <div class="steps-head">To host</div>
+                            <ol class="steps">
+                                @for (int i = 0; i < hostSteps.Count; i++) { <li><span class="step-n">@(i + 1)</span><span>@hostSteps[i]</span></li> }
+                            </ol>
+                            <div class="steps-head">To join</div>
+                            <ol class="steps">
+                                @for (int i = 0; i < joinSteps.Count; i++) { <li><span class="step-n">@(i + 1)</span><span>@joinSteps[i]</span></li> }
+                            </ol>
+                        </div>                        <div class="info-col">
+                            @{ var info = InfoOf(game); }
+                            <div class="info-title">The game</div>
+                            <dl class="details stack">
+                                <div><dt>Developer</dt><dd>@(game.Developer.Length > 0 ? game.Developer : "-")</dd></div>
+                                <div><dt>Franchise</dt><dd>@(game.Franchise.Length > 0 ? game.Franchise : "-")</dd></div>
+                                <div><dt>Released</dt><dd>@(info?.Released ?? "-")</dd></div>
+                                <div><dt>Genres</dt><dd title="@(info is null ? "" : string.Join(", ", info.Genres))">@(info is { Genres.Count: > 0 } ? string.Join(", ", info.Genres) : "-")</dd></div>
+                                <div><dt>Steam reviews</dt><dd class="@ReviewClass(info)">@ReviewText(info)</dd></div>
+                                <div><dt>Steam app</dt><dd>@game.SteamAppId
+                                    <button class="link-btn" title="Open this game in your Steam library" @onclick="() => OpenSteamLibrary(game)">Library</button>
+                                    </dd></div>
+                            </dl>
+                        </div>
+                        <div class="info-col">
+                            <div class="info-title">On this PC</div>
+                            <dl class="details stack">
+                                <div><dt>Install</dt><dd class="path" title="@game.InstallPath">@(gameFound ? game.InstallPath : "Not found")
+                                    @if (!gameFound && game.Id != GameProfileRegistry.Kcd2Id) { <button class="link-btn" @onclick="() => LocateGame(game)">Locate game...</button> }
+                                </dd></div>
+                                @if (PlayedOf(game.Id) is { } played)
+                                {
+                                    <div><dt>Last played</dt><dd>@(played.Role == "host" ? "Hosted" : "Joined") @HomeLogic.Ago(played.LastUtc, DateTime.UtcNow) (@(played.Sessions == 1 ? "1 session" : $"{played.Sessions} sessions"))</dd></div>
+                                }
+                            </dl>
                         </div>
                     </div>
-
                     @if (GameFeatures.For(game.Id) is { Count: > 0 } featureGroups)
                     {
                         var tab = featureGroups.Any(g => g.Title == featureTab) ? featureTab : featureGroups[0].Title;
@@ -399,10 +403,6 @@
             }
         </main>
     }
-
-    @* the strip at the bottom of every page: the downloads, like Steam's *@
-    <DownloadFooter Manager="@Downloads" Updates="@ModUpdates()" Checking="@(packIndexLoading || catalogLoading)" LastChecked="@packIndexCheckedUtc" Offline="@(packIndexTried && packIndex is null)"
-                    OnUpdate="@FooterUpdate" OnUpdateAll="@UpdateAllModsAsync" OnCheck="@FooterCheckAsync" />
 
 </div>
 

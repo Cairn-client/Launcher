@@ -1,87 +1,76 @@
-/* The download footer, after Steam's: a slim strip on every page; opened, the download page with the speed graph and the lists. */
-.dl-footer {
+/* Manage updates, after the Epic Games store: a button in the top bar's right corner; pressed, a panel slides in from the right edge. */
+.dl-host {
     --dl-net: #1a9fff;
     --dl-net-fill: rgba(26, 159, 255, 0.22);
     --dl-disk: #8fc23a;
-    grid-column: 1 / -1;
-    grid-row: 3;
-    position: relative;
-    z-index: 70;
-    background: #0f1216;
-    border-top: 1px solid var(--cairn-oak);
+    display: flex;
+    align-items: stretch;
 }
 
-/* ---- the strip: label on the left, what is downloading in the middle, the speed on the right; the progress runs along its top edge ---- */
-.dl-bar {
+.dl-top-btn {
     position: relative;
-    display: grid;
-    grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 1fr);
+    display: inline-flex;
     align-items: center;
-    gap: 16px;
-    width: 100%;
-    height: 40px;
-    padding: 0 18px;
-    border: 0;
-    background: transparent;
+    gap: 8px;
+    align-self: center;
+    height: 34px;
+    padding: 0 14px 0 11px;
+    border: 1px solid var(--cairn-oak-lit);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
     color: var(--cairn-parchment);
     font: inherit;
     font-size: 13px;
-    text-align: left;
     cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
 }
 
-    .dl-bar:hover {
-        background: rgba(255, 255, 255, 0.03);
+    .dl-top-btn:hover, .dl-top-btn.on {
+        background: rgba(255, 255, 255, 0.09);
     }
 
-    .dl-bar:focus-visible {
+    .dl-top-btn:focus-visible {
         outline: 2px solid var(--cairn-gold);
-        outline-offset: -2px;
+        outline-offset: 2px;
     }
 
-.dl-bar-line {
+    .dl-top-btn.busy .dl-ico {
+        color: var(--dl-net);
+    }
+
+    .dl-top-btn.has-updates {
+        border-color: var(--cairn-gold);
+    }
+
+.dl-top-line {
     position: absolute;
-    left: 0;
-    right: 0;
-    top: -1px;
-    height: 3px;
+    left: 8px;
+    right: 8px;
+    bottom: 3px;
+    height: 2px;
+    border-radius: 2px;
     background: var(--cairn-track);
+    overflow: hidden;
 }
 
-    .dl-bar-line span {
+    .dl-top-line span {
         display: block;
         height: 100%;
         background: var(--dl-net);
         transition: width 0.15s linear;
     }
 
-.dl-bar-left, .dl-bar-mid, .dl-bar-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-    white-space: nowrap;
-}
-
-.dl-bar-left {
-    color: var(--cairn-parchment-dim);
-    font-weight: 600;
-}
-
-.dl-bar-mid {
-    justify-content: center;
-}
-
-    .dl-bar-mid strong {
-        font-weight: 600;
-    }
-
-        .dl-bar-mid strong.warn {
-            color: var(--cairn-gold);
-        }
-
-.dl-bar-right {
-    justify-content: flex-end;
+.dl-badge {
+    display: grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--cairn-gold);
+    color: #17130a;
+    font-size: 11px;
+    font-weight: 700;
 }
 
 .dl-ico {
@@ -90,42 +79,76 @@
     flex: none;
 }
 
-.dl-bar.busy .dl-ico {
-    color: var(--dl-net);
+@media (max-width: 760px) {
+    .dl-top-label {
+        display: none;
+    }
+
+    .dl-top-btn {
+        padding: 0 10px;
+    }
 }
 
-.dl-chev {
-    width: 16px;
-    height: 16px;
-    flex: none;
-    color: var(--cairn-muted);
+/* the dim layer under the panel; pressing it closes the panel */
+.dl-scrim {
+    position: fixed;
+    inset: 52px 0 0 0;
+    z-index: 80;
+    background: rgba(0, 0, 0, 0.45);
 }
 
+.dl-drawer {
+    position: fixed;
+    top: 52px;
+    right: 0;
+    bottom: 0;
+    z-index: 90;
+    width: min(460px, 100vw);
+    transform: translateX(100%);
+    visibility: hidden;
+    transition: transform 0.22s ease, visibility 0s linear 0.22s;
+    background: #14171c;
+    border-left: 1px solid var(--cairn-oak-lit);
+    box-shadow: -12px 0 28px rgba(0, 0, 0, 0.45);
+}
+
+    .dl-drawer.open {
+        transform: none;
+        visibility: visible;
+        transition: transform 0.22s ease;
+    }
 .dim {
     color: var(--cairn-muted);
     font-weight: 400;
 }
 
-/* ---- the download page, above the strip ---- */
+/* ---- the panel inside the drawer ---- */
 .dl-panel {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 100%;
-    height: min(470px, 72vh);
+    height: 100%;
     display: flex;
     flex-direction: column;
-    background: #14171c;
-    border-top: 1px solid var(--cairn-oak-lit);
-    box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.45);
 }
 
+.dl-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px 10px;
+    border-bottom: 1px solid var(--cairn-oak);
+}
+
+.dl-head-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
 .dl-top {
     flex: none;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 46%);
-    gap: 22px;
-    padding: 18px 22px 14px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+    padding: 18px 18px 14px;
     background: linear-gradient(180deg, #1a1e25, #14171c);
     border-bottom: 1px solid var(--cairn-oak);
 }
@@ -302,7 +325,7 @@
 .dl-lists {
     flex: 1;
     min-height: 0;
-    padding: 6px 22px 16px;
+    padding: 6px 18px 16px;
     overflow-y: auto;
 }
 
@@ -475,16 +498,6 @@
     .dl-icon-btn.danger:hover:not(:disabled) {
         color: var(--cairn-danger-bright);
     }
-
-@media (max-width: 900px) {
-    .dl-top {
-        grid-template-columns: 1fr;
-    }
-
-    .dl-bar {
-        grid-template-columns: auto 1fr auto;
-    }
-}
 
 /* ---- nothing downloading ---- */
 .dl-bar-idle {

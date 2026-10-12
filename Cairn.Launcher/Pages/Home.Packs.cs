@@ -82,7 +82,7 @@ namespace Cairn.Launcher.Pages
             }
             var r = await Task.Run(() => ModInstall.Place(mt, PacksRoot));
             Log.Information("packs: {Game} placed: {Ok} {Message}", gameId, r.Ok, r.Message);
-            SetPackMessage(r.Ok ? $"{game.DisplayName} mod installed." : $"Could not install the mod: {r.Message}.", error: !r.Ok);
+            SetPackMessage(r.Ok ? "" : $"Could not install the mod: {r.Message}.", error: !r.Ok);
             await InvokeAsync(StateHasChanged);
             await CheckSetupAgainAsync();
         }

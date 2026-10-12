@@ -53,7 +53,7 @@ repository applies the same rules in CI.
 `id`, `name`, `developer`, `franchise`, `supported` (false lists a game with no multiplayer yet: its page shows, Host and Join stay off),
 `steamAppId` (the app the game runs from), `storeAppId` (the app whose store page describes it, when different), `exe`, `description`,
 `accent` (`#rrggbb`), `images` (`background`, `logo`, `hero`, `poster`, `screenshots`), `requires` (component ids, or inline definitions),
-`features` (the "What the mod does" card: groups of `name` / `detail` / `status` = `ready`, `inTest`, `planned`) and `content` (ids of content packs).
+`features` (the "What the mod does" card: groups of `name` / `detail` / `status` = `ready`, `inTest`, `planned`), `hostSteps` and `joinSteps` (up to 8 short lines each: the "How it works" card on the game's page; without them the launcher shows generic ones) and `content` (ids of content packs).
 
 A game that has a mod repository keeps its `game.json` and pictures in `game/` there (`tools/Test-GameJson.ps1` checks them) and the
 release workflow attaches them to every release as flat assets.

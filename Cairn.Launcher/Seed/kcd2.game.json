@@ -16,6 +16,16 @@
     "poster": "kcd2-poster.jpg",
     "screenshots": [ "kcd2-shot-1.jpg", "kcd2-shot-2.jpg" ]
   },
+  "hostSteps": [
+    "Download the mod above, then press Host a game. Cairn starts Kingdom Come: Deliverance II for you.",
+    "In the game's menu choose Start Game, then New adventure or one of your saves.",
+    "Press Invite to ask a friend on Cairn, or send them your host code."
+  ],
+  "joinSteps": [
+    "Download the mod above, then press Join a game.",
+    "Pick your friend in the list, or type the host's code. Cairn starts the game for you.",
+    "In the game's menu choose Join Game once the host is in the world. You arrive beside them."
+  ],
   "requires": [ "kcd2-game", "kcd2-modding-tools" ],
   "features": [
     { "title": "Sessions", "items": [
