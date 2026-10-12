@@ -4,7 +4,7 @@
     inset: 0;
     display: grid;
     grid-template-columns: 280px minmax(0, 1fr);
-    grid-template-rows: 52px minmax(0, 1fr) auto;
+    grid-template-rows: 52px minmax(0, 1fr);
     z-index: 1;
     background: var(--cairn-shadow);
 }
@@ -17,7 +17,7 @@
     display: flex;
     align-items: stretch;
     height: 52px;
-    padding: 0 12px 0 0;
+    padding: 0 14px 0 0;
     background: var(--cairn-shadow);
     border-bottom: 1px solid var(--cairn-oak);
 }
@@ -43,34 +43,22 @@
     color: var(--cairn-parchment);
 }
 
-.topbar-exit {
-    align-self: center;
-    display: grid;
-    place-items: center;
-    width: 34px;
-    height: 34px;
-    border: none;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--cairn-muted);
-    cursor: pointer;
-    transition: background 0.12s, color 0.12s;
+/* the right side of the bar: search, the launcher's pages, then the updates button in the corner */
+.topbar-right {
+    margin-left: auto;
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    min-width: 0;
 }
 
-    .topbar-exit svg {
-        width: 17px;
-        height: 17px;
-    }
-
-    .topbar-exit:hover {
-        background: rgba(255, 255, 255, 0.07);
-        color: var(--cairn-danger-bright);
-    }
-
-    .topbar-exit:focus-visible {
-        outline: 2px solid var(--cairn-gold);
-    }
-
+.topbar-sep {
+    align-self: center;
+    width: 1px;
+    height: 22px;
+    margin: 0 6px;
+    background: var(--cairn-oak-lit);
+}
 /* ---- the navbar: pages on the left, the launcher's own pages on the right ---- */
 .nav {
     display: flex;
@@ -80,11 +68,6 @@
 
     .nav:not(.right) {
         margin-left: 6px;
-    }
-
-    .nav.right {
-        margin-left: auto;
-        margin-right: 8px;
     }
 
 .nav-btn {
@@ -313,7 +296,7 @@
     flex-direction: column;
     justify-content: flex-end;
     gap: 22px;
-    min-height: calc(100cqh - 80px);
+    min-height: calc(100cqh - 36px);
 }
 
 
@@ -507,8 +490,8 @@
 /* how it works + details, one glass strip */
 .glass.info {
     display: grid;
-    grid-template-columns: minmax(220px, 300px) repeat(2, minmax(0, 1fr));
-    gap: 40px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 32px 40px;
     padding: 24px 30px 26px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 14px;
@@ -516,16 +499,15 @@
     backdrop-filter: blur(10px);
 }
 
-@media (max-width: 1400px) {
-    .glass.info {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+.steps-head {
+    margin: 0 0 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--cairn-gold);
 }
 
-@media (max-width: 800px) {
-    .glass.info {
-        grid-template-columns: minmax(0, 1fr);
-    }
+.steps + .steps-head {
+    margin-top: 22px;
 }
 
 .steps {

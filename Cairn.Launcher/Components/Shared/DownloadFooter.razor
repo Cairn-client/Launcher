@@ -5,8 +5,8 @@
 @using System.Threading
 @using Cairn.Launcher.Models
 
-@* The strip at the bottom of every page, laid out like Steam's: what is downloading and how far, and opened, the download page:
-   the current download with its speed graph (network and disk), what is up next, the updates on offer, what finished. *@
+@* The updates button in the top bar and the panel that slides in from the right when it is pressed, like the Epic Games store's: the current
+   download with its speed graph (network and disk), what is up next, the updates on offer, what finished. *@
 @{
     var items = Manager.Snapshot();
     var active = items.FirstOrDefault(i => i.IsActive);
@@ -20,11 +20,33 @@
     int pct = active is null ? 0 : (int)(Math.Clamp(active.Progress, 0, 1) * 100);
 }
 
-<footer class="dl-footer @(expanded ? "open" : "")" aria-label="Downloads">
+<div class="dl-host">
+    <button class="dl-top-btn @(active is not null ? "busy" : "") @(pending.Count > 0 ? "has-updates" : "") @(expanded ? "on" : "")" aria-expanded="@(expanded ? "true" : "false")"
+            title="@(active is not null ? $"{(active.State == DownloadState.Installing ? "Installing" : "Downloading")} {active.GameName}" : pending.Count > 0 ? "Manage updates: an update is available" : "Manage updates")" @onclick="Toggle">
+        <svg class="dl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 11 12 16 17 11"/><path d="M5 21h14"/></svg>
+        <span class="dl-top-label">Updates</span>
+        @if (active is not null)
+        {
+            <span class="dl-top-line"><span style="width: @(pct)%"></span></span>
+        }
+        else if (pending.Count + waiting.Count > 0)
+        {
+            <span class="dl-badge">@(pending.Count + waiting.Count)</span>
+        }
+    </button>
 
+    @if (expanded) { <div class="dl-scrim" @onclick="Toggle"></div> }
+
+    <aside class="dl-drawer @(expanded ? "open" : "")" aria-label="Manage updates" aria-hidden="@(expanded ? "false" : "true")">
     @if (expanded)
     {
-        <section class="dl-panel" aria-label="Downloads">
+        <section class="dl-panel" aria-label="Manage updates">
+            <div class="dl-head">
+                <div class="dl-head-title">Manage updates</div>
+                <button class="dl-icon-btn" aria-label="Close" title="Close" @onclick="Toggle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
             <div class="dl-top">
                 <div class="dl-now">
                     @if (active is not null)
@@ -148,41 +170,8 @@
         </section>
     }
 
-    <button class="dl-bar @(active is not null ? "busy" : "")" aria-expanded="@(expanded ? "true" : "false")" title="@(expanded ? "Close" : "Manage updates")" @onclick="Toggle">
-        @if (active is not null)
-        {
-            <span class="dl-bar-line"><span style="width: @(pct)%"></span></span>
-        }
-        <span class="dl-bar-left">
-            <svg class="dl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 11 12 16 17 11"/><path d="M5 21h14"/></svg>
-            <span>Manage updates</span>
-        </span>
-        <span class="dl-bar-mid">
-            @if (active is not null)
-            {
-                <strong>@(active.State == DownloadState.Installing ? "Installing" : "Downloading")</strong>
-                <span>@active.GameName</span>
-                <span class="dim">@(active.State == DownloadState.Installing ? "" : $"{Fmt.Size(active.BytesDone)} of {Fmt.Size(active.Size)}")</span>
-            }
-            else if (waiting.Count > 0)
-            {
-                <strong>@waiting.Count in the queue</strong>
-            }
-            else if (pending.Count > 0)
-            {
-                <strong class="warn">@(pending.Count == 1 ? "1 mod has an update" : $"{pending.Count} mods have an update")</strong>
-            }
-        </span>
-        <span class="dl-bar-right">
-            @if (active is not null)
-            {
-                <span>@(active.State == DownloadState.Downloading ? Fmt.Rate(speed) : "")</span>
-                <span class="dim">@(open > 1 ? $"{open} items" : "")</span>
-            }
-            <svg class="dl-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="@(expanded ? "6 9 12 15 18 9" : "6 15 12 9 18 15")"/></svg>
-        </span>
-    </button>
-</footer>
+    </aside>
+</div>
 
 @code {
     private const int GraphWidth = 240, GraphHeight = 70, HistoryLength = 120;

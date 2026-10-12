@@ -96,5 +96,18 @@ namespace Cairn.Launcher.Pages
                 : "You will be offered stable versions of this mod only.");
             await LoadPackIndexAsync();
         }
-    }
+
+        // used when a game's catalog entry has no how-to lines of its own
+        private static readonly IReadOnlyList<string> GenericHostSteps = new[]
+        {
+            "Download the game's mod above, then press Host a game. Cairn starts the game for you.",
+            "Start or load the world you want to share.",
+            "Press Invite to ask a friend on Cairn, or send them your host code.",
+        };
+        private static readonly IReadOnlyList<string> GenericJoinSteps = new[]
+        {
+            "Download the game's mod above, then press Join a game.",
+            "Pick your friend in the list, or type the host's code. Cairn starts the game for you.",
+            "Join the host's world from the game once they are in it.",
+        };    }
 }

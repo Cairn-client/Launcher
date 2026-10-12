@@ -116,6 +116,8 @@ namespace Cairn.Launcher.Models
                         _ => FeatureStatus.Ready,
                     })).ToList())).ToList(),
                 ContentPacks = m.Content.ToList(),
+                HostSteps = (m.HostSteps ?? Array.Empty<string>()).ToList(),
+                JoinSteps = (m.JoinSteps ?? Array.Empty<string>()).ToList(),
             };
         }
 

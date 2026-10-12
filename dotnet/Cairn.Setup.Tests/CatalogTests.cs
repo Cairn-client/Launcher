@@ -137,6 +137,17 @@ public class GameManifestTests
     }
 
     [Fact]
+    public void TheHowToLinesAreReadAndBounded()
+    {
+        var m = GameManifest.Parse("""{ "schema": 1, "id": "a", "name": "A", "hostSteps": ["Press Host.", "  Load a save. "], "joinSteps": ["Press Join."] }""")!;
+        Assert.Equal(new[] { "Press Host.", "Load a save." }, m.HostSteps);
+        Assert.Equal(new[] { "Press Join." }, m.JoinSteps);
+        Assert.Empty(GameManifest.Parse("""{ "schema": 1, "id": "a", "name": "A" }""")!.HostSteps!);
+        Assert.Null(GameManifest.Parse("""{ "schema": 1, "id": "a", "name": "A", "hostSteps": [1] }"""));
+        Assert.Null(GameManifest.Parse("""{ "schema": 1, "id": "a", "name": "A", "joinSteps": ["1","2","3","4","5","6","7","8","9"] }"""));
+    }
+
+    [Fact]
     public void ASharedRequirementIsDefinedOnceForSeveralGames()
     {
         var list = GameList.Parse("""{ "schema": 1, "components": { "vcredist": { "kind": "steam-app", "name": "Runtime", "appId": 7 } } }""")!;

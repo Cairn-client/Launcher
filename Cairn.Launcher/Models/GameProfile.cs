@@ -61,6 +61,10 @@ namespace Cairn.Launcher.Models
         /// <summary>What the game's mod does, as the card on its page tells it (from the game's game.json).</summary>
         public System.Collections.Generic.List<GameFeatureGroup> Features { get; set; } = new();
 
+        /// <summary>The game's own how-to lines for hosting and for joining, from its catalog entry; empty uses the generic ones.</summary>
+        public System.Collections.Generic.List<string> HostSteps { get; set; } = new();
+        public System.Collections.Generic.List<string> JoinSteps { get; set; } = new();
+
         /// <summary>The ids of the content packs (start saves) the game offers; their repositories are in the catalog.</summary>
         public System.Collections.Generic.List<string> ContentPacks { get; set; } = new();
     }
