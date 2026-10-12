@@ -125,7 +125,7 @@ namespace Cairn.Launcher.Pages
             try
             {
                 inGameMenu?.Stop();
-                if (ExternalInstall.CompanionPath(PacksRoot, ModInstall.PackId) is not { } companion) { Log.Information("in-game menu: the mod has no bridge, so no launcher menu"); return; }
+                if (ExternalInstall.CompanionPath(PacksRoot, ActiveGameId) is not { } companion) { Log.Information("in-game menu: the mod has no bridge, so no launcher menu"); return; }
                 EnsureExternalBridge();
                 var bridge = externalBridge!;
                 Process? bridgeProcess;

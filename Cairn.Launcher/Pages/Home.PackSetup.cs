@@ -19,6 +19,7 @@ namespace Cairn.Launcher.Pages
     {
         /// <summary>The pack's checklist as of the last check; null when the game's pack does not provide one (the launcher's own checklist is used then).</summary>
         private PackSetupReport? packSetup;
+        private string packSetupGameId = "";   // the game packSetup is about
         private (string StepId, string Action)? packBusy;
         private string? packBusyLine;
         private double? packBusyProgress;
@@ -29,15 +30,22 @@ namespace Cairn.Launcher.Pages
         private readonly Dictionary<string, string> packLogged = new();
 
         /// <summary>The program of the setup game's pack when the pack does the setup; null otherwise.</summary>
-        private string? PackSetupProgram() => ProgramCached(ref setupProgramCache, p => p is { Setup: true });
+        private string? PackSetupProgram(string? gameId = null) => ProgramCached(ref setupProgramCache, gameId ?? ActiveGameId, p => p is { Setup: true });
 
         /// <summary>Asks the pack's program for its checklist; false (and the launcher's own checklist is used) when the pack has none or it did not answer.</summary>
         private async Task<bool> RefreshPackSetupAsync()
         {
             setupProgramCache = default; sessionProgramCache = default;   // the pack may have changed since the last look
-            var program = PackSetupProgram();
+            string gameId = ActiveGameId;
+            if (packSetupGameId != gameId)
+            {
+                // another game: nothing of the last one's list, notes or failures applies
+                packSetup = null; packSetupGameId = gameId; setupReady = false;
+                packNotes.Clear(); packFailures.Clear(); packPendingUntil.Clear(); packAutoRan.Clear(); packLogged.Clear();
+            }
+            var program = PackSetupProgram(gameId);
             if (program is null) { packSetup = null; setupReady = false; return false; }
-            string? mt = !string.IsNullOrWhiteSpace(settings.GamePath) && System.IO.File.Exists(settings.GamePath) ? settings.GamePath : null;
+            string? mt = GameExeOf(gameId) is { } known && System.IO.File.Exists(known) ? known : null;
             PackSetupReport? report = null;
             try { report = await PackSetup.CheckAsync(program, mt); }
             catch (Exception ex) { Log.Warning(ex, "setup: the pack's checklist failed"); }
@@ -48,7 +56,7 @@ namespace Cairn.Launcher.Pages
                 return false;
             }
             packSetup = report;
-            AdoptDetectedGamePath(report.ModdingToolsExe);
+            AdoptDetectedGamePath(report.GameExe);
             foreach (var done in report.Steps.Where(x => x.Status == PackStepStatus.Done).Select(x => x.Id).ToList())
             {
                 packNotes.Remove(done); packFailures.Remove(done); packPendingUntil.Remove(done);
@@ -102,7 +110,7 @@ namespace Cairn.Launcher.Pages
             setupProgramCache = default; sessionProgramCache = default;   // the pack may have changed since the last look
             var program = PackSetupProgram();
             if (program is null || setupBusy) return;
-            string? mt = !string.IsNullOrWhiteSpace(settings.GamePath) && System.IO.File.Exists(settings.GamePath) ? settings.GamePath : null;
+            string? mt = GameExeOf(ActiveGameId) is { } known && System.IO.File.Exists(known) ? known : null;
             setupBusy = true;
             packBusy = (stepId, action);
             packBusyLine = null; packBusyProgress = null;

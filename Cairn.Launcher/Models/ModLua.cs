@@ -11,9 +11,9 @@ namespace Cairn.Launcher.Models
         public static void Reload() { }
 
         /// <summary>The mod's release as players compare it: the downloaded pack's MAJOR.MINOR, shown in the host window.</summary>
-        public static string Handshake()
+        public static string Handshake(string gameId)
         {
-            var v = PackStore.Read(PackStore.DefaultRoot, ModInstall.PackId)?.Version;
+            var v = PackStore.Read(PackStore.DefaultRoot, gameId)?.Version;
             return System.Version.TryParse(v, out var p) ? $"{p.Major}.{p.Minor}.0" : Components.Shared.Globals.Version;
         }
     }

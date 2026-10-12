@@ -60,7 +60,7 @@ namespace Cairn.Launcher.Pages
         // ------------------------------------------------------------ what the game's pack does for the settings window and the logs
 
         /// <summary>The program of the game's pack (<c>optionsProgram</c>), or null when it is not downloaded.</summary>
-        private string? PackProgramPath() => ExternalInstall.OptionsProgramPath(PacksRoot, ModInstall.PackId) is { } p && File.Exists(p) ? p : null;
+        private string? PackProgramPath() => ExternalInstall.OptionsProgramPath(PacksRoot, ActiveGameId) is { } p && File.Exists(p) ? p : null;
 
         /// <summary>Settings > Saves: every save of the game and every character and chest the mod kept goes, so a new adventure starts clean (the pack's program does it).</summary>
         private async Task DeleteAllSavesAsync()
@@ -94,7 +94,7 @@ namespace Cairn.Launcher.Pages
             if (PackProgramPath() is not { } program) return null;
             string dir = Path.Combine(Path.GetTempPath(), "cairn-logs-" + Guid.NewGuid().ToString("N")[..8]);
             var args = new List<string> { "logs", "collect", "--out", dir };
-            if (!string.IsNullOrWhiteSpace(settings.GamePath)) { args.Add("--game-exe"); args.Add(settings.GamePath); }
+            if (GameExeOf(ActiveGameId) is { } exe) { args.Add("--game-exe"); args.Add(exe); }
             await PackSession.RunOnceAsync(program, args, _ => { }, TimeSpan.FromSeconds(60));
             return Directory.Exists(dir) ? dir : null;
         }

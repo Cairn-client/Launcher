@@ -28,33 +28,54 @@ namespace Cairn.Launcher.Pages
         private string? lastRefusedKey;
 
         /// <summary>The program of the game's pack when the pack runs the session; null otherwise.</summary>
-        private string? PackSessionProgram() => ProgramCached(ref sessionProgramCache, p => p is { Session: true });
+        private string? PackSessionProgram(string? gameId = null) => ProgramCached(ref sessionProgramCache, gameId ?? ActiveGameId, p => p is { Session: true });
 
-        private (long At, string? Program) sessionProgramCache, setupProgramCache;
+        private (long At, string Id, string? Program) sessionProgramCache, setupProgramCache;
+        private string? packSessionGameId;
+
+        /// <summary>The game the pack-run features are about: the session's game while one is on, else the game selected on the left.</summary>
+        private string ActiveGameId => packSession is { Alive: true } && !string.IsNullOrEmpty(packSessionGameId) ? packSessionGameId : selectedGameId;
 
         /// <summary>The pack's program when its contract says so, looked up at most every 2 s (the screens ask on every repaint).</summary>
-        private static string? ProgramCached(ref (long At, string? Program) cache, Func<PackContract, bool> wants)
+        private static string? ProgramCached(ref (long At, string Id, string? Program) cache, string gameId, Func<PackContract, bool> wants)
         {
             long now = Environment.TickCount64;
-            if (cache.At != 0 && now - cache.At < 2000) return cache.Program;
+            if (cache.At != 0 && cache.Id == gameId && now - cache.At < 2000) return cache.Program;
             string? found = null;
             var root = PackStore.DefaultRoot;
-            if (PackStore.ReadContract(root, ModInstall.PackId) is { } c && wants(c) && ExternalInstall.OptionsProgramPath(root, ModInstall.PackId) is { } p && File.Exists(p)) found = p;
-            cache = (now, found);
+            if (gameId.Length > 0 && PackStore.ReadContract(root, gameId) is { } c && wants(c) && ExternalInstall.OptionsProgramPath(root, gameId) is { } p && File.Exists(p)) found = p;
+            cache = (now, gameId, found);
             return found;
         }
 
+        /// <summary>A game whose pack runs its session (Host and Join, the setup, the start-game flow) instead of the game being started by hand.</summary>
+        private bool IsPackRunGame(string gameId) => gameId.Length > 0 && PackSessionProgram(gameId) is not null;
+
         private bool UsePackSession => PackSessionProgram() is not null;
+
+        private string ModHandshake() => ModLua.Handshake(ActiveGameId);
+
+        private string ActiveGameName => GameProfileRegistry.Get(ActiveGameId)?.DisplayName ?? "Game";
+
+        /// <summary>The game whose Steam friends the Home page shows: the first one whose pack runs a session.</summary>
+        private string FriendsGameId => GameProfileRegistry.All().FirstOrDefault(g => IsPackRunGame(g.Id))?.Id ?? "";
 
         /// <summary>The host's relay is up: the pack's, or the launcher's own.</summary>
         private bool HostRelayRunning => UsePackSession ? packRelayUp : hostedRelayProcess != null && !hostedRelayProcess.HasExited;
 
         private PackSession? EnsurePackSession()
         {
-            if (packSession is { Alive: true }) return packSession;
+            string id = selectedGameId;
+            if (packSession is { Alive: true })
+            {
+                // another game was selected while this one has nothing going on: its session ends, the selected game's starts
+                if (packSessionGameId == id || gameRunning || launchStage != LaunchStage.Idle || packRelayUp) return packSession;
+                ReleasePackSession();
+            }
             packSession?.Dispose();
             packSession = null;
-            if (PackSessionProgram() is not { } program) return null;
+            if (PackSessionProgram(id) is not { } program) return null;
+            packSessionGameId = id;
             var s = PackSession.Start(program, line => Log.Information("{Line}", Redact.Text(line)));
             if (s is null) return null;
             s.State += v => _ = InvokeAsync(() => ApplyPackView(v));
@@ -82,7 +103,7 @@ namespace Cairn.Launcher.Pages
         {
             var taken = settingsStore.Refresh(settings);
             if (taken.Count > 0) Log.Information("settings: changed outside the launcher since it read them: {Keys}", string.Join(", ", taken));
-            packSession?.Configure(settings.GamePath ?? "", settings.HostPort, settings.ServerInfoPort, settings.VersionIpcPort, settings.SteamAppId, settings.HostAllowSteam,
+            packSession?.Configure(GameExeOf(packSessionGameId ?? ActiveGameId) ?? "", settings.HostPort, settings.ServerInfoPort, settings.VersionIpcPort, settings.SteamAppId, settings.HostAllowSteam,
                 settings.RelayReuse, settings.ConnectGate, settings.InjectDelaySeconds, settings.MenuTakeover,
                 string.IsNullOrWhiteSpace(settings.AgentPath) ? "" : ResolveAgainstLauncher(settings.AgentPath),
                 string.IsNullOrWhiteSpace(settings.RelayPath) ? "" : ResolveAgainstLauncher(settings.RelayPath),

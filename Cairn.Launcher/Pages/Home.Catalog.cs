@@ -54,7 +54,7 @@ namespace Cairn.Launcher.Pages
         {
             steamFoundCache.Clear();
             installedPackCache.Clear();
-            if (SelectedProfile is null && GameProfileRegistry.All().FirstOrDefault() is { } first) selectedGameId = first.Id;
+            if (SelectedProfile is null && GameProfileRegistry.All().FirstOrDefault() is { } first) { selectedGameId = first.Id; _ = CheckSetupAgainAsync(); }
             _ = InvokeAsync(StateHasChanged);
         }
 

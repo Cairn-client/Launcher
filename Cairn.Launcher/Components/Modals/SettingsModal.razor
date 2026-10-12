@@ -150,7 +150,7 @@
                     </div>
                     }
                 }
-                else if (game.Id == GameProfileRegistry.Kcd2Id)
+                else if (ExeIsSetting)
                 {
                     <div class="settings-section">Game</div>
 
@@ -247,7 +247,7 @@
                     }
                 }
 
-                @if (game is not null && game.Id != GameProfileRegistry.Kcd2Id && SavesKnown && Saves.Count > 0)
+                @if (game is not null && !ExeIsSetting && SavesKnown && Saves.Count > 0)
                 {
                     <div class="settings-section">Saves</div>
                     @savesList
@@ -313,6 +313,8 @@
     private bool confirmDeleteSaves;
     private async Task DeleteSavesAsync() { confirmDeleteSaves = false; await OnDeleteSaves.InvokeAsync(); }
     [Parameter] public EventCallback OnOpenStartSave { get; set; }
+    /// <summary>The game's executable is a setting of the launcher (Kingdom Come II's Modding Tools build): its path is asked for here.</summary>
+    [Parameter] public bool ExeIsSetting { get; set; }
     /// <summary>What the pack's program said about each of the game's options on this PC (id to status); empty until it has answered.</summary>
     [Parameter] public IReadOnlyDictionary<string, Cairn.Setup.OptionStatus> OptionStatuses { get; set; } = new Dictionary<string, Cairn.Setup.OptionStatus>();
     /// <summary>The game's saves (its bridge while it runs, its program otherwise) and what the window is doing with them.</summary>

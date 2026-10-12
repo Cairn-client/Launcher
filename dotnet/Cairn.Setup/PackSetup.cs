@@ -17,7 +17,7 @@ public enum PackStepStatus { Done, Working, NeedsYou, Waiting }
 public sealed record PackStep(string Id, string Title, PackStepStatus Status, string Detail, string? Action = null, string? ActionLabel = null,
                               double? Progress = null, bool Optional = false, bool System = false, string? Auto = null);
 
-public sealed record PackSetupReport(IReadOnlyList<PackStep> Steps, bool Ready, bool OptionalNeedsYou, string? ModdingToolsExe = null);
+public sealed record PackSetupReport(IReadOnlyList<PackStep> Steps, bool Ready, bool OptionalNeedsYou, string? GameExe = null);
 
 public sealed record PackActionResult(bool Ok, string Message, int PendingSeconds = 0);
 
@@ -58,12 +58,12 @@ public static class PackSetup
     }
 
     /// <summary>The checklist, or null when the program is not there or did not give one.</summary>
-    public static async Task<PackSetupReport?> CheckAsync(string program, string? moddingToolsExe, CancellationToken ct = default, TimeSpan? timeout = null)
+    public static async Task<PackSetupReport?> CheckAsync(string program, string? gameExe, CancellationToken ct = default, TimeSpan? timeout = null)
     {
         var steps = new List<PackStep>();
         bool done = false, ready = false, optionalNeedsYou = false;
         string? mtExe = null;
-        var run = await RunAsync(program, Args("check", null, moddingToolsExe), timeout ?? CheckTimeout, line =>
+        var run = await RunAsync(program, Args("check", null, gameExe), timeout ?? CheckTimeout, line =>
         {
             if (steps.Count < MaxSteps && ParseStep(line) is { } step && steps.All(x => x.Id != step.Id)) { steps.Add(step); return; }
             try
@@ -77,7 +77,7 @@ public static class PackSetup
                     ready = r.TryGetProperty("ready", out var rd) && rd.ValueKind == JsonValueKind.True;
                     optionalNeedsYou = r.TryGetProperty("optionalNeedsYou", out var on) && on.ValueKind == JsonValueKind.True;
                 }
-                else if (r.TryGetProperty("found", out var f) && f.ValueKind == JsonValueKind.Object && f.TryGetProperty("moddingToolsExe", out var e) && e.ValueKind == JsonValueKind.String)
+                else if (r.TryGetProperty("found", out var f) && f.ValueKind == JsonValueKind.Object && (f.TryGetProperty("gameExe", out var e) || f.TryGetProperty("moddingToolsExe", out e)) && e.ValueKind == JsonValueKind.String)
                     mtExe = e.GetString();
             }
             catch (JsonException) { }
@@ -89,12 +89,12 @@ public static class PackSetup
     }
 
     /// <summary>Does one action the program named in a step. <paramref name="say"/> gets the program's progress lines, <paramref name="progress"/> its 0..1 numbers.</summary>
-    public static async Task<PackActionResult> DoAsync(string program, string action, string? moddingToolsExe, Action<string> say, Action<double> progress,
+    public static async Task<PackActionResult> DoAsync(string program, string action, string? gameExe, Action<string> say, Action<double> progress,
                                                        CancellationToken ct = default, TimeSpan? timeout = null)
     {
         if (!CatalogLimits.IsId(action)) return new PackActionResult(false, "Not a valid action.");
         string? last = null;
-        var run = await RunAsync(program, Args("do", action, moddingToolsExe), timeout ?? DoTimeout, line =>
+        var run = await RunAsync(program, Args("do", action, gameExe), timeout ?? DoTimeout, line =>
         {
             try
             {
@@ -124,11 +124,11 @@ public static class PackSetup
         return new PackActionResult(false, run.StartError ?? "The program did not answer.");
     }
 
-    private static IReadOnlyList<string> Args(string verb, string? action, string? moddingToolsExe)
+    private static IReadOnlyList<string> Args(string verb, string? action, string? gameExe)
     {
         var a = new List<string> { "setup", verb };
         if (action is not null) a.Add(action);
-        if (!string.IsNullOrWhiteSpace(moddingToolsExe) && moddingToolsExe.Length <= 260 && !moddingToolsExe.Any(char.IsControl)) { a.Add("--mt-exe"); a.Add(moddingToolsExe); }
+        if (!string.IsNullOrWhiteSpace(gameExe) && gameExe.Length <= 260 && !gameExe.Any(char.IsControl)) { a.Add("--game-exe"); a.Add(gameExe); }
         return a;
     }
 

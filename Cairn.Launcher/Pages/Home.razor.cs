@@ -671,13 +671,13 @@ namespace Cairn.Launcher.Pages
 
         // ---- the programs of a game's mod (the pack's contract names them; a path in settings.json still wins) ----
 
-        private PackContract? ModContract => PackStore.ReadContract(PacksRoot, ModInstall.PackId);
+        private PackContract? ModContract => PackStore.ReadContract(PacksRoot, ActiveGameId);
 
         private string ProgramPath(string setting, Func<PackContract, string?> fromPack)
         {
             if (!string.IsNullOrWhiteSpace(setting)) return ResolveAgainstLauncher(setting);
             var rel = ModContract is { } c ? fromPack(c) : null;
-            return string.IsNullOrEmpty(rel) ? "" : PackContract.Resolve(PackStore.FilesDir(PacksRoot, ModInstall.PackId), rel);
+            return string.IsNullOrEmpty(rel) ? "" : PackContract.Resolve(PackStore.FilesDir(PacksRoot, ActiveGameId), rel);
         }
 
         /// <summary>The agent (the program that talks to the game's mod and to the relay).</summary>
