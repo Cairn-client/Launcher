@@ -85,3 +85,10 @@ steps data too is the next step when a second game needs them.
 
 `ownSession: true` in a `game.json` says the game's mod runs the session itself (docs/PACKS.md, external mods): the page shows **Play** instead of
 Host and Join even before any mod is downloaded.
+
+`setup` (a game whose mod runs its own session, `ownSession`) is the game's **Ready check** as data: up to 12 lines, each `{ "kind", "title", "detail", "optional" }`
+plus the kind's own field. The kinds are a fixed set the launcher knows: `steam-running`, `game-found`, `mod-installed`, `steam-app` (`appId`),
+`game-file` (`path`, a file in the game's folder, never outside it) and `free-disk` (`mb`). `detail` is what the player is told when the check fails;
+`optional` makes a failure a warning. A game with no `setup` is checked for Steam, the game and the mod. A line the launcher does not know (or a
+path that leaves the game's folder) makes the whole file invalid. Kingdom Come II's own setup (the Modding Tools, the hard links, the C++ runtimes) is
+still code: nothing in a catalog can run a program or change a file.

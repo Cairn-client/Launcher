@@ -153,8 +153,6 @@
                             <h1>@game.DisplayName</h1>
                         }
                         <div class="chips">
-                            @if (!externalMod)
-                            {
                             <button class="chip chip-btn ready-check @(readyCheckStatus == CheckStatus.Ok ? "ok" : readyCheckStatus == CheckStatus.Warn ? "warn" : "fail")" title="Check the game, the mod, Steam and the port before you play" @onclick="OpenPreflightAsync">
                                 @if (readyCheckStatus == CheckStatus.Ok)
                                 {
@@ -170,7 +168,6 @@
                                 }
                                 <span>Ready check</span>
                             </button>
-                            }
                         </div>
                         @if (game.Description.Length > 0)
                         {
