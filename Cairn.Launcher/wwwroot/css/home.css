@@ -70,9 +70,9 @@
         cursor: default;
     }
 
-/* each slide wears its game's accent colour */
+/* the showcase always uses Cairn gold */
 .showcase {
-    --accent: var(--cairn-gold);
+    --accent: var(--cairn-gold, #e8c872);
     outline: none;
 }
 
@@ -86,12 +86,10 @@
     }
 
     .showcase .slide-cta {
-        background: var(--accent);
+        background: var(--cairn-gold, #e8c872);
+        color: #1a1407;
     }
 
-    .showcase .dot.on {
-        background: var(--accent);
-    }
 
 /* while the artwork loads, a soft shimmer shows instead of a black hole */
 .slide::before, .poster::before {

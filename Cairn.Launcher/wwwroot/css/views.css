@@ -296,7 +296,7 @@
 
 .dot-fill.full {
     width: 100%;
-    background: rgba(255, 255, 255, 0.45);
+    background: var(--cairn-gold, #e8c872);
 }
 
 .dot-fill.active-fill {

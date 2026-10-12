@@ -88,32 +88,6 @@
                     </div>
                     }
 
-                    @if (Show("steamapp"))
-                    {
-                    @* advanced. Both players must pick the same one. *@
-                    <div class="cairn-input-group">
-                        <label class="cairn-label">Advanced: Steam app for Steam connections</label>
-                        <select class="cairn-input" value="@Settings.SteamAppId" @onchange="e => Settings.SteamAppId = uint.TryParse(e.Value?.ToString(), out var a) ? a : 2429020u">
-                            <option value="2429020">KCD2 Modding Tools (2429020) - default</option>
-                            <option value="480">Spacewar (480) - Valve's test app</option>
-                            <option value="1771300">KCD2 retail (1771300)</option>
-                        </select>
-                        <div class="cairn-hint">Both players must use the same one. Leave it unless the tester page says otherwise.</div>
-                    </div>
-                    }
-
-                    @if (Show("startsave"))
-                    {
-                    @* Cairn: a start save from the player's own Modding Tools game, checked and put where a joiner's new character is taken from *@
-                    <div class="cairn-input-group">
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            <button class="cairn-btn" @onclick="OnAddStartSave">ADD A START SAVE...</button>
-                            <button class="cairn-btn" @onclick="OnOpenStartSave">OPEN ITS FOLDER</button>
-                        </div>
-                        <div class="cairn-hint">Needed once, to <i>Join with a new character</i> or start a <i>New adventure</i>. Pick a save of your own Modding Tools game, played past the prologue; the launcher checks it and puts it in place.</div>
-                    </div>
-                    }
-
                     @if (Show("logs"))
                     {
                     @* Cairn: the logs of this PC (the game's, the agent's, the launcher's) in one zip on the Desktop, to send with a bug report *@
@@ -166,6 +140,25 @@
                                 executable has no debug API and no module DLLs to hook.
                             </div>
                         }
+                    </div>
+
+                    <div class="cairn-input-group">
+                        <label class="cairn-label">Advanced: Steam app for Steam connections</label>
+                        <select class="cairn-input" value="@Settings.SteamAppId" @onchange="e => Settings.SteamAppId = uint.TryParse(e.Value?.ToString(), out var a) ? a : 2429020u">
+                            <option value="2429020">KCD2 Modding Tools (2429020) - default</option>
+                            <option value="480">Spacewar (480) - Valve's test app</option>
+                            <option value="1771300">KCD2 retail (1771300)</option>
+                        </select>
+                        <div class="cairn-hint">Both players must use the same one. Leave it unless the tester page says otherwise.</div>
+                    </div>
+
+                    <div class="settings-section">Saves</div>
+                    <div class="cairn-input-group">
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="cairn-btn" @onclick="OnAddStartSave">ADD A START SAVE...</button>
+                            <button class="cairn-btn" @onclick="OnOpenStartSave">OPEN ITS FOLDER</button>
+                        </div>
+                        <div class="cairn-hint">Needed once, to <i>Join with a new character</i> or start a <i>New adventure</i>. Pick a save of your own Modding Tools game, played past the prologue; the launcher checks it and puts it in place.</div>
                     </div>
 
                     @* DLSS 5 through DLSS 5 Autopilot (MIT): put in the game's folder when this is saved, taken out when it is cleared *@
@@ -236,7 +229,7 @@
 
     private static readonly (string Id, string Title)[] Tabs =
     {
-        ("hosting", "Hosting"), ("steam", "Steam"), ("saves", "Saves"), ("support", "Support"),
+        ("hosting", "Hosting"), ("steam", "Steam"), ("support", "Support"),
     };
 
     // every setting: its tab, and the words it can be found by
@@ -246,8 +239,6 @@
         ["addr"] = ("hosting", "show ip address host window hidden stream share screen"),
         ["steamjoin"] = ("steam", "let friends join through steam when i host"),
         ["friends"] = ("steam", "friends online notifications invite presence"),
-        ["steamapp"] = ("steam", "advanced steam app connections modding tools spacewar retail kcd2"),
-        ["startsave"] = ("saves", "start save new character new adventure join with a new character folder"),
         ["logs"] = ("support", "save the logs zip bug report desktop game agent launcher"),
         ["uninstall"] = ("support", "maintenance uninstall cairn remove launcher mod"),
     };

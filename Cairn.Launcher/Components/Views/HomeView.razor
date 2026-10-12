@@ -41,8 +41,7 @@
 
     @if (Slides.Count > 0)
     {
-        var current = Slides[Math.Min(index, Slides.Count - 1)];
-        <section class="showcase" style="--accent: @(string.IsNullOrEmpty(current.Accent) ? "#E8C872" : current.Accent)" tabindex="0"
+        <section class="showcase" tabindex="0"
                  @onmouseenter="() => paused = true" @onmouseleave="() => paused = false" @onkeydown="OnShowcaseKey"
                  aria-roledescription="carousel" aria-label="Games (use the left and right arrow keys)">
             @for (int i = 0; i < Slides.Count; i++)
@@ -53,7 +52,6 @@
                     <div class="slide-art" style="background-image: url('@ArtFor(g, active)');"></div>
                     <div class="slide-shade"></div>
                     <div class="slide-body">
-                        <span class="state @(g.IsSupported ? "live" : "soon")">@(g.IsSupported ? "Playable now" : "Coming soon")</span>
                         @if (g.LogoImage.Length > 0)
                         {
                             <img class="slide-logo" src="@g.LogoImage" alt="@g.DisplayName" />
@@ -63,11 +61,6 @@
                             <h1 class="slide-title">@g.DisplayName</h1>
                         }
                         <p class="slide-desc">@g.Description</p>
-                        <div class="slide-meta">
-                            @if (g.Developer.Length > 0) { <span>@g.Developer</span> }
-                            @if (g.Franchise.Length > 0 && g.Franchise != g.DisplayName) { <span>@g.Franchise</span> }
-                            @if (IsOnPc(g)) { <span class="on-pc">On this PC</span> }
-                        </div>
                         <button class="slide-cta" tabindex="@(active ? 0 : -1)" @onclick="() => OnOpenGame.InvokeAsync(g.Id)">View game</button>
                     </div>
                 </article>
