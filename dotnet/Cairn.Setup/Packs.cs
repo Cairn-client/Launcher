@@ -77,16 +77,18 @@ public sealed record PackContract(
             bool common = IsPlainName(c.Id) && c.Version.Length > 0 && PackKinds.IsKnown(kind) && deps is not null && menuProtocol >= 1
                           && (c.InstallTo.Length == 0 || c.InstallTo == StartSaveTarget) && replaces.All(IsPlainName) && luaOk;
             bool noPrograms = c.Agent.Length == 0 && c.Relay.Length == 0 && c.Native.Length == 0;
-            // a game's mod names its programs and its mod folder; content is only files; an external mod names a folder inside the
-            // game's own folder (and may carry one program to start with the game); only an external mod has those two fields
-            bool ok = common && (c.InstallDir.Length == 0 && c.Companion.Length == 0 || kind == PackKinds.External) && kind switch
+            // a game's mod names its programs and its mod folder (and may carry a companion: its bridge to the launcher, docs/BRIDGE.md); content is
+            // only files; an external mod names a folder inside the game's own folder (and may carry a companion to start with the game); only
+            // an external mod has an install folder, and content has no companion
+            bool ok = common && (c.InstallDir.Length == 0 || kind == PackKinds.External) && (c.Companion.Length == 0 || kind != PackKinds.Content) && kind switch
             {
                 PackKinds.Content => noPrograms,
                 PackKinds.External => noPrograms && c.InstallTo.Length == 0 && IsGameRelativeDir(c.InstallDir)
                                       && (c.Companion.Length == 0 || IsPackPath(c.Companion)),
                 _ => IsPlainName(c.ModFolder) && c.LuaPrefix.Length is > 0 and <= 40
                      && IsPackPath(c.Agent) && IsPackPath(c.Relay) && IsPackPath(c.Native)
-                     && (c.BrandPak.Length == 0 || IsPackPath(c.BrandPak)) && (c.AgentConfig.Length == 0 || IsFileName(c.AgentConfig)),
+                     && (c.BrandPak.Length == 0 || IsPackPath(c.BrandPak)) && (c.AgentConfig.Length == 0 || IsFileName(c.AgentConfig))
+                     && (c.Companion.Length == 0 || IsPackPath(c.Companion)),
             };
             return ok ? c : null;
         }
@@ -384,7 +386,7 @@ public static class PackInstaller
             foreach (var program in new[] { contract.Agent, contract.Relay, contract.Native })
                 if (!listed.Contains(program.Replace('/', Path.DirectorySeparatorChar)))
                     return new PackResult(false, $"the contract names {program}, which the pack does not carry");
-        if (contract.Kind == PackKinds.External && contract.Companion.Length > 0 && !listed.Contains(contract.Companion.Replace('/', Path.DirectorySeparatorChar)))
+        if (contract.Kind != PackKinds.Content && contract.Companion.Length > 0 && !listed.Contains(contract.Companion.Replace('/', Path.DirectorySeparatorChar)))
             return new PackResult(false, $"the contract names {contract.Companion}, which the pack does not carry");
         return new PackResult(true, "");
     }

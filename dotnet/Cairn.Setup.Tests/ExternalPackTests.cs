@@ -49,10 +49,9 @@ public class ExternalContractTests
     [Theory]
     [InlineData("mod")]
     [InlineData("content")]
-    public void OnlyAnExternalModHasAnInstallFolderOrACompanion(string kind)
+    public void OnlyAnExternalModHasAnInstallFolder(string kind)
     {
         Assert.Null(PackContract.Parse(Json(kind: kind)));
-        Assert.Null(PackContract.Parse(Json(kind: kind, installDir: "", extra: ", \"companion\": \"bin/p.exe\"")));
     }
 
     [Fact]
@@ -202,4 +201,26 @@ public class ExternalInstallTests : IDisposable
     {
         Assert.Null(ExternalInstall.CompanionPath(Packs, "noita"));
     }
+}
+
+public class ModCompanionTests
+{
+    [Fact]
+    public void AGamesModMayCarryItsBridgeAsACompanion()
+    {
+        var c = PackContract.Parse(FakeSteam.ContractJson.Replace("\"lua\": {", "\"companion\": \"bin/Bridge.exe\", \"lua\": {"));
+        Assert.NotNull(c);
+        Assert.Equal("bin/Bridge.exe", c!.Companion);
+        Assert.Equal("", PackContract.Parse(FakeSteam.ContractJson)!.Companion);   // a mod without one is as before
+    }
+
+    [Theory]
+    [InlineData("../Bridge.exe")]
+    [InlineData("C:/Bridge.exe")]
+    public void ACompanionThatLeavesThePackIsRefused(string path) =>
+        Assert.Null(PackContract.Parse(FakeSteam.ContractJson.Replace("\"lua\": {", "\"companion\": \"" + path + "\", \"lua\": {")));
+
+    [Fact]
+    public void ContentHasNoCompanion() =>
+        Assert.Null(PackContract.Parse("{ \"schema\": 2, \"id\": \"saves\", \"version\": \"1.0.0\", \"kind\": \"content\", \"companion\": \"bin/x.exe\" }"));
 }

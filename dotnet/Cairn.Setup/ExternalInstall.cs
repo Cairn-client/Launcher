@@ -130,10 +130,10 @@ public static class ExternalInstall
         }
     }
 
-    /// <summary>The companion program of a downloaded external mod, as a path in the pack store; null when it has none or the file is not there.</summary>
+    /// <summary>The companion program (the mod's bridge) of a downloaded game mod of either kind, as a path in the pack store; null when it has none or the file is not there.</summary>
     public static string? CompanionPath(string packsRoot, string packId)
     {
-        if (ContractOf(packsRoot, packId) is not { Companion.Length: > 0 } c) return null;
+        if (PackStore.ReadContract(packsRoot, packId) is not { Companion.Length: > 0, Kind: not PackKinds.Content } c) return null;
         var path = PackContract.Resolve(PackStore.FilesDir(packsRoot, packId), c.Companion);
         return File.Exists(path) ? path : null;
     }
