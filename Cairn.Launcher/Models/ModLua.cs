@@ -39,6 +39,10 @@ namespace Cairn.Launcher.Models
         /// <summary>The word the start-game menu's choices carry in their event lines.</summary>
         public static string StartGameEvent => Name("startGameEvent", "w159");
 
+        /// <summary>The agent's one-shot helper for the start-game menu (worlds, start save staging): the flag it is run with and the tag of the line it prints.</summary>
+        public static string HelperFlag => Name("helperFlag", "--w159");
+        public static string HelperTag => Name("helperTag", "W159");
+
         public static string StartGameModel => Name("startGameModel", "KCD2MP_W159Model");
         public static string StartGameTick => Name("startGameTick", "KCD2MP_W159Tick");
         public static string StartGameRecapStart => Name("startGameRecapStart", "KCD2MP_W159RecapStart");

@@ -494,6 +494,13 @@ namespace Cairn.Launcher.Pages
             if (!await PreLaunchFilesOkAsync(GameRootOf(settings.GamePath), dllFullPath, agentPath, Path.ChangeExtension(agentPath, ".dll")))
                 return;
 
+            // DLSS 5 unticked but OptiScaler still in the game's folder: it comes out before the game starts
+            if (Dlss5LeftOver())
+            {
+                Log.Information("dlss5: OptiScaler is in the game's folder while DLSS 5 is off: taking it out before the launch");
+                await ApplyDlss5Async();
+            }
+
             // the first-run pages (read only), the host's start save staged, the player's worlds listed
             if (!await StartGameBeforeLaunchAsync(hostedRelayProcess != null && !hostedRelayProcess.HasExited))
                 return;

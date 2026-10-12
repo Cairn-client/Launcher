@@ -115,10 +115,22 @@ public class PackContractTests
     [InlineData("\"unknownKey\": \"Test_Fn\"")]                      // only the names the launcher knows
     [InlineData("\"eventPrefix\": \"has \\\"quote\"")]               // a prefix with a quote or backslash
     [InlineData("\"startGameEvent\": \"a b\"")]
+    [InlineData("\"helperFlag\": \"w159\"")]                          // a flag starts with two dashes
+    [InlineData("\"helperFlag\": \"--a b\"")]
+    [InlineData("\"helperTag\": \"W 159\"")]
     public void ALuaNameThatCouldBecomeCodeIsRefused(string entry)
     {
         var json = FakeSteam.ContractJson.Replace("\"lua\": {", "\"lua\": { " + entry + ",");
         Assert.Null(PackContract.Parse(json));
+    }
+
+    [Fact]
+    public void TheAgentsHelperFlagAndTagAreRead()
+    {
+        var json = FakeSteam.ContractJson.Replace("\"lua\": {", "\"lua\": { \"helperFlag\": \"--w159\", \"helperTag\": \"W159\",");
+        var c = PackContract.Parse(json);
+        Assert.Equal("--w159", c!.Lua!["helperFlag"]);
+        Assert.Equal("W159", c.Lua["helperTag"]);
     }
 
     [Fact]

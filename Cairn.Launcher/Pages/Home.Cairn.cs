@@ -21,7 +21,7 @@ namespace Cairn.Launcher.Pages
         // ---- start saves ------------------------------------------------------------------------------------------------
         // A joiner's new character (and a host's New adventure) begin from a start save placed in start-save\<playstyle>\ beside the
         // launcher. They are not shipped (they are somebody's play data), so a player makes one from his own Modding Tools game:
-        // the agent's own checker (CairnClient --start_game validate) reads the file, the playstyle it fits is found, and the file goes
+        // the agent's own checker (the agent's validate helper) reads the file, the playstyle it fits is found, and the file goes
         // where it is expected, replacing a save he put there before.
         private static string StartSaveRoot => Path.Combine(AppContext.BaseDirectory, "start-save");
 
@@ -58,14 +58,14 @@ namespace Cairn.Launcher.Pages
         private static async Task<JsonElement?> ValidateStartSaveAsync(string agent, string file, string style)
         {
             var psi = new ProcessStartInfo { FileName = agent, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, WorkingDirectory = Path.GetDirectoryName(agent) ?? "" };
-            foreach (var a in new[] { "--start_game", "validate", "--file", file, "--style", style }) psi.ArgumentList.Add(a);
+            foreach (var a in new[] { Cairn.Launcher.Models.ModLua.HelperFlag, "validate", "--file", file, "--style", style }) psi.ArgumentList.Add(a);
             using var p = Process.Start(psi);
             if (p is null) return null;
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
             string output = await p.StandardOutput.ReadToEndAsync(cts.Token);
             await p.WaitForExitAsync(cts.Token);
-            string? line = output.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.StartsWith("StartGame ", StringComparison.Ordinal));
-            return line is null ? null : JsonDocument.Parse(line[5..]).RootElement.Clone();
+            string? line = output.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.StartsWith(Cairn.Launcher.Models.ModLua.HelperTag + " ", StringComparison.Ordinal));
+            return line is null ? null : JsonDocument.Parse(line[(Cairn.Launcher.Models.ModLua.HelperTag.Length + 1)..]).RootElement.Clone();
         }
 
         private static bool CheckPassed(JsonElement result, string name) =>

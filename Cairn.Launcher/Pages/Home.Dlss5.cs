@@ -42,12 +42,22 @@ namespace Cairn.Launcher.Pages
         /// <summary>DLSS 5 is in this game's folder, put there by this launcher: the game's menu gets its row.</summary>
         private bool Dlss5Active => settings.Dlss5Enabled && Dlss5Service.IsInstalled(GameProfileRegistry.Kcd2Id);
 
+        /// <summary>DLSS 5 is ticked off, yet OptiScaler's files are in the game's folder.</summary>
+        private bool Dlss5LeftOver()
+        {
+            if (settings.Dlss5Enabled || string.IsNullOrWhiteSpace(settings.GamePath)) return false;
+            string? dir = Cairn.Setup.GameLocator.InstallRootOf(settings.GamePath) ?? Path.GetDirectoryName(settings.GamePath);
+            return dir is not null && Directory.Exists(dir) && Dlss5.FindOptiScalerIni(dir) is not null;
+        }
+
         /// <summary>After the game's settings were saved: make the game's folder match the tick.</summary>
         private async Task ApplyDlss5Async()
         {
             if (dlss5Busy) return;
             string id = GameProfileRegistry.Kcd2Id;
-            bool have = Dlss5Service.IsInstalled(id);
+            // OptiScaler can be in the game's folder with no record here (the record was lost, or the folder came from elsewhere): it counts as in,
+            // so an unticked DLSS 5 really takes it out, and the game does not start with OptiScaler's own overlay
+            bool have = Dlss5Service.IsInstalled(id) || Dlss5LeftOver();
             bool want = settings.Dlss5Enabled && Dlss5.Supported(Dlss5Gpu);
             if (want == have) { if (settings.Dlss5Enabled != want) { settings.Dlss5Enabled = want; WriteSettings("DLSS 5 needs an RTX card"); } return; }
 
