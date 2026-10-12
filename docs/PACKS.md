@@ -68,3 +68,24 @@ A game is "on this PC" when Steam has it installed or the player located it; a g
 1. Make the mod's repository (the pack build script is `tools/Build-Pack.ps1` in `Cairn-client/mod-kcd2`, a good model), with its `game/game.json`.
 2. List the game in `games.json` of the games catalog repository, with the mod's repository (`docs/CATALOG.md`). No launcher change.
 3. Release the mod; the launcher finds it.
+
+## External mods (`kind: "external"`)
+
+Most games' multiplayer mods are not driven by Cairn's own session programs: they live in the game's folder and bring their own way
+to host and join (their own menu, or a program of their own). For these the pack is **external**:
+
+```
+pack.json     { "schema": 2, "id": "noita", "version": "1.0.0", "kind": "external", "installDir": "mods/quant.ew", "companion": "bin/proxy.exe" }
+manifest.txt  MOD|<path>|<size>|<sha256> (placed in installDir) and BIN|<path>|... (kept in the pack store; the companion)
+```
+
+* `installDir` -- the folder inside the **game's own folder** that the MOD files go to: relative, forward slashes, at most four plain
+  segments, never `..` or a drive. The launcher writes a `.cairn-pack` marker there listing what it placed, so it only updates or
+  removes its own files. A folder of that name that Cairn did not make is left alone (the install says so).
+* `companion` (optional) -- one program of the pack (a path inside it, carried in the pack) that is started with the game.
+* No `agent`, `relay`, `native`, `installTo` or `lua`: those belong to Cairn's own session (`kind: "mod"`).
+
+On the game's page the mod row works as for any mod (download, update, remove, channels). Host a game and Join a game are replaced by
+**Play**, which starts the companion (if it is not running) and then the game; the mod hosts and joins by itself. The game's folder
+is the one Steam or **Locate game...** found. `hostSteps` / `joinSteps` in the game's `game.json` replace the three generic lines
+under "How it works".

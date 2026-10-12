@@ -130,6 +130,7 @@
             bool isCurrentGameRunning = gameRunning && (string.IsNullOrEmpty(launchedGameId) || launchedGameId == game.Id);
             bool gameFound = IsGameFound(game);
             bool needsMod = NeedsMod(game);   // a supported game is not playable until its mod is downloaded
+            bool externalMod = IsExternalMod(game);   // its mod runs the session itself: Play instead of Host and Join
             bool hostRunning = isCurrentGameRunning && launchedAs == "host";
             bool joinRunning = isCurrentGameRunning && launchedAs == "join";
             <div class="stage" style="@(game.Accent.Length > 0 ? $"--cairn-gold: {game.Accent};" : "")">
@@ -175,6 +176,15 @@
                     </div>
 
                     <div class="actions">
+                        @if (externalMod)
+                        {
+                            <button class="action primary" disabled="@(!game.IsSupported || needsMod || gameRunning)" @onclick="PlayExternalAsync">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+                                <span>@(gameRunning ? "Running" : "Play")</span>
+                            </button>
+                        }
+                        else
+                        {
                         @if (!(dlss5Busy && game.Id == GameProfileRegistry.Kcd2Id))
                         {
                             @if (hostRunning)
@@ -209,6 +219,7 @@
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
                             <span>@(joinRunning ? "Leave game" : "Join a game")</span>
                         </button>
+                        }
                         <button class="action ghost fav-btn @(IsFavorite(game.Id) ? "on" : "")" aria-pressed="@(IsFavorite(game.Id) ? "true" : "false")"
                                 title="@(IsFavorite(game.Id) ? "Remove from favourites" : "Add to favourites")" @onclick="() => ToggleFavoriteWithToast(game)">
                             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="@(IsFavorite(game.Id) ? "currentColor" : "none")"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
@@ -288,17 +299,19 @@
                         <div class="info-col info-steps">
                             <div class="info-title">How it works</div>
                             @{
-                                var hostSteps = game.HostSteps.Count > 0 ? game.HostSteps : GenericHostSteps;
-                                var joinSteps = game.JoinSteps.Count > 0 ? game.JoinSteps : GenericJoinSteps;
+                                IReadOnlyList<string> hostSteps = game.HostSteps.Count > 0 ? game.HostSteps : externalMod ? ExternalSteps : GenericHostSteps;
+                                IReadOnlyList<string> joinSteps = game.JoinSteps.Count > 0 ? game.JoinSteps : externalMod ? Array.Empty<string>() : GenericJoinSteps;
                             }
-                            <div class="steps-head">To host</div>
+                            <div class="steps-head">@(externalMod && joinSteps.Count == 0 ? "To play" : "To host")</div>
                             <ol class="steps">
                                 @for (int i = 0; i < hostSteps.Count; i++) { <li><span class="step-n">@(i + 1)</span><span>@hostSteps[i]</span></li> }
                             </ol>
+                            @if (joinSteps.Count > 0) {
                             <div class="steps-head">To join</div>
                             <ol class="steps">
                                 @for (int i = 0; i < joinSteps.Count; i++) { <li><span class="step-n">@(i + 1)</span><span>@joinSteps[i]</span></li> }
                             </ol>
+                            }
                         </div>                        <div class="info-col">
                             @{ var info = InfoOf(game); }
                             <div class="info-title">The game</div>

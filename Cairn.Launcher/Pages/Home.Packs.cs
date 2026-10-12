@@ -65,6 +65,7 @@ namespace Cairn.Launcher.Pages
         private bool IsModInstalled(GameProfile g)
         {
             if (!IsModDownloaded(g)) return false;
+            if (IsExternalMod(g)) return GameFolderOf(g) is { } folder && ExternalInstall.IsPlaced(folder, PacksRoot, g.Id);
             if (g.Id != ModInstall.PackId) return true;
             return !string.IsNullOrWhiteSpace(settings.GamePath) && File.Exists(settings.GamePath)
                    && GameLocator.InstallRootOf(settings.GamePath) is { } mt && ModInstall.IsPlaced(mt, PacksRoot);
@@ -73,7 +74,9 @@ namespace Cairn.Launcher.Pages
         /// <summary>Puts a downloaded mod into the game's Mods folder (the setup checklist does the same on its own once everything else is ready).</summary>
         private async Task InstallModAsync(string gameId)
         {
-            if (GameProfileRegistry.Get(gameId) is not { } game || gameId != ModInstall.PackId) return;
+            if (GameProfileRegistry.Get(gameId) is not { } game) return;
+            if (IsExternalMod(game)) { await InstallExternalModAsync(game); return; }
+            if (gameId != ModInstall.PackId) return;
             if (gameRunning) { SetPackMessage("Close the game first.", error: true); return; }
             if (string.IsNullOrWhiteSpace(settings.GamePath) || GameLocator.InstallRootOf(settings.GamePath) is not { } mt)
             {
@@ -95,7 +98,7 @@ namespace Cairn.Launcher.Pages
         // A newest mod version the catalog says not to offer: game id -> "version: why". The game's page says so instead of offering an update.
         private readonly Dictionary<string, string> blockedOffers = new(StringComparer.OrdinalIgnoreCase);
 
-        private static PackInfo? ModOf(PackIndex? index) => index?.Packs.FirstOrDefault(p => p.Kind == PackKinds.Mod);
+        private static PackInfo? ModOf(PackIndex? index) => index?.Packs.FirstOrDefault(p => PackKinds.IsGameMod(p.Kind));
 
         private async Task LoadPackIndexAsync()
         {
@@ -269,6 +272,12 @@ namespace Cairn.Launcher.Pages
                 int copied = await Task.Run(() => ContentInstall.CopyMissing(Path.Combine(PackStore.FilesDir(PacksRoot, item.Info.Id), PackStore.ModFolder), StartSaveRoot));
                 Log.Information("packs: {Pack} put {Count} file(s) into the start saves", gameId, copied);
             }
+            if (result.Ok && item.Info.Kind == PackKinds.External)
+            {
+                // an external mod goes into the game's own folder as soon as it is downloaded (the Install button stays as the fallback)
+                Downloads.MarkInstalling(item);
+                await InvokeAsync(() => InstallModAsync(gameId));
+            }
             if (result.Ok && isSetupMod)
             {
                 // downloading installs it too: placed in the game right away (the Install button stays as the fallback if that fails)
@@ -287,7 +296,16 @@ namespace Cairn.Launcher.Pages
                 return;
             }
             string? note = null;
-            if (gameId == ModInstall.PackId && !string.IsNullOrWhiteSpace(settings.GamePath) && File.Exists(settings.GamePath)
+            if (IsExternalMod(game))
+            {
+                if (GameFolderOf(game) is { } folder)
+                {
+                    var r = await Task.Run(() => ExternalInstall.Unplace(folder, PacksRoot, gameId));
+                    if (!r.Ok) { SetPackMessage($"Could not remove the mod from the game ({r.Message}).", error: true); return; }
+                    note = r.Message;
+                }
+            }
+            else if (gameId == ModInstall.PackId && !string.IsNullOrWhiteSpace(settings.GamePath) && File.Exists(settings.GamePath)
                 && GameLocator.InstallRootOf(settings.GamePath) is { } mt)
             {
                 var r = await Task.Run(() => ModInstall.Unplace(mt, PacksRoot));
