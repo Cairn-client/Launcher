@@ -211,13 +211,6 @@ Type: filesandordirs; Name: "{app}"
 #include "SteamDetect.iss"
 
 var
-  GamePage: TWizardPage;
-  GameStatusLabel: TNewStaticText;
-  GamePathLabel: TNewStaticText;
-  GameHelpLabel: TNewStaticText;
-  RecheckButton: TNewButton;
-  BrowseButton: TNewButton;
-
   DetectedGameExe: String;
   DetectedGameRoot: String;
   SteamFound: Boolean;
@@ -227,7 +220,6 @@ var
   PlaceMod: Boolean;
   DetectReason: String;
   DetectWorked: Boolean;
-  BrowsedExe: String;
 
   // post-install verification state. See VerifyInstalledFiles.
   // (Line comments, not brace ones: an Inno constant in braces inside a brace
@@ -715,51 +707,6 @@ end;
 
 { -------------------------------------------------------------- the gate }
 
-procedure UpdateGamePage();
-begin
-  { this page informs; it no longer gates. Whatever is missing, Setup
-    installs the launcher, and the launcher's checklist finishes the rest --
-    so a new player is never stopped here. }
-  if ShouldPlaceMod() then
-  begin
-    GameStatusLabel.Caption := 'Modding Tools found and set up.';
-    GamePathLabel.Caption := DetectedGameExe;
-    GameHelpLabel.Caption :=
-      'The mod will be installed into:' + #13#10 +
-      GetCairnTargetDir('') + #13#10#13#10 +
-      'If this is not the copy you want to use, click Browse and pick the' + #13#10 +
-      'KingdomCome.exe of your Modding Tools install.';
-  end
-  else
-  begin
-    if DetectedGameExe <> '' then
-    begin
-      GameStatusLabel.Caption := 'Modding Tools found, but not set up yet.';
-      GamePathLabel.Caption := DetectedGameExe;
-    end
-    else if not SteamFound then
-    begin
-      GameStatusLabel.Caption := 'Steam was not found on this PC.';
-      GamePathLabel.Caption := '(the launcher will walk you through it)';
-    end
-    else if ModdingToolsRegistered then
-    begin
-      GameStatusLabel.Caption := 'The Modding Tools are listed in Steam, but their files are missing.';
-      GamePathLabel.Caption := '(a download still running, or one that was cancelled)';
-    end
-    else
-    begin
-      GameStatusLabel.Caption := 'The KCD2 Modding Tools are not installed yet.';
-      GamePathLabel.Caption := '(the launcher will install them through Steam)';
-    end;
-    GameHelpLabel.Caption :=
-      DetectReason + #13#10#13#10 +
-      'You can continue now. When Setup finishes, open the launcher: it shows a' + #13#10 +
-      'checklist and does each step in the background, so you can keep using' + #13#10 +
-      'your PC while Steam downloads.';
-  end;
-end;
-
 procedure RefreshDetection();
 begin
   { /STEAMROOT=<dir> makes detection read a fixture tree instead of the real
@@ -770,7 +717,7 @@ begin
     entitlement, and the game then refuses to start with a licence error.
     Learned the expensive way. See docs\INSTALLER-TESTING.md. A path that
     does not exist reproduces "Steam is not installed". }
-  DetectWorked := RunDetect(ExpandConstant('{param:steamroot|}'), BrowsedExe);
+  DetectWorked := RunDetect(ExpandConstant('{param:steamroot|}'), '');
   SteamFound := DetectValue('steam_found') = '1';
   ModdingToolsRegistered := DetectValue('mt_registered') = '1';
   DetectedGameExe := DetectValue('mt_exe');
@@ -784,116 +731,25 @@ begin
     DetectReason := 'Setup could not check your Steam library. The launcher will check it again and finish setup.';
 end;
 
-procedure RecheckClick(Sender: TObject);
-begin
-  RefreshDetection();
-  UpdateGamePage();
-end;
-
-procedure BrowseClick(Sender: TObject);
-var
-  FileName, Root: String;
-begin
-  FileName := DetectedGameExe;
-  if not GetOpenFileName('Select the Modding Tools KingdomCome.exe', FileName, '',
-                         'KingdomCome.exe|KingdomCome.exe|All files|*.*', 'exe') then
-    Exit;
-
-  if not CheckModdingToolsExe(FileName, Root) then
-  begin
-    MsgBox('That is not the Modding Tools build.' + #13#10#13#10 +
-           'Framework.dll and CrySystem.dll are not next to that executable, which means it is the' + #13#10 +
-           'retail game -- the mod has nothing to hook into there.',
-           mbError, MB_OK);
-    RefreshDetection();
-    Exit;
-  end;
-
-  BrowsedExe := FileName;
-  RefreshDetection();
-  UpdateGamePage();
-end;
-
 { ------------------------------------------------------------ wizard flow }
 
 procedure InitializeWizard();
 begin
-  GamePage := CreateCustomPage(wpLicense, 'Kingdom Come: Deliverance II Modding Tools',
-                               'The mod runs on the Modding Tools build of the game.');
-
-  GameStatusLabel := TNewStaticText.Create(WizardForm);
-  GameStatusLabel.Parent := GamePage.Surface;
-  GameStatusLabel.Left := 0;
-  GameStatusLabel.Top := 0;
-  GameStatusLabel.Width := GamePage.SurfaceWidth;
-  GameStatusLabel.Font.Style := [fsBold];
-
-  GamePathLabel := TNewStaticText.Create(WizardForm);
-  GamePathLabel.Parent := GamePage.Surface;
-  GamePathLabel.Left := 0;
-  GamePathLabel.Top := ScaleY(18);
-  GamePathLabel.Width := GamePage.SurfaceWidth;
-  GamePathLabel.AutoSize := False;
-  GamePathLabel.Height := ScaleY(28);
-  GamePathLabel.WordWrap := True;
-
-  GameHelpLabel := TNewStaticText.Create(WizardForm);
-  GameHelpLabel.Parent := GamePage.Surface;
-  GameHelpLabel.Left := 0;
-  GameHelpLabel.Top := ScaleY(54);
-  GameHelpLabel.Width := GamePage.SurfaceWidth;
-  GameHelpLabel.AutoSize := False;
-  GameHelpLabel.Height := GamePage.SurfaceHeight - ScaleY(96);
-  GameHelpLabel.WordWrap := True;
-
-  RecheckButton := TNewButton.Create(WizardForm);
-  RecheckButton.Parent := GamePage.Surface;
-  RecheckButton.Left := 0;
-  RecheckButton.Top := GamePage.SurfaceHeight - ScaleY(26);
-  RecheckButton.Width := ScaleX(90);
-  RecheckButton.Height := ScaleY(24);
-  RecheckButton.Caption := 'Re-check';
-  RecheckButton.OnClick := @RecheckClick;
-
-  BrowseButton := TNewButton.Create(WizardForm);
-  BrowseButton.Parent := GamePage.Surface;
-  BrowseButton.Left := GamePage.SurfaceWidth - ScaleX(90);
-  BrowseButton.Top := RecheckButton.Top;
-  BrowseButton.Width := ScaleX(90);
-  BrowseButton.Height := ScaleY(24);
-  BrowseButton.Caption := 'Browse...';
-  BrowseButton.OnClick := @BrowseClick;
-
+  { no page about a game: Setup installs the launcher, and the launcher is where a game is chosen and its mod downloaded.
+    The detection still runs, quietly, to pre-seed the launcher's settings. }
   RefreshDetection();
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
-  if CurPageID = GamePage.ID then
-    UpdateGamePage()
-  else if CurPageID = wpFinished then
-  begin
-    if ShouldPlaceMod() then
-      WizardForm.FinishedLabel.Caption :=
-        'Cairn Client is installed and already knows where your game is.' + #13#10#13#10 +
-        'To play together, one of you clicks HOST GAME and shares the address the' + #13#10 +
-        'launcher shows; everyone else adds that address under Join. Same house is' + #13#10 +
-        'enough on its own -- for playing across the internet see docs/NETWORKING.md' + #13#10 +
-        'in the project repository.'
-    else
-      { the hand-off. The launcher's checklist installs what is missing
-        through Steam, links the workspace and places the mod; a Steam download
-        can take an hour, so none of it happens here. }
-      WizardForm.FinishedLabel.Caption :=
-        'Cairn Client is installed. One more thing before you can play:' + #13#10#13#10 +
-        'open the launcher (leave the box below ticked). It shows a short checklist' + #13#10 +
-        'and finishes setup for you -- the Modding Tools from Steam, linking the' + #13#10 +
-        'game''s files, and the mod itself -- step by step, in the background.' + #13#10#13#10 +
-        'You can keep using your PC meanwhile, and close the launcher at any time:' + #13#10 +
-        'it carries on where it stopped the next time you open it.';
-  end;
+  if CurPageID = wpFinished then
+    WizardForm.FinishedLabel.Caption :=
+      'Cairn Client is installed.' + #13#10#13#10 +
+      'Open the launcher (leave the box below ticked), pick a game and it downloads' + #13#10 +
+      'that game''s mod and does whatever else the game needs, step by step, in the' + #13#10 +
+      'background. You can keep using your PC meanwhile, and close the launcher at' + #13#10 +
+      'any time: it carries on where it stopped the next time you open it.';
 end;
-
 { Kills this project's own processes (never the game). Shared by the silent
   install gate below and by silent uninstall -- unattended means unattended,
   and the launcher only writes settings.json when the user presses Save, so
