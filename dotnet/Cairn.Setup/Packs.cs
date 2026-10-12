@@ -8,7 +8,22 @@ using System.Text.Json;
 namespace Cairn.Setup;
 
 /// <summary>One downloadable mod pack, as listed in the mod repository's latest release (<c>pack-index.json</c>).</summary>
-public sealed record PackInfo(string Id, string Game, string Version, string File, string Sha256, long Size, string LauncherMin = "", string Upstream = "");
+public sealed record PackInfo(string Id, string Game, string Version, string File, string Sha256, long Size, string LauncherMin = "", string Upstream = "",
+    IReadOnlyList<PackDependency>? DependsOn = null, string Kind = PackKinds.Mod)
+{
+    public IReadOnlyList<PackDependency> Dependencies => DependsOn ?? Array.Empty<PackDependency>();
+}
+
+/// <summary>Another pack this one needs, at this version or newer (<c>dependsOn</c> in the catalog and in the contract).</summary>
+public sealed record PackDependency(string Id, string Min);
+
+/// <summary>What a pack is: a game's mod (it has programs and a mod folder), or content (files that a game or its mod uses, kept in the pack store).</summary>
+public static class PackKinds
+{
+    public const string Mod = "mod";
+    public const string Content = "content";
+    public static bool IsKnown(string kind) => kind is Mod or Content;
+}
 
 /// <summary>
 /// What the launcher needs to know to drive a mod's programs (the pack's <c>pack.json</c>). The mod repository decides these names;
@@ -17,9 +32,14 @@ public sealed record PackInfo(string Id, string Game, string Version, string Fil
 public sealed record PackContract(
     string Id, string Version, string Upstream, string ModFolder, string LuaPrefix,
     string Agent, string Relay, string Native, string BrandPak, string AgentConfig, string LauncherMin,
-    IReadOnlyList<string> ReplacesFolders, IReadOnlyDictionary<string, string>? Lua = null)
+    IReadOnlyList<string> ReplacesFolders, IReadOnlyDictionary<string, string>? Lua = null,
+    string Kind = PackKinds.Mod, IReadOnlyList<PackDependency>? DependsOn = null, int MenuProtocol = 1, string InstallTo = "")
 {
     public const string FileName = "pack.json";
+    /// <summary>The version of the mod-menu messages (the launcher draws the menu; the mod sends its items) this launcher speaks; a pack that needs a newer one is refused.</summary>
+    public const int SupportedMenuProtocol = 1;
+    /// <summary>Where a content pack's files go: the only place the launcher knows to put them, never a path the pack names.</summary>
+    public const string StartSaveTarget = "start-save";
     public const int CurrentSchema = 2;
 
     /// <summary>Reads a contract; null when it is not one this launcher understands (bad JSON, another schema, an unsafe path).</summary>
@@ -43,18 +63,42 @@ public sealed record PackContract(
                     if (!LuaKeys.Contains(p.Name) || !(p.Name == "eventPrefix" ? IsEventPrefix(v) : p.Name == "startGameEvent" ? IsWord(v) : IsLuaName(v))) { luaOk = false; break; }
                     lua[p.Name] = v;
                 }
+            string kind = S("kind", PackKinds.Mod);
+            var deps = ParseDependencies(r);
+            int menuProtocol = r.TryGetProperty("menuProtocol", out var mp) && mp.ValueKind == JsonValueKind.Number && mp.TryGetInt32(out var mpv) ? mpv : 1;
             var c = new PackContract(S("id"), S("version"), S("upstream"), S("modFolder"), S("luaPrefix"),
-                S("agent"), S("relay"), S("native"), S("brandPak"), S("agentConfig"), S("launcherMin"), replaces, lua);
-            bool ok = IsPlainName(c.Id) && c.Version.Length > 0 && IsPlainName(c.ModFolder) && c.LuaPrefix.Length is > 0 and <= 40
-                      && IsPackPath(c.Agent) && IsPackPath(c.Relay) && IsPackPath(c.Native)
-                      && (c.BrandPak.Length == 0 || IsPackPath(c.BrandPak)) && (c.AgentConfig.Length == 0 || IsFileName(c.AgentConfig))
-                      && replaces.All(IsPlainName) && luaOk;
+                S("agent"), S("relay"), S("native"), S("brandPak"), S("agentConfig"), S("launcherMin"), replaces, lua,
+                kind, deps, menuProtocol, S("installTo"));
+            bool common = IsPlainName(c.Id) && c.Version.Length > 0 && PackKinds.IsKnown(kind) && deps is not null && menuProtocol >= 1
+                          && (c.InstallTo.Length == 0 || c.InstallTo == StartSaveTarget) && replaces.All(IsPlainName) && luaOk;
+            // a game's mod names its programs and its mod folder; content is only files
+            bool ok = common && (kind == PackKinds.Content
+                ? (c.Agent.Length == 0 && c.Relay.Length == 0 && c.Native.Length == 0)
+                : IsPlainName(c.ModFolder) && c.LuaPrefix.Length is > 0 and <= 40
+                  && IsPackPath(c.Agent) && IsPackPath(c.Relay) && IsPackPath(c.Native)
+                  && (c.BrandPak.Length == 0 || IsPackPath(c.BrandPak)) && (c.AgentConfig.Length == 0 || IsFileName(c.AgentConfig)));
             return ok ? c : null;
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or FormatException)
         {
             return null;
         }
+    }
+
+    /// <summary>The <c>dependsOn</c> list of a contract or catalog entry (null when it is malformed).</summary>
+    internal static IReadOnlyList<PackDependency>? ParseDependencies(JsonElement parent)
+    {
+        var deps = new List<PackDependency>();
+        if (!parent.TryGetProperty("dependsOn", out var d)) return deps;
+        if (d.ValueKind != JsonValueKind.Array || d.GetArrayLength() > 8) return null;
+        foreach (var e in d.EnumerateArray())
+        {
+            string id = e.ValueKind == JsonValueKind.Object && e.TryGetProperty("id", out var i) && i.ValueKind == JsonValueKind.String ? i.GetString() ?? "" : "";
+            string min = e.ValueKind == JsonValueKind.Object && e.TryGetProperty("min", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString() ?? "" : "";
+            if (!IsPlainName(id) || !CatalogLimits.IsVersion(min)) return null;
+            deps.Add(new PackDependency(id, min));
+        }
+        return deps;
     }
 
     /// <summary>
@@ -91,7 +135,7 @@ public sealed record PackIndex(int Schema, IReadOnlyList<PackInfo> Packs)
     public const string FileName = "pack-index.json";
 
     public PackInfo? ForGame(string gameId) =>
-        Packs.FirstOrDefault(p => string.Equals(p.Game, gameId, StringComparison.OrdinalIgnoreCase));
+        Packs.FirstOrDefault(p => p.Kind == PackKinds.Mod && string.Equals(p.Game, gameId, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Reads a catalog; null when it is not one this launcher understands (bad JSON, another schema, a malformed entry).</summary>
     public static PackIndex? Parse(string json)
@@ -109,9 +153,9 @@ public sealed record PackIndex(int Schema, IReadOnlyList<PackInfo> Packs)
                 p.GetProperty("file").GetString() ?? "",
                 (p.GetProperty("sha256").GetString() ?? "").ToLowerInvariant(),
                 p.GetProperty("size").GetInt64(),
-                Opt("launcherMin"), Opt("upstream"));
+                Opt("launcherMin"), Opt("upstream"), PackContract.ParseDependencies(p), Opt("kind").Length == 0 ? PackKinds.Mod : Opt("kind"));
             if (!IsSafeName(info.Id) || !IsSafeName(info.Game) || !IsPlainVersion(info.Version) || !IsSafeFile(info.File)
-                || info.Sha256.Length != 64 || info.Size <= 0) return null;
+                || info.Sha256.Length != 64 || info.Size <= 0 || info.DependsOn is null || !PackKinds.IsKnown(info.Kind)) return null;
             return new PackIndex(CurrentSchema, new[] { info });
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or FormatException)
@@ -284,8 +328,10 @@ public static class PackInstaller
         if (contractText is null) return new PackResult(false, "the pack has no contract (pack.json)");
         var contract = PackContract.Parse(contractText);
         if (contract is null) return new PackResult(false, "the pack's contract is not one this launcher understands");
-        if (!string.Equals(contract.Id, pack.Id, StringComparison.OrdinalIgnoreCase) || contract.Version != pack.Version)
+        if (!string.Equals(contract.Id, pack.Id, StringComparison.OrdinalIgnoreCase) || contract.Version != pack.Version || contract.Kind != pack.Kind)
             return new PackResult(false, "the pack's contract does not match its catalog entry");
+        if (contract.MenuProtocol > PackContract.SupportedMenuProtocol)
+            return new PackResult(false, "the mod's menu needs a newer launcher");
 
         var manifestPath = Path.Combine(work, PackStore.ManifestName);
         File.WriteAllText(manifestPath, $"# pack|{pack.Id}|{pack.Version}\n" + manifestText);
@@ -311,9 +357,10 @@ public static class PackInstaller
             if (!listed.Contains(Path.GetRelativePath(files, f))) return new PackResult(false, $"{Path.GetRelativePath(files, f)} is not listed in the pack manifest");
 
         // the contract may only name programs the pack carries
-        foreach (var program in new[] { contract.Agent, contract.Relay, contract.Native })
-            if (!listed.Contains(program.Replace('/', Path.DirectorySeparatorChar)))
-                return new PackResult(false, $"the contract names {program}, which the pack does not carry");
+        if (contract.Kind == PackKinds.Mod)
+            foreach (var program in new[] { contract.Agent, contract.Relay, contract.Native })
+                if (!listed.Contains(program.Replace('/', Path.DirectorySeparatorChar)))
+                    return new PackResult(false, $"the contract names {program}, which the pack does not carry");
         return new PackResult(true, "");
     }
 
