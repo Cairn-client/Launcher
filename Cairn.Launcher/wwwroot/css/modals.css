@@ -189,6 +189,7 @@ input[type="password"]::-ms-clear,
 
 /* the game's saves in its settings window: a name and what it is, when it was made, and Delete in one column */
 .save-list { display: grid; margin-top: 8px; }
+.save-scroll { max-height: 52vh; overflow-y: auto; padding-right: 6px; }
 .save-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 14px; padding: 9px 2px; border-bottom: 1px solid var(--cairn-hairline); }
 .save-row:last-child { border-bottom: 0; }
 .save-main { display: grid; gap: 2px; min-width: 0; }
