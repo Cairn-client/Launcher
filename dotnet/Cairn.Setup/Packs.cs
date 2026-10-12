@@ -60,7 +60,7 @@ public sealed record PackContract(
                 foreach (var p in lj.EnumerateObject())
                 {
                     string v = p.Value.ValueKind == JsonValueKind.String ? p.Value.GetString() ?? "" : "";
-                    if (!LuaKeys.Contains(p.Name) || !(p.Name == "eventPrefix" ? IsEventPrefix(v) : p.Name == "startGameEvent" ? IsWord(v) : IsLuaName(v))) { luaOk = false; break; }
+                    if (!LuaKeys.Contains(p.Name) || !(p.Name == "eventPrefix" ? IsEventPrefix(v) : p.Name is "startGameEvent" or "helperTag" ? IsWord(v) : p.Name == "helperFlag" ? IsFlag(v) : IsLuaName(v))) { luaOk = false; break; }
                     lua[p.Name] = v;
                 }
             string kind = S("kind", PackKinds.Mod);
@@ -103,14 +103,15 @@ public sealed record PackContract(
 
     /// <summary>
     /// The names the launcher uses to talk to the mod through the game's console and its log (the pack's <c>lua</c> object): the log line
-    /// prefix the mod's events carry, the word its start-game events use, and the mod's script functions the launcher calls.
+    /// prefix the mod's events carry, the word its start-game events use, the agent's one-shot helper (its command line flag and the tag of the line it answers with), and the mod's script functions the launcher calls.
     /// </summary>
     public static readonly IReadOnlySet<string> LuaKeys = new HashSet<string>(StringComparer.Ordinal)
     {
-        "eventPrefix", "startGameEvent", "startGameModel", "startGameTick", "startGameRecapStart", "startGameDisarm", "joinFlowLoad", "menuRequest",
+        "eventPrefix", "startGameEvent", "startGameModel", "startGameTick", "startGameRecapStart", "startGameDisarm", "joinFlowLoad", "menuRequest", "helperFlag", "helperTag",
     };
 
     private static bool IsLuaName(string s) => s.Length is > 0 and <= 60 && (char.IsAsciiLetter(s[0]) || s[0] == '_') && s.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
+    private static bool IsFlag(string s) => s.Length is > 2 and <= 24 && s.StartsWith("--", StringComparison.Ordinal) && s.Skip(2).All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
     private static bool IsWord(string s) => s.Length is > 0 and <= 20 && s.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
     private static bool IsEventPrefix(string s) => s.Length is >= 3 and <= 40 && s.All(c => c >= ' ' && c <= '~' && c != '"' && c != '\\');
 

@@ -86,11 +86,11 @@ namespace Cairn.Launcher.Pages
                 && Directory.GetFiles(Path.Combine(startGameStartRoot, st), "*.whs").Length == 1).ToList();
             Log.Information("MP-StartGame start saves installed: {Styles}", startGameStyles.Count == 0 ? "none" : string.Join(", ", startGameStyles));
             // a start save an earlier run staged and never played (the launcher closed with its game still open)
-            if (await AgentHelper.RunAsync<StartGameUnstageData>(agent, "--start_game unstage", "StartGame", TimeSpan.FromSeconds(20)) is { } u && u.Lines.Count > 0)
+            if (await AgentHelper.RunAsync<StartGameUnstageData>(agent, $"{ModLua.HelperFlag} unstage", ModLua.HelperTag, TimeSpan.FromSeconds(20)) is { } u && u.Lines.Count > 0)
                 Log.Information("MP-StartGame earlier start saves: {Lines}", string.Join("; ", u.Lines));
             if (hosting)
             {
-                var st = await AgentHelper.RunAsync<StartGameStageData>(agent, $"--start_game stage --source \"{startGameStartRoot}\"", "StartGame", TimeSpan.FromSeconds(30));
+                var st = await AgentHelper.RunAsync<StartGameStageData>(agent, $"{ModLua.HelperFlag} stage --source \"{startGameStartRoot}\"", ModLua.HelperTag, TimeSpan.FromSeconds(30));
                 if (st is { Ok: true }) Log.Information("MP-StartGame start save staged: playline{Pl}/{Name} (new world {Tag})", st.Pl, st.Name, st.SeedTag);
                 else
                 {
@@ -99,7 +99,7 @@ namespace Cairn.Launcher.Pages
                 }
             }
             StartGamePlaceLogo();
-            startGameSaves = await AgentHelper.RunAsync<StartGameSavesData>(agent, "--start_game saves", "StartGame", TimeSpan.FromSeconds(60));
+            startGameSaves = await AgentHelper.RunAsync<StartGameSavesData>(agent, $"{ModLua.HelperFlag} saves", ModLua.HelperTag, TimeSpan.FromSeconds(60));
             Log.Information("MP-StartGame worlds: {N} usable, staged={Staged}, hidden=\"{Hidden}\"", startGameSaves?.Usable.Count ?? -1,
                 startGameSaves?.Staged is { } s ? $"playline{s.Pl}/{s.Name}" : "none", startGameSaves?.Hidden ?? "");
             return true;
@@ -194,7 +194,7 @@ namespace Cairn.Launcher.Pages
                             {
                                 // the chosen playstyle's start save into the staged slot, then the load
                                 var sw = await AgentHelper.RunAsync<StartGameStageData>(AgentExe(),
-                                    $"--start_game swap --path \"{st.Path}\" --source \"{startGameStartRoot}\" --style {c.Style}", "StartGame", TimeSpan.FromSeconds(30));
+                                    $"{ModLua.HelperFlag} swap --path \"{st.Path}\" --source \"{startGameStartRoot}\" --style {c.Style}", ModLua.HelperTag, TimeSpan.FromSeconds(30));
                                 if (sw is not { Ok: true })
                                 {
                                     Log.Warning("MP-StartGame the {Style} start save could not be put in place: {Why}", c.Style, sw?.Why ?? "the helper did not answer");
@@ -282,7 +282,7 @@ namespace Cairn.Launcher.Pages
             Log.Information("MP-StartGame the game exited");
             await StartGameRemoveLogoAsync();
             string agent = AgentExe();
-            if (await AgentHelper.RunAsync<StartGameUnstageData>(agent, "--start_game unstage", "StartGame", TimeSpan.FromSeconds(20)) is { } u && u.Lines.Count > 0)
+            if (await AgentHelper.RunAsync<StartGameUnstageData>(agent, $"{ModLua.HelperFlag} unstage", ModLua.HelperTag, TimeSpan.FromSeconds(20)) is { } u && u.Lines.Count > 0)
                 Log.Information("MP-StartGame start saves after the game: {Lines}", string.Join("; ", u.Lines));
         }
 
@@ -338,7 +338,7 @@ namespace Cairn.Launcher.Pages
             {
                 // a normal save from now on: never taken back, even before its first save
                 string agent = AgentExe();
-                await AgentHelper.RunAsync<StartGameStageData>(agent, $"--start_game used --path \"{st.Path}\"", "StartGame", TimeSpan.FromSeconds(20));
+                await AgentHelper.RunAsync<StartGameStageData>(agent, $"{ModLua.HelperFlag} used --path \"{st.Path}\"", ModLua.HelperTag, TimeSpan.FromSeconds(20));
             }
             return ok;
         }
