@@ -225,24 +225,6 @@
                         </div>
                     }
 
-                    @* DLSS 5 through DLSS 5 Autopilot (MIT): put in the game's folder when this is saved, taken out when it is cleared.
-                       Until the game's pack offers it as an option of its own (below), this is the launcher's own. *@
-                    @if (game.Options.Count == 0)
-                    {
-                    <div class="settings-section">Graphics</div>
-                    <div class="cairn-input-group">
-                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: @(Dlss5Gpu == GpuClass.None || Dlss5Busy || GameRunning ? "not-allowed" : "pointer");">
-                            <input type="checkbox" @bind="Settings.Dlss5Enabled" disabled="@(Dlss5Gpu == GpuClass.None || Dlss5Busy || GameRunning)" />
-                            DLSS 5 (neural rendering)
-                        </label>
-                        @if (GameRunning)
-                        {
-                            <div class="cairn-hint" style="color: var(--cairn-warn);">Close the game first: DLSS 5 (OptiScaler) can only be installed or uninstalled while the game is not running.</div>
-                        }
-                        <div class="cairn-hint">@Dlss5GpuText</div>
-                        <div class="cairn-hint">When you save, Cairn downloads DLSS 5 Autopilot (once, checked against its published checksum) and it puts DLSS 5 into the game's folder through OptiScaler; clearing the tick takes it all out again. While it is in, the game's menu has a row that opens its overlay.</div>
-                    </div>
-                    }
                 }
                 else
                 {
@@ -331,9 +313,6 @@
     private bool confirmDeleteSaves;
     private async Task DeleteSavesAsync() { confirmDeleteSaves = false; await OnDeleteSaves.InvokeAsync(); }
     [Parameter] public EventCallback OnOpenStartSave { get; set; }
-    [Parameter] public GpuClass Dlss5Gpu { get; set; } = GpuClass.None;
-    [Parameter] public string Dlss5GpuText { get; set; } = "";
-    [Parameter] public bool Dlss5Busy { get; set; }
     /// <summary>What the pack's program said about each of the game's options on this PC (id to status); empty until it has answered.</summary>
     [Parameter] public IReadOnlyDictionary<string, Cairn.Setup.OptionStatus> OptionStatuses { get; set; } = new Dictionary<string, Cairn.Setup.OptionStatus>();
     /// <summary>The game's saves (its bridge while it runs, its program otherwise) and what the window is doing with them.</summary>

@@ -41,7 +41,7 @@ public sealed class PackSession : IDisposable
     public event Action<SessionView>? State;
     public event Action<SessionProblem>? Problem;
     public event Action<string>? Error;
-    public event Action<string, string>? Message;     // title, text
+    public event Action<string, string, string>? Message;     // title, text, next
     public event Action<SessionGame>? Game;
     public event Action? GameExit;
     public event Action<string, string>? Refused;      // text, key
@@ -120,7 +120,7 @@ public sealed class PackSession : IDisposable
                 case "problem": Problem?.Invoke(new SessionProblem(Str(r, "title", 80), Str(r, "text", 1200), Str(r, "next", 1500), Bool(r, "reportBug"), Bool(r, "launchAnyway"), false)); Log?.Invoke("session: " + Str(r, "log", 300)); break;
                 case "message":
                     if (Bool(r, "addressFallback")) Problem?.Invoke(new SessionProblem(Str(r, "title", 80), Str(r, "text", 1200), Str(r, "next", 1500), false, false, true));
-                    else Message?.Invoke(Str(r, "title", 80), Str(r, "text", 1200));
+                    else Message?.Invoke(Str(r, "title", 80), Str(r, "text", 1200), Str(r, "next", 1500));
                     break;
                 case "error": if (Str(r, "text", 800) is { Length: > 0 } et) Error?.Invoke(et); break;
                 case "toast": if (Str(r, "text", 200) is { Length: > 0 } tt) Toast?.Invoke(tt); break;
@@ -149,6 +149,47 @@ public sealed class PackSession : IDisposable
         catch (JsonException) { }
     }
 
+
+    /// <summary>Runs one of the pack program's one-shot verbs and feeds its output lines to a reader the caller wired (the same lines a session sends). False when it did not start or timed out.</summary>
+    public static async Task<bool> RunOnceAsync(string program, IReadOnlyList<string> args, Action<PackSession> wire, TimeSpan? timeout = null, CancellationToken ct = default)
+    {
+        if (!File.Exists(program)) return false;
+        var psi = new ProcessStartInfo(program) { WorkingDirectory = Path.GetDirectoryName(program)!, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, StandardOutputEncoding = Encoding.UTF8 };
+        foreach (var a in args) psi.ArgumentList.Add(a);
+        Process? p;
+        try { p = Process.Start(psi); } catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or IOException) { return false; }
+        if (p is null) return false;
+        using (p)
+        {
+            var reader = new PackSession(null);
+            wire(reader);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(timeout ?? TimeSpan.FromSeconds(90));
+            try
+            {
+                string? line;
+                while ((line = await p.StandardOutput.ReadLineAsync(cts.Token).ConfigureAwait(false)) is not null)
+                    if (line.Length is > 0 and <= MaxLine) reader.Handle(line);
+                await p.WaitForExitAsync(cts.Token).ConfigureAwait(false);
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                try { if (!p.HasExited) p.Kill(); } catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception) { }
+                return false;
+            }
+        }
+    }
+
+    /// <summary>Which Steam friends are hosting, asked once with no session running: the pack's program run as <c>friends --steam-app N</c>. Null when it did not answer.</summary>
+    public static async Task<SessionFriends?> FriendsOnceAsync(string program, uint steamAppId, string gameExe, CancellationToken ct = default)
+    {
+        var args = new List<string> { "friends", "--steam-app", steamAppId.ToString() };
+        if (!string.IsNullOrWhiteSpace(gameExe) && gameExe.Length <= 260 && !gameExe.Any(char.IsControl)) { args.Add("--game-exe"); args.Add(gameExe); }
+        SessionFriends? got = null;
+        await RunOnceAsync(program, args, s => s.Friends += f => got = f, TimeSpan.FromSeconds(40), ct).ConfigureAwait(false);
+        return got;
+    }
     // ---- commands ----
 
     private void Send(object message)

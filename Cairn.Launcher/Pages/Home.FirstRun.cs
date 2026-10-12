@@ -1,9 +1,8 @@
-// Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
-// GPLv3 section 7 additional terms: AUTHORS.md. This project's own code only; Kingdom Come: Deliverance II and its
-// content belong to Warhorse Studios and PLAION. Unofficial, free, not affiliated with or endorsed by them.
+// Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+// GPLv3 section 7 additional terms: AUTHORS.md. Unofficial, free, not affiliated with or endorsed by the studios or publishers
+// of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md).
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -16,102 +15,54 @@ using Serilog;
 namespace Cairn.Launcher.Pages
 {
     /// <summary>
-    /// painless first-run setup. The checks run quietly in the background
-    /// as the launcher opens (manifests, link identities, file sizes: well under a
-    /// second) and, when everything is in place, nothing visible happens at all.
-    /// The checklist appears only when a check fails, and then the launcher works
-    /// through the failing steps by itself: Steam's own install windows, the
-    /// workspace links (Warhorse's tool through a pipe, else the launcher's own
-    /// links, one UAC prompt only if Windows insists), the held-back mod.
+    /// The setup checklist window ("Before you play", "Check setup"): what it shows and when it opens. The steps themselves are the game's pack's
+    /// (Home.PackSetup.cs: the pack's program lists them and does them). The one step the launcher has of its own is the mod: a game's pack is
+    /// downloaded before it can say anything, and a pack too old to run its setup is replaced by downloading the newest.
     ///
-    /// Never a keystroke, never a focus change, never a console window: the only
-    /// windows that can appear are Steam's install dialog and Windows' UAC prompt.
-    /// Every step's outcome goes to the launcher log, redacted (Cairn.Setup.Redact),
-    /// so a Report-a-bug zip shows where a setup stopped.
+    /// Nothing is shown at start. The checklist opens when the player presses Host or Join and something is missing (checked again every time),
+    /// or from Settings > Check setup; while it is open it is read again every two seconds.
     /// </summary>
     public partial class Home
     {
         private bool showSetup;
-        private IReadOnlyList<StepView> setupSteps = Array.Empty<StepView>();
-        private SetupActivity setupActivity = SetupActivity.Idle;
-        private SetupSnapshot? setupSnapshot;
         private bool setupReady;
         private bool setupBusy;
+        private bool setupChecked;   // the first look at the PC has been taken
+        private bool setupSystemOnly;
+        private bool setupOptionalShown;
         private Task? setupFirstCheck;
         private CancellationTokenSource? setupPollCts;
         private readonly List<string> setupLines = new();
-        private readonly Dictionary<StepId, string> setupLogged = new();
-        private bool setupOpenedGameInstall, setupOpenedMtInstall, setupStartedSteam;
-        private DateTime setupSteamStartedAt;
+
+        // the mod's own download, shown as a step while there is no (usable) pack to ask
+        private bool setupPackDownloading;
+        private double? setupPackProgress;
+        private string? setupPackFailure;
 
         private const int SetupLineCount = 6;
         private static readonly TimeSpan SetupPollPeriod = TimeSpan.FromSeconds(2);
+        private const string DownloadPackAction = "download-pack";
 
-        /// <summary>From OnInitializedAsync: starts the background check without delaying the launcher's normal screen.</summary>
+        /// <summary>From OnInitializedAsync: starts the first look without delaying the launcher's normal screen.</summary>
         private void StartSetupCheck()
         {
             setupFirstCheck = Task.Run(async () =>
             {
-                var sw = Stopwatch.StartNew();
-                var snap = TakeSetupSnapshot();
+                var sw = System.Diagnostics.Stopwatch.StartNew();
                 await InvokeAsync(async () =>
                 {
-                    ApplySetupSnapshot(snap);
-                    if (await RefreshPackSetupAsync())
+                    await RefreshPackSetupAsync();
+                    // the regular game's facial data is linked by itself at start (hard links: no prompt, no copy)
+                    if (packSetup is not null)
                     {
-                        // the pack does the setup: the facial data is still linked by itself at start (hard links: no prompt, no copy), the rest waits for Host or Join
                         await RunPackAutoActionsAsync(onlyFacials: true);
-                        snap = TakeSetupSnapshot();
-                        ApplySetupSnapshot(snap);
                         await RefreshPackSetupAsync();
                     }
-                    // Cairn: NPC lip sync: the regular game's facial data is linked by itself at start (hard links: no prompt, no copy).
-                    else if (setupSteps.FirstOrDefault(x => x.Id == StepId.Facials) is { Status: StepStatus.NeedsYou, Action: StepAction.LinkFacials })
-                    {
-                        await LinkFacialsAsync(snap);
-                        snap = TakeSetupSnapshot();
-                        ApplySetupSnapshot(snap);
-                    }
-                    Log.Information("setup: checked in {Ms} ms: {State}", sw.ElapsedMilliseconds,
-                        setupReady ? "ready, nothing to do" : "not ready, showing the checklist");
-                    if (snap.Mod?.Warnings.Any() == true)   // warned, never blocking (ModReport.Ok)
-                        Log.Warning("setup: installed files differ from what Setup shipped: {Files}", string.Join(", ", snap.Mod.Warnings.Take(8)));
-                    AdoptDetectedGamePath(snap);
-                    // Cairn: nothing is shown at start. The checklist opens when the player presses Host or Join and
-                    // something is missing (EnsureSetupReadyAsync checks again every time), or from Settings > Check setup.
+                    setupChecked = true;
+                    Log.Information("setup: checked in {Ms} ms: {State}", sw.ElapsedMilliseconds, setupReady ? "ready, nothing to do" : "not ready");
                     StateHasChanged();
                 });
             });
-        }
-
-        private SetupSnapshot TakeSetupSnapshot() => SetupProbe.Take(RealSetupHost.Instance, new SetupProbeOptions
-        {
-            ExplicitModdingToolsExe = settings.GamePath,
-            AppDir = AppContext.BaseDirectory,
-            OwnsModFolder = OwnsModFolder,
-        });
-
-        private void ApplySetupSnapshot(SetupSnapshot snap)
-        {
-            setupSnapshot = snap;
-            setupSteps = SetupChecklist.Evaluate(snap, setupActivity);
-            bool wasReady = setupReady;
-            setupReady = SetupChecklist.IsReady(setupSteps);
-            if (PackSetupProgram() is null) LogStepChanges();
-            if (setupReady && !wasReady && setupLogged.Count > 0)
-                Log.Information("setup: Ready! Host and Join unlocked");
-        }
-
-        /// <summary>Each step once per change of state (progress in 10% steps), so the log reads as a timeline.</summary>
-        private void LogStepChanges()
-        {
-            foreach (var s in setupSteps)
-            {
-                string key = $"{s.Status}|{s.Action}|{(s.Progress is double p ? ((int)(p * 10)).ToString() : "")}";
-                if (setupLogged.TryGetValue(s.Id, out var last) && last == key) continue;
-                setupLogged[s.Id] = key;
-                Log.Information("setup: step {Step} {Title}: {Status} -- {Detail}", (int)s.Id, s.Title, s.Status, Redact.Text(s.Detail));
-            }
         }
 
         private void StartSetupPoll()
@@ -126,13 +77,9 @@ namespace Cairn.Launcher.Pages
                     {
                         if (!setupBusy)
                         {
-                            var snap = TakeSetupSnapshot();
                             await InvokeAsync(async () =>
                             {
-                                ApplySetupSnapshot(snap);
-                                AdoptDetectedGamePath(snap);
                                 if (await RefreshPackSetupAsync()) await RunPackAutoActionsAsync();
-                                else await RunSetupAutoActionsAsync();
                                 StateHasChanged();
                             });
                             // Ready and the checklist closed: nothing left to watch.
@@ -145,84 +92,17 @@ namespace Cairn.Launcher.Pages
             });
         }
 
-        /// <summary>
-        /// The steps the launcher starts by itself. Each Steam install window is
-        /// opened once per launcher session (the step's button opens it again);
-        /// linking and placing the mod start whenever the checklist says they can.
-        /// </summary>
-        private async Task RunSetupAutoActionsAsync()
-        {
-            var snap = setupSnapshot;
-            if (snap is null || setupBusy) return;
-            StepView S(StepId id) => setupSteps.First(x => x.Id == id);
-
-            if (setupActivity.StartingSteam && (snap.SteamRunning || DateTime.UtcNow - setupSteamStartedAt > TimeSpan.FromSeconds(90)))
-                SetActivity(setupActivity with { StartingSteam = false });
-
-            if (S(StepId.Steam) is { Status: StepStatus.NeedsYou, Action: StepAction.StartSteam } && !setupStartedSteam)
-            {
-                setupStartedSteam = true;
-                StartSteamQuietly(snap);
-                return;
-            }
-            if (!snap.SteamRunning) return;
-
-            if (S(StepId.Game) is { Status: StepStatus.NeedsYou, Action: StepAction.InstallGame } && !setupOpenedGameInstall)
-            {
-                setupOpenedGameInstall = true;
-                OpenSteamInstall(SteamApp.Game);
-                return;
-            }
-            if (S(StepId.ModdingTools) is { Status: StepStatus.NeedsYou, Action: StepAction.InstallModdingTools } && !setupOpenedMtInstall &&
-                S(StepId.Game).Status is StepStatus.Done or StepStatus.Working)
-            {
-                setupOpenedMtInstall = true;
-                OpenSteamInstall(SteamApp.ModdingTools);
-                return;
-            }
-            if (S(StepId.Workspace) is { Status: StepStatus.Working, Action: StepAction.LinkWorkspace })
-            {
-                await RunWorkspaceStepAsync();
-                return;
-            }
-            if (S(StepId.Mod) is { Status: StepStatus.Working, Action: StepAction.PlaceMod })
-                await PlaceModStepAsync();
-        }
-
         private async Task HandleSetupActionAsync(string actionName)
         {
-            if (packSetup is not null)
-            {
-                Log.Information("setup: the player clicked {Action}", actionName);
-                if (packSetup.Steps.FirstOrDefault(x => x.Action == actionName) is { } step) await RunPackActionAsync(step.Id, actionName);
-                return;
-            }
-            var action = LegacyActionOf(actionName);
-            var snap = setupSnapshot;
-            if (snap is null) return;
-            Log.Information("setup: the player clicked {Action}", action);
-            switch (action)
-            {
-                case StepAction.StartSteam: StartSteamQuietly(snap); break;
-                case StepAction.InstallGame: OpenSteamInstall(SteamApp.Game); break;
-                case StepAction.InstallModdingTools: OpenSteamInstall(SteamApp.ModdingTools); break;
-                case StepAction.LinkWorkspace:
-                case StepAction.AskPermission: await RunWorkspaceStepAsync(); break;
-                case StepAction.PlaceMod: await PlaceModStepAsync(); break;
-                case StepAction.DownloadPack: await DownloadPackAsync(ModInstall.PackId); break;
-                case StepAction.InstallVcRuntime: await InstallVcRuntimeAsync(snap); break;   // beta patch
-                case StepAction.OpenVcDownload: UrlLauncher.Open(VcRuntime2013.DownloadPage); break;
-                case StepAction.LinkFacials: await LinkFacialsAsync(snap); break;   // Cairn
-            }
-            await CheckSetupAgainAsync();
+            Log.Information("setup: the player clicked {Action}", actionName);
+            if (actionName == DownloadPackAction) { await DownloadPackAsync(ModInstall.PackId); await CheckSetupAgainAsync(); return; }
+            if (packSetup?.Steps.FirstOrDefault(x => x.Action == actionName) is { } step) await RunPackActionAsync(step.Id, actionName);
         }
 
         private async Task CheckSetupAgainAsync()
         {
-            var snap = await Task.Run(TakeSetupSnapshot);
-            ApplySetupSnapshot(snap);
-            AdoptDetectedGamePath(snap);
             await RefreshPackSetupAsync();
+            setupChecked = true;
             if (!setupReady) StartSetupPoll();
             StateHasChanged();
         }
@@ -242,8 +122,6 @@ namespace Cairn.Launcher.Pages
         /// <summary>The game page's "Setup needed" chip: the whole list, game steps included.</summary>
         private Task OpenGameSetupChecklist() => OpenChecklistAsync(systemOnly: false);
 
-        private bool setupSystemOnly;
-
         private void CloseSetupChecklist()
         {
             showSetup = false;
@@ -254,7 +132,7 @@ namespace Cairn.Launcher.Pages
         private async Task<bool> EnsureSetupReadyAsync()
         {
             if (setupFirstCheck is not null) await setupFirstCheck;
-            // Cairn: checked again at every Host and Join (it takes a moment, and the PC may have changed since the last one:
+            // checked again at every Host and Join (it takes a moment, and the PC may have changed since the last one:
             // the game updated, a file removed, Steam closed), never trusted from an earlier check.
             await CheckSetupAgainAsync();
             if (!setupReady)
@@ -268,7 +146,7 @@ namespace Cairn.Launcher.Pages
             }
             if (OptionalNeedsYouNow() && !setupOptionalShown)
             {
-                // ready, but an optional step (the Visual C++ 2013 runtime) asks for the player: shown once, the next click goes on.
+                // ready, but an optional step (the C++ runtimes) asks for the player: shown once, the next click goes on.
                 Log.Information("setup: ready; an optional step needs the player, showing the checklist once");
                 setupSystemOnly = false;
                 setupOptionalShown = true;
@@ -279,142 +157,30 @@ namespace Cairn.Launcher.Pages
             return true;
         }
 
-        private bool setupOptionalShown;
+        // ------------------------------------------------------------ the mod's download as a step
 
-        // ------------------------------------------------------------ the steps
-
-        /// <summary>Steam started into the tray: "-silent" opens no window (Steam's own sign-in appears only if it needs one).</summary>
-        private void StartSteamQuietly(SetupSnapshot snap)
+        private void SetPackDownloadActivity(bool downloading, double? progress, string? failure)
         {
-            var exe = snap.Steam.Root is null ? null : Path.Combine(snap.Steam.Root, "steam.exe");
-            if (exe is null || !File.Exists(exe)) { Log.Warning("setup: steam.exe not found under the Steam folder"); return; }
-            try
-            {
-                Process.Start(new ProcessStartInfo { FileName = exe, Arguments = "-silent", UseShellExecute = true, WindowStyle = ProcessWindowStyle.Minimized })?.Dispose();
-                setupSteamStartedAt = DateTime.UtcNow;
-                SetActivity(setupActivity with { StartingSteam = true });
-                Log.Information("setup: started Steam in the background (-silent)");
-            }
-            catch (Exception ex) { Log.Warning(ex, "setup: Steam could not be started"); }
+            setupPackDownloading = downloading;
+            setupPackProgress = progress;
+            setupPackFailure = failure;
         }
 
-        /// <summary>Steam's own install dialog -- the one window first-run setup lets the player wait on.</summary>
-        private void OpenSteamInstall(uint appId)
+        /// <summary>The step shown while the game's pack cannot run its setup: not downloaded yet, or too old for this launcher.</summary>
+        private IReadOnlyList<PackStep> ModPackSteps()
         {
-            UrlLauncher.Open($"steam://install/{appId}");
-            Log.Information("setup: opened Steam's install window for app {AppId}", appId);
-            SetActivity(appId == SteamApp.Game
-                ? setupActivity with { GameInstallOpened = true }
-                : setupActivity with { ModdingToolsInstallOpened = true });
-        }
-
-        private async Task RunWorkspaceStepAsync()
-        {
-            var snap = setupSnapshot;
-            if (setupBusy || snap?.GameRoot is not string game || snap.ModdingToolsRoot is not string mt) return;
-            if (snap.GameProcessRunning) return;   // the checklist already says to close it
-
-            setupBusy = true;
-            setupLines.Clear();
-            SetActivity(setupActivity with { Linking = true, LinkFailure = null, PermissionDeclined = false, LinkProgress = null, LinkLine = null });
-            StateHasChanged();
-
-            string helper = Path.Combine(AppContext.BaseDirectory, "CairnSetup.exe");
-            string status = Path.Combine(Globals.AppFolder, "setup-link-status.txt");
-            var options = new WorkspaceFlowOptions
-            {
-                Log = line => { var l = Redact.Text(line); Log.Information("setup: {Line}", l); _ = InvokeAsync(() => AddSetupLine(l)); },
-                Progress = new CallbackProgress<LinkProgress>(p => _ = InvokeAsync(() =>
-                {
-                    SetActivity(setupActivity with
-                    {
-                        LinkProgress = p.Total == 0 ? 1 : (double)p.Done / p.Total,
-                        LinkLine = p.Total == 0 ? null : $"Linking {p.Done} of {p.Total} game files...",
-                    });
-                    StateHasChanged();
-                })),
-                RunElevated = File.Exists(helper) ? ct => ElevatedLinker.RunAsync(helper, game, mt, status, ct) : null,
-                BeforeElevation = () => _ = InvokeAsync(() => { SetActivity(setupActivity with { AwaitingPermission = true }); StateHasChanged(); }),
-            };
-
-            WorkspaceFlowOutcome outcome;
-            try { outcome = await Task.Run(() => WorkspaceSetupFlow.RunAsync(game, mt, options)); }
-            catch (Exception ex)
-            {
-                Log.Warning(ex, "setup: linking failed");
-                outcome = new WorkspaceFlowOutcome(WorkspaceFlowResult.Failed,
-                    "The game's files couldn't be linked. Click Try again; if it keeps failing, send the logs with Report a bug.", "error",
-                    Workspace.Verify(game, mt));
-            }
-            LogElevatedStatus(status);
-            Log.Information("setup: workspace {Result} via {Route}: {Sentence}", outcome.Result, outcome.Route, Redact.Text(outcome.Sentence));
-
-            SetActivity(setupActivity with
-            {
-                Linking = false, AwaitingPermission = false, LinkProgress = null, LinkLine = null,
-                PermissionDeclined = outcome.Result == WorkspaceFlowResult.PermissionDeclined,
-                LinkFailure = outcome.Result is WorkspaceFlowResult.Failed or WorkspaceFlowResult.InUse ? outcome.Sentence : null,
-            });
-            setupBusy = false;
-            await CheckSetupAgainAsync();
-        }
-
-        private void LogElevatedStatus(string status)
-        {
-            try
-            {
-                if (!File.Exists(status)) return;
-                foreach (var line in File.ReadAllLines(status)) Log.Information("setup: elevated helper: {Line}", Redact.Text(line));
-                File.Delete(status);
-            }
-            catch { }
-        }
-
-        /// <summary>
-        /// Step 6 for an install Setup held the mod back from (the Modding Tools
-        /// were not set up yet): copy the staged mod into &lt;MT&gt;\Mods\cairn,
-        /// record it where the uninstaller looks, and build the keys pak from the
-        /// now-linked game files.
-        /// </summary>
-        private async Task PlaceModStepAsync()
-        {
-            var snap = setupSnapshot;
-            if (setupBusy || snap?.ModdingToolsRoot is not string mt || snap.Mod is not { } mod) return;
-            if (mod.ForeignFolder || !mod.StagedAvailable || snap.GameProcessRunning) return;
-
-            setupBusy = true;
-            SetActivity(setupActivity with { PlacingMod = true, PlaceFailure = null });
-            StateHasChanged();
-
-            var r = await Task.Run(() => ModInstall.Place(mt));
-            Log.Information("setup: mod placement {Ok}: {Message}", r.Ok ? "done" : "FAILED", Redact.Text(r.Message));
-            if (r.Ok)
-            {
-                RecordModsPath(ModInstall.TargetDir(mt), snap.ModdingToolsExe);
-                string agentPath = AgentExe();
-                if (File.Exists(agentPath) && await RefreshKeysPakAsync(agentPath, mt, IsInstalledFile(agentPath)) is { } keysBlock)
-                    Log.Warning("setup: keys pak not built -- {Line}", keysBlock.LogLine);   // told at the next launch
-            }
-            SetActivity(setupActivity with
-            {
-                PlacingMod = false,
-                PlaceFailure = r.Ok ? null : $"The mod couldn't be placed ({r.Message}). Click Try again; if it keeps failing, run Setup again.",
-            });
-            setupBusy = false;
-            await CheckSetupAgainAsync();
+            bool have = PackStore.IsDownloaded(PacksRoot, ModInstall.PackId);
+            string detail = have
+                ? "The downloaded mod is too old for this launcher: it cannot say what your PC still needs. Download the newest mod."
+                : "The Kingdom Come: Deliverance II mod is not downloaded yet. It is a small download from the project's release page.";
+            if (setupPackDownloading)
+                return new[] { new PackStep("mod-pack", "Kingdom Come: Deliverance II mod downloaded", PackStepStatus.Working,
+                    "Downloading the mod" + (setupPackProgress is double p ? $" ({p * 100:0}%)" : "") + "...", Progress: setupPackProgress, System: true) };
+            return new[] { new PackStep("mod-pack", "Kingdom Come: Deliverance II mod downloaded", PackStepStatus.NeedsYou,
+                (setupPackFailure is null ? "" : setupPackFailure + " ") + detail, DownloadPackAction, setupPackFailure is null ? "Download the mod" : "Try again", System: true) };
         }
 
         // ------------------------------------------------------------ helpers
-
-        private void SetActivity(SetupActivity a)
-        {
-            setupActivity = a;
-            if (setupSnapshot is not null)
-            {
-                setupSteps = SetupChecklist.Evaluate(setupSnapshot, setupActivity);
-                if (PackSetupProgram() is null) LogStepChanges();
-            }
-        }
 
         private void AddSetupLine(string line)
         {
@@ -424,19 +190,13 @@ namespace Cairn.Launcher.Pages
         }
 
         /// <summary>
-        /// A settings.json without a usable Modding Tools path (a new player, an
-        /// unzipped build, a game that moved) takes the one the shared detection
-        /// found, instead of opening Settings with an error as before first-run setup.
-        ///
-        /// written only where the file has no game path (no file, no key,
-        /// or an empty one -- the never-set state) and then as that one key. A path
-        /// the player set that does not work right now (a moved game, a drive not
-        /// plugged in) is replaced for this run only: the file keeps the player's
-        /// path, and only the player changing it in Settings writes another.
+        /// A settings.json without a usable Modding Tools path (a new player, an unzipped build, a game that moved) takes the one the pack's setup found,
+        /// instead of opening Settings with an error. Written only where the file has no game path (never set) and then as that one key; a path the player set
+        /// that does not work right now (a moved game, a drive not plugged in) is replaced for this run only: the file keeps the player's path.
         /// </summary>
-        private void AdoptDetectedGamePath(SetupSnapshot snap)
+        private void AdoptDetectedGamePath(string? exe)
         {
-            if (snap.ModdingToolsExe is not string exe) return;
+            if (exe is null || !File.Exists(exe)) return;
             if (IsModdingToolsBuild(settings.GamePath ?? "") && File.Exists(settings.GamePath)) return;
             settings.GamePath = exe;
             if (settingsStore.IsUnsetOnDisk(nameof(AppSettings.GamePath)))
@@ -449,44 +209,6 @@ namespace Cairn.Launcher.Pages
                 settingsStore.Accept(settings, nameof(AppSettings.GamePath));
                 Log.Information("setup: the saved game path is not the Modding Tools; using the one found in Steam for this run (settings.json keeps the saved path)");
             }
-        }
-
-        // Cairn is the key this launcher owns. Software\Cairn is the legacy key that Setup and the installer still read and write
-        // (the uninstaller finds the mod folder through it), so it is read as a fallback and kept in step on write.
-        private static readonly string[] MarkerKeys = { @"Software\Cairn", @"Software\Cairn" };
-
-        /// <summary>The cairn folder is ours when HKCU\Software\Cairn\ModsPath (or Setup's legacy Cairn marker) names it.</summary>
-        private static bool OwnsModFolder(string target)
-        {
-            try
-            {
-                foreach (var sub in MarkerKeys)
-                {
-                    using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(sub);
-                    if (key?.GetValue("ModsPath") is string p && SetupPaths.SamePath(p, target)) return true;
-                }
-                return false;
-            }
-            catch { return false; }
-        }
-
-        private static void RecordModsPath(string target, string? gameExe)
-        {
-            try
-            {
-                foreach (var sub in MarkerKeys)
-                {
-                    using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(sub);
-                    key.SetValue("ModsPath", target);
-                    if (gameExe is not null) key.SetValue("GamePath", gameExe);
-                }
-            }
-            catch (Exception ex) { Log.Warning(ex, "setup: the mod's location could not be recorded for the uninstaller"); }
-        }
-
-        private sealed class CallbackProgress<T>(Action<T> report) : IProgress<T>
-        {
-            public void Report(T value) => report(value);
         }
     }
 }

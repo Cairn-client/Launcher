@@ -29,9 +29,9 @@ namespace Cairn.Launcher.Pages
 
         /// <summary>The setup check has run and every step is done, the optional ones too: what "Ready to play" means.</summary>
         /// <summary>The part of setup that concerns every game: Steam is running and signed in.</summary>
-        private bool SystemSetupGood => setupSnapshot is not null && (packSetup is not null ? PackSystemGood : setupSteps.Where(s => s.Id == StepId.Steam).All(s => s.Status == StepStatus.Done));
+        private bool SystemSetupGood => setupChecked && PackSystemGood;
 
-        private bool SetupAllGood => setupSnapshot is not null && (packSetup is not null ? PackStepsAllDone : setupSteps.Where(s => s.Id != StepId.Ready).All(s => s.Status == StepStatus.Done));
+        private bool SetupAllGood => setupChecked && PackStepsAllDone;
 
         // ---- Host / Join, and stopping them ---------------------------------------------------------------------------------
         // While the game this launcher started is running, the Host button reads "Stop hosting" and the Join button "Leave game";
@@ -52,7 +52,6 @@ namespace Cairn.Launcher.Pages
             WriteSettings("the game settings window");
             showGameSettings = false;
             if (SelectedProfile is { } sg && sg.Options.Count > 0) _ = ApplyGameOptionsAsync(sg);
-            else _ = ApplyDlss5Async();   // DLSS 5 in or out of the game's folder, to match the tick (a game whose pack offers it as an option: its program does it)
         }
 
         /// <summary>Closed without SAVE: the unsaved edits go back, as for the general Settings.</summary>
@@ -107,8 +106,7 @@ namespace Cairn.Launcher.Pages
         {
             showStopConfirm = false;
             Log.Information("session: the player stopped the {What} session", stopWhat);
-            StopHostedRelay();      // the relay of a hosted session
-            StopExistingAgent();    // this player's agent
+            StopHostedRelay();      // the relay of a hosted session (the session program stops the agent with the game)
             await Task.Run(CloseGameAndTools);
             gameRunning = false;
             launchedAs = "";

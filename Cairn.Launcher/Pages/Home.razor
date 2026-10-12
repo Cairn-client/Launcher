@@ -185,7 +185,7 @@
                         }
                         else
                         {
-                        @if (!(dlss5Busy && game.Id == GameProfileRegistry.Kcd2Id))
+                        @if (true)
                         {
                             @if (hostRunning)
                             {
@@ -215,7 +215,7 @@
                                 </button>
                             }
                         }
-                        <button class="action @(joinRunning ? "stop" : "")" disabled="@(!game.IsSupported || needsMod || (gameRunning && !joinRunning) || (dlss5Busy && game.Id == GameProfileRegistry.Kcd2Id))" @onclick="JoinClickAsync">
+                        <button class="action @(joinRunning ? "stop" : "")" disabled="@(!game.IsSupported || needsMod || (gameRunning && !joinRunning))" @onclick="JoinClickAsync">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
                             <span>@(joinRunning ? "Leave game" : "Join a game")</span>
                         </button>
@@ -392,7 +392,7 @@
                 case AppView.Home:
                     var upd = HomeUpdate();
                     <HomeView Games="@GameProfileRegistry.All()" OnPc="@IsGameFound" GamesOnPc="@HomeGamesOnPc" ModsInstalled="@HomeModsInstalled"
-                              Latest="@(changelog?.FirstOrDefault())" SetupReady="@(setupSnapshot is null ? null : SystemSetupGood)"
+                              Latest="@(changelog?.FirstOrDefault())" SetupReady="@(!setupChecked ? null : SystemSetupGood)"
                               UpdateTag="@upd.Tag" UpdateNotes="@upd.Notes" UpdateBusy="@updateBusy" OnUpdate="@HomeUpdateClickAsync"
                               Last="@HomeLast" FriendsState="@homeFriendsState" Friends="@homeFriends" OnJoinFriend="@JoinFriendFromHomeAsync" History="@HomeHistory()" Notices="@HomeNotices()" OnDismissNotice="@DismissNotice" 
                               Favorites="@HomeFavorites" OnToggleFavorite="@ToggleFavorite"
@@ -673,9 +673,6 @@ else if (launchStage != LaunchStage.Idle && launchStage != LaunchStage.Connected
                                    OnDeleteSaves="@DeleteAllSavesAsync"
                 OnOpenStartSave="@OpenStartSaveFolder"
                 OnToggleChannel="@ToggleChannelAsync"
-                Dlss5Gpu="@Dlss5Gpu"
-                Dlss5GpuText="@Dlss5GpuText"
-                Dlss5Busy="@dlss5Busy"
                 OptionStatuses="@optionStatuses"
                 OptionsBusy="@optionsBusy"
                 Saves="@externalSaves"
@@ -690,9 +687,7 @@ else if (launchStage != LaunchStage.Idle && launchStage != LaunchStage.Connected
 <TourModal IsVisible="@showTour" OnClose="@FinishTour" />
 
 <ReportBugModal IsVisible="@showReportBug"
-                GameRoot="@LogBundleGameRoot"
-                AgentDirectory="@LogBundleAgentDirectory"
-                RelayDirectory="@LogBundleRelayDirectory"
+                PackLogs="@CollectPackLogsAsync"
                 OnClose="@(() => showReportBug = false)" />
 
 <VersionMismatchModal   IsVisible="@showVersionMismatch"

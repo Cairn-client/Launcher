@@ -50,7 +50,7 @@ public class PackSessionTests
     public void AMessageWithTheAddressFallbackIsAProblemWithThatButton()
     {
         var s = New(); SessionProblem? got = null; string? plain = null;
-        s.Problem += p => got = p; s.Message += (title, text) => plain = title + "|" + text;
+        s.Problem += p => got = p; s.Message += (title, text, _) => plain = title + "|" + text;
         s.Handle("{\"t\":\"message\",\"title\":\"STEAM CONNECTION FAILED\",\"text\":\"No route.\",\"next\":\"\",\"addressFallback\":true}");
         Assert.True(got!.AddressFallback);
         s.Handle("{\"t\":\"message\",\"title\":\"CONNECTION OK\",\"text\":\"Reached.\"}");

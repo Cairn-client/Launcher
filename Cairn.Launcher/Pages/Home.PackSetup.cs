@@ -36,18 +36,19 @@ namespace Cairn.Launcher.Pages
         {
             setupProgramCache = default; sessionProgramCache = default;   // the pack may have changed since the last look
             var program = PackSetupProgram();
-            if (program is null) { packSetup = null; return false; }
+            if (program is null) { packSetup = null; setupReady = false; return false; }
             string? mt = !string.IsNullOrWhiteSpace(settings.GamePath) && System.IO.File.Exists(settings.GamePath) ? settings.GamePath : null;
             PackSetupReport? report = null;
             try { report = await PackSetup.CheckAsync(program, mt); }
             catch (Exception ex) { Log.Warning(ex, "setup: the pack's checklist failed"); }
             if (report is null)
             {
-                Log.Warning("setup: the pack's program gave no checklist; using the launcher's own");
+                Log.Warning("setup: the pack's program gave no checklist");
                 packSetup = null;
                 return false;
             }
             packSetup = report;
+            AdoptDetectedGamePath(report.ModdingToolsExe);
             foreach (var done in report.Steps.Where(x => x.Status == PackStepStatus.Done).Select(x => x.Id).ToList())
             {
                 packNotes.Remove(done); packFailures.Remove(done); packPendingUntil.Remove(done);
@@ -73,7 +74,7 @@ namespace Cairn.Launcher.Pages
         /// <summary>What the checklist window shows: the pack's steps with what the launcher knows on top (a try that failed, an action that is working), or the launcher's own steps.</summary>
         private IReadOnlyList<PackStep> SetupView()
         {
-            if (packSetup is null) return LegacyAsPackSteps(setupSteps);
+            if (packSetup is null) return ModPackSteps();
             var now = DateTime.UtcNow;
             return packSetup.Steps.Select(s =>
             {
@@ -92,7 +93,7 @@ namespace Cairn.Launcher.Pages
 
         private bool PackStepsAllDone => packSetup is not null && packSetup.Steps.All(s => s.Status == PackStepStatus.Done);
         private bool PackSystemGood => packSetup is not null && packSetup.Steps.Where(s => s.Id == "steam").All(s => s.Status == PackStepStatus.Done);
-        private bool OptionalNeedsYouNow() => packSetup is not null ? packSetup.OptionalNeedsYou : SetupChecklist.OptionalNeedsYou(setupSteps);
+        private bool OptionalNeedsYouNow() => packSetup is { OptionalNeedsYou: true };
 
         // ------------------------------------------------------------ doing what a step asks
 
@@ -150,23 +151,5 @@ namespace Cairn.Launcher.Pages
                 return;
             }
         }
-
-        // ------------------------------------------------------------ the launcher's own checklist, in the same shape
-
-        private static string LegacyActionName(StepAction a) => a switch
-        {
-            StepAction.StartSteam => "start-steam", StepAction.InstallGame => "install-game", StepAction.InstallModdingTools => "install-moddingtools",
-            StepAction.LinkWorkspace => "link-workspace", StepAction.AskPermission => "ask-permission", StepAction.PlaceMod => "place-mod",
-            StepAction.DownloadPack => "download-pack", StepAction.InstallVcRuntime => "install-vcruntime", StepAction.OpenVcDownload => "open-vc-download",
-            StepAction.LinkFacials => "link-facials", _ => "",
-        };
-
-        private static StepAction LegacyActionOf(string name) =>
-            Enum.GetValues<StepAction>().FirstOrDefault(a => a != StepAction.None && LegacyActionName(a) == name);
-
-        private static IReadOnlyList<PackStep> LegacyAsPackSteps(IReadOnlyList<StepView> steps) => steps.Where(s => s.Id != StepId.Ready).Select(s => new PackStep(
-            s.Id.ToString().ToLowerInvariant(), s.Title,
-            s.Status switch { StepStatus.Done => PackStepStatus.Done, StepStatus.Working => PackStepStatus.Working, StepStatus.NeedsYou => PackStepStatus.NeedsYou, _ => PackStepStatus.Waiting },
-            s.Detail, s.Action == StepAction.None ? null : LegacyActionName(s.Action), s.ActionLabel, s.Progress, s.Optional, s.Id is StepId.Steam or StepId.VcRuntime)).ToList();
     }
 }

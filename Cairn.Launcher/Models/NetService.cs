@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
 // GPLv3 section 7 additional terms: AUTHORS.md. This project's own code only; Kingdom Come: Deliverance II and its
 // content belong to Warhorse Studios and PLAION. Unofficial, free, not affiliated with or endorsed by them.
 // Portions from the original project, marczukmichal/kcd2-multiplayer; its author keeps their copyright (AUTHORS.md).
@@ -253,91 +253,6 @@ namespace Cairn.Launcher.Services
             {
                 Log.Error($"Failed to get info for server {ip}:{infoPort} - {ex.Message}");
                 return null;
-            }
-        }
-
-        /// <summary>
-        /// Polls the locally-running agent's release-version IPC endpoint
-        ///. Returns null
-        /// when the agent hasn't started that listener yet (too early after
-        /// launch), isn't running at all, or connects to no relay yet -- all
-        /// of which the caller treats the same way: nothing to compare yet,
-        /// try again on the next poll.
-        /// </summary>
-        public async Task<VersionStatusData?> GetVersionStatusAsync(int port)
-        {
-            try
-            {
-                return await _httpClient.GetFromJsonAsync<VersionStatusData>($"http://localhost:{port}/version-status");
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// the agent's world-transfer state (GET /join-status on the
-        /// same listener as /version-status). Null while the agent is not up.
-        /// </summary>
-        public async Task<JoinStatusData?> GetJoinStatusAsync(int port)
-        {
-            try
-            {
-                return await _httpClient.GetFromJsonAsync<JoinStatusData>($"http://localhost:{port}/join-status");
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// the agent's connection in plain words (GET /connection-status).
-        /// Null while the agent is not up.
-        /// </summary>
-        public async Task<ConnectionStatusData?> GetConnectionStatusAsync(int port)
-        {
-            try
-            {
-                return await _httpClient.GetFromJsonAsync<ConnectionStatusData>($"http://localhost:{port}/connection-status");
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// the host's own relay -- Steam state, the join code, the last
-        /// refused joiner version (GET api/local/status, loopback only).
-        /// </summary>
-        public async Task<RelayLocalStatusData?> GetRelayLocalStatusAsync(int infoPort)
-        {
-            try
-            {
-                return await _httpClient.GetFromJsonAsync<RelayLocalStatusData>($"http://127.0.0.1:{infoPort}/api/local/status");
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// the player's answer to a first join ("bring" / "fresh"),
-        /// POST /join-choice on the agent's listener. False when it did not land.
-        /// </summary>
-        public async Task<bool> PostJoinChoiceAsync(int port, string choice)
-        {
-            try
-            {
-                using var r = await _httpClient.PostAsync($"http://localhost:{port}/join-choice?c={Uri.EscapeDataString(choice)}", null);
-                return r.IsSuccessStatusCode;
-            }
-            catch
-            {
-                return false;
             }
         }
 

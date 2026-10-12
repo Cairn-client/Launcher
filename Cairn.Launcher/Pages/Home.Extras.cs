@@ -115,71 +115,50 @@ namespace Cairn.Launcher.Pages
 
         private Cairn.Launcher.Services.InGameMenuDriver? inGameMenu;
 
-        /// <summary>The game is up: its menu is drawn by the launcher over the game (the same for every game), once the mod says it has one.</summary>
+        /// <summary>
+        /// The game is up: its menu is drawn by the launcher over the game (the same for every game), once the mod says it has one. The mod's pack carries a bridge (its
+        /// <c>companion</c>) that talks to the launcher over the pipe; the launcher draws what it sends. A pack without a bridge has no launcher menu.
+        /// </summary>
         private void StartInGameMenu(Process game, DateTime gameStartLocal)
         {
             Cairn.Launcher.Services.InGameMenuDriver.Trace("StartInGameMenu called");
             try
             {
                 inGameMenu?.Stop();
-                string root = LogBundleGameRoot;
-                string key = Cairn.Launcher.Services.InGameMenuDriver.ReadMenuKey(SettingsFileName);
-                if (TryStartBridgedMenu(game, gameStartLocal, root, key)) return;
-                StartLogMenu(game, gameStartLocal, root, key);
+                if (ExternalInstall.CompanionPath(PacksRoot, ModInstall.PackId) is not { } companion) { Log.Information("in-game menu: the mod has no bridge, so no launcher menu"); return; }
+                EnsureExternalBridge();
+                var bridge = externalBridge!;
+                Process? bridgeProcess;
+                try
+                {
+                    var psi = new ProcessStartInfo(companion) { WorkingDirectory = Path.GetDirectoryName(companion)!, UseShellExecute = false, CreateNoWindow = true };
+                    psi.Environment[BridgeProtocol.PipeEnvironmentVariable] = bridge.PipeName;
+                    psi.Environment["CAIRN_GAME_DIR"] = LogBundleGameRoot;
+                    psi.Environment["CAIRN_GAME_PID"] = game.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    psi.Environment["CAIRN_GAME_START"] = gameStartLocal.ToString("o", System.Globalization.CultureInfo.InvariantCulture);
+                    bridgeProcess = Process.Start(psi);
+                }
+                catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
+                {
+                    Log.Warning(ex, "in-game menu: the mod's bridge did not start");
+                    return;
+                }
+                if (bridgeProcess is null) return;
+                var driver = new Cairn.Launcher.Services.InGameMenuDriver(game, Cairn.Launcher.Services.InGameMenuDriver.ReadMenuKey(SettingsFileName), bridge);
+                inGameMenu = driver;
+                _ = Task.Run(driver.RunAsync);
+                Log.Information("in-game menu: the mod's bridge started ({File})", Path.GetFileName(companion));
+                _ = Task.Run(async () =>
+                {
+                    for (int i = 0; i < 25 && !bridge.Connected && !bridgeProcess.HasExited; i++) await Task.Delay(1000);
+                    if (bridge.Connected || ReferenceEquals(inGameMenu, driver) == false) return;
+                    Log.Warning("in-game menu: the mod's bridge did not connect; the game keeps its own menu");
+                    driver.Stop();
+                    try { if (!bridgeProcess.HasExited) bridgeProcess.Kill(); } catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception) { }
+                    bridgeProcess.Dispose();
+                });
             }
             catch (Exception ex) { Log.Warning(ex, "in-game menu: could not start"); }
-        }
-
-        /// <summary>The menu as it always was: read from the mod's lines in the game's log, answered through the game's console.</summary>
-        private void StartLogMenu(Process game, DateTime gameStartLocal, string root, string key)
-        {
-            var driver = new Cairn.Launcher.Services.InGameMenuDriver(game, gameStartLocal, root, key, dlss5: Dlss5Active);
-            inGameMenu = driver;
-            _ = Task.Run(driver.RunAsync);
-        }
-
-        /// <summary>
-        /// A mod whose pack carries a bridge (its <c>companion</c>) talks to the launcher through it, so the menu needs nothing of the launcher but
-        /// the protocol. If the bridge does not connect within 25 seconds (or does not start), the menu falls back to the log and the console.
-        /// False when the pack has no bridge, and nothing has changed.
-        /// </summary>
-        private bool TryStartBridgedMenu(Process game, DateTime gameStartLocal, string root, string key)
-        {
-            if (ExternalInstall.CompanionPath(PacksRoot, ModInstall.PackId) is not { } companion) return false;
-            EnsureExternalBridge();
-            var bridge = externalBridge!;
-            Process? bridgeProcess = null;
-            try
-            {
-                var psi = new ProcessStartInfo(companion) { WorkingDirectory = Path.GetDirectoryName(companion)!, UseShellExecute = false, CreateNoWindow = true };
-                psi.Environment[BridgeProtocol.PipeEnvironmentVariable] = bridge.PipeName;
-                psi.Environment["CAIRN_GAME_DIR"] = root;
-                psi.Environment["CAIRN_GAME_PID"] = game.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                psi.Environment["CAIRN_GAME_START"] = gameStartLocal.ToString("o", System.Globalization.CultureInfo.InvariantCulture);
-                bridgeProcess = Process.Start(psi);
-            }
-            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
-            {
-                Log.Warning(ex, "in-game menu: the mod's bridge did not start; the menu reads the log instead");
-                return false;
-            }
-            if (bridgeProcess is null) return false;
-
-            var driver = new Cairn.Launcher.Services.InGameMenuDriver(game, gameStartLocal, root, key, dlss5: Dlss5Active, bridge: bridge, launcherRows: GameProfileRegistry.Get(GameProfileRegistry.Kcd2Id) is { Options.Count: 0 });
-            inGameMenu = driver;
-            _ = Task.Run(driver.RunAsync);
-            Log.Information("in-game menu: the mod's bridge started ({File})", Path.GetFileName(companion));
-            _ = Task.Run(async () =>
-            {
-                for (int i = 0; i < 25 && !bridge.Connected && !bridgeProcess.HasExited; i++) await Task.Delay(1000);
-                if (bridge.Connected || ReferenceEquals(inGameMenu, driver) == false) return;
-                Log.Warning("in-game menu: the mod's bridge did not connect; the menu reads the log instead");
-                driver.Stop();
-                try { if (!bridgeProcess.HasExited) bridgeProcess.Kill(); } catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception) { }
-                bridgeProcess.Dispose();
-                if (!game.HasExited) await InvokeAsync(() => StartLogMenu(game, gameStartLocal, root, key));
-            });
-            return true;
         }
 
         // ---- the ready check -------------------------------------------------------------------------------------------------------------
