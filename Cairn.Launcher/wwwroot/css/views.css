@@ -645,16 +645,16 @@
         color: var(--cairn-parchment-dim, var(--cairn-muted));
     }
 
-.view kbd.arrow {
+.view kbd.key-arrow {
     display: inline-grid;
     place-items: center;
     min-width: 34px;
     padding: 3px 6px;
 }
 
-.view kbd.arrow svg {
-    width: 14px;
-    height: 14px;
+.view kbd.key-arrow {
+    font-size: 15px;
+    line-height: 1.1;
 }
 
 .view kbd {
