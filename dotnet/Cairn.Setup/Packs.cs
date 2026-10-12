@@ -290,8 +290,8 @@ public static class PackInstaller
             var finalDir = PackStore.Dir(root, pack.Id);
             // what the programs wrote beside themselves (their settings and logs) survives an update; the new pack's own files win
             CarryOver(Path.Combine(finalDir, PackStore.FilesFolder, PackStore.BinFolder), Path.Combine(work, PackStore.FilesFolder, PackStore.BinFolder));
-            if (Directory.Exists(finalDir)) Directory.Delete(finalDir, recursive: true);
-            Directory.Move(work, finalDir);
+            if (!ReplaceDirectory(finalDir, work))
+                return new PackResult(false, "a program of the mod is still running: close the game, then try again");
             return new PackResult(true, $"{pack.Id} {pack.Version} downloaded");
         }
         catch (OperationCanceledException) { throw; }
@@ -366,6 +366,62 @@ public static class PackInstaller
     }
 
     /// <summary>Copies the files the old pack's bin folder gained after it was installed (not in the new one) into the new one.</summary>
+    /// <summary>
+    /// The new copy takes the old one's place. The old copy's own programs (the agent and the relay of an earlier session, run from this
+    /// folder) are stopped first. A file that is still in use (a log) is left where it is when the new pack does not replace it; a file
+    /// the new pack does replace and cannot be (the plugin inside a running game) makes the update fail, plainly.
+    /// </summary>
+    private static bool ReplaceDirectory(string finalDir, string work)
+    {
+        if (!Directory.Exists(finalDir)) { Directory.Move(work, finalDir); return true; }
+        StopProgramsRunningFrom(finalDir);
+        for (int i = 0; i < 3; i++)
+        {
+            try
+            {
+                if (Directory.Exists(finalDir)) Directory.Delete(finalDir, recursive: true);
+                Directory.Move(work, finalDir);
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Thread.Sleep(300); }
+        }
+        try
+        {
+            foreach (var f in Directory.EnumerateFiles(finalDir, "*", SearchOption.AllDirectories))
+            {
+                try { File.Delete(f); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* in use: stays unless replaced below */ }
+            }
+            foreach (var f in Directory.EnumerateFiles(work, "*", SearchOption.AllDirectories))
+            {
+                var dest = Path.Combine(finalDir, Path.GetRelativePath(work, f));
+                Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+                File.Copy(f, dest, overwrite: true);
+            }
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return false; }
+    }
+
+    /// <summary>Ends the processes that run from a pack's folder (its agent and relay): they are the mod's own and nothing else lives there.</summary>
+    private static void StopProgramsRunningFrom(string dir)
+    {
+        string root = Path.GetFullPath(dir).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        foreach (var p in System.Diagnostics.Process.GetProcesses())
+        {
+            try
+            {
+                string? file = p.MainModule?.FileName;
+                if (file is not null && file.StartsWith(root, StringComparison.OrdinalIgnoreCase) && p.Id != Environment.ProcessId)
+                {
+                    p.Kill(entireProcessTree: true);
+                    p.WaitForExit(3000);
+                }
+            }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or NotSupportedException) { /* not ours to see, or already gone */ }
+            finally { p.Dispose(); }
+        }
+    }
+
     private static void CarryOver(string oldBin, string newBin)
     {
         if (!Directory.Exists(oldBin) || !Directory.Exists(newBin)) return;
