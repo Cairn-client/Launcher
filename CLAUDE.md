@@ -19,7 +19,7 @@ each mod on its own.
 | `dotnet/Cairn.*.Tests/` | xunit tests (`Setup`, `MasterServer`) |
 | `installer/` | Inno Setup script (`Cairn.iss`) |
 | `tools/` | build and test scripts (PowerShell) |
-| `docs/` | `VERSIONING.md` (release rules), `PACKS.md` (mod downloads) |
+| `docs/` | `VERSIONING.md` (release rules), `PACKS.md` (mod downloads), `CATALOG.md` (the game catalog) |
 
 ## Build and test
 
@@ -44,8 +44,9 @@ on a tag.
 
 - Names: `Cairn.*` for projects and namespaces. Name things after what they do, never after a ticket or work-order number.
 - Every source file starts with the license header naming `AUTHORS.md`. Never remove or reword it, and never remove credits from `AUTHORS.md`.
-- Games are data: register them in `Cairn.Launcher/Models/GameProfileRegistry.cs` (title, developer, franchise, Steam app id, artwork in
-  `Cairn.Launcher/wwwroot/img/games/`) and say where their mod repository is.
+- Games are data: the list, their requirements, artwork, feature cards, blocked mod versions and notices are the catalog (`docs/CATALOG.md`),
+  in the `Cairn-client/games` repository and each game's own repository; the launcher ships only the KCD2 seed (`Cairn.Launcher/Seed/`).
+  Do not put a game's data back into the launcher.
 - The launcher never contains game-specific session code: what a mod needs from the launcher is described by the pack's `pack.json`.
 
 ## Pitfalls

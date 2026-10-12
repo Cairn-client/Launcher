@@ -19,9 +19,9 @@ the launcher shows **Update to X** when the repository has a newer release.
 | --- | --- |
 | `pack-index.json` | the catalog: the pack this release carries, with the zip's size and sha256 and the launcher it needs |
 | `Cairn-Pack-<id>-X.Y.Z.zip` | the pack |
+| `game.json` and its pictures | what the game is, for the launcher (`docs/CATALOG.md`) |
 
-The launcher reads `https://github.com/<owner>/<repo>/releases/latest/download/pack-index.json` (the repository comes from the game's
-profile, `GameProfile.ModRepo`) and downloads `https://github.com/<owner>/<repo>/releases/download/X.Y.Z/<file>`.
+The launcher reads `https://github.com/<owner>/<repo>/releases/latest/download/pack-index.json` (the repository comes from the games catalog, `docs/CATALOG.md`) and downloads `https://github.com/<owner>/<repo>/releases/download/X.Y.Z/<file>`.
 
 ## What a pack holds
 
@@ -53,7 +53,7 @@ pack), `agentConfig` (the agent's settings file name), `launcherMin` (the oldest
 6. **Remove** deletes the downloaded copy and takes the listed files back out of the game's mod folder; anything else in that folder
    is left alone.
 
-## The game list
+## The game list (the sidebar)
 
 The sidebar is a set of folders. Search matches title, id, developer and franchise (and opens every folder with a match);
 **All / On this PC / Mod installed** filters it. The folders can be grouped **by title** (one per first letter), **by developer**
@@ -65,6 +65,6 @@ A game is "on this PC" when Steam has it installed or the player located it; a g
 
 ## Adding a game's mod
 
-1. Make the mod's repository (the pack build script is `tools/Build-Pack.ps1` in `Cairn-client/mod-kcd2`, a good model).
-2. Register the game in `Cairn.Launcher/Models/GameProfileRegistry.cs` (title, developer, franchise, Steam app id, artwork, `ModRepo`).
+1. Make the mod's repository (the pack build script is `tools/Build-Pack.ps1` in `Cairn-client/mod-kcd2`, a good model), with its `game/game.json`.
+2. List the game in `games.json` of the games catalog repository, with the mod's repository (`docs/CATALOG.md`). No launcher change.
 3. Release the mod; the launcher finds it.
