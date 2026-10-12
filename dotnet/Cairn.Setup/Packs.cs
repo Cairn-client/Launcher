@@ -46,6 +46,8 @@ public sealed record PackContract(
     /// <summary>Where a content pack's files go: the only place the launcher knows to put them, never a path the pack names.</summary>
     public const string StartSaveTarget = "start-save";
     public const int CurrentSchema = 2;
+    /// <summary>An external mod's <c>installDir</c> for the game's own folder.</summary>
+    public const string GameRoot = ".";
 
     /// <summary>Reads a contract; null when it is not one this launcher understands (bad JSON, another schema, an unsafe path).</summary>
     public static PackContract? Parse(string json)
@@ -135,11 +137,12 @@ public sealed record PackContract(
         && s.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.' or '/');
 
     /// <summary>
-    /// A folder inside the game's own folder (<c>mods/quant.ew</c>): relative, forward slashes, 1 to 4 plain segments, no <c>..</c>, no drive.
+    /// A folder inside the game's own folder (<c>mods/quant.ew</c>), or <c>.</c> for the game's own folder: relative, forward slashes, 1 to 4 plain segments, no <c>..</c>, no drive.
     /// The launcher puts an external mod's files there and nowhere else.
     /// </summary>
     internal static bool IsGameRelativeDir(string s)
     {
+        if (s == GameRoot) return true;   // the game's own folder (a loader such as BepInEx puts files there)
         if (s.Length is 0 or > 120 || s.Contains("..") || s.Contains(':') || s.Contains('\\') || s.StartsWith('/') || s.EndsWith('/')) return false;
         var parts = s.Split('/');
         return parts.Length <= 4 && parts.All(p => p.Length > 0 && p[0] != '.' && p.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.' or ' '));

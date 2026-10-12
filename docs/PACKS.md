@@ -79,7 +79,7 @@ pack.json     { "schema": 2, "id": "noita", "version": "1.0.0", "kind": "externa
 manifest.txt  MOD|<path>|<size>|<sha256> (placed in installDir) and BIN|<path>|... (kept in the pack store; the companion)
 ```
 
-* `installDir` -- the folder inside the **game's own folder** that the MOD files go to: relative, forward slashes, at most four plain
+* `installDir` -- the folder inside the **game's own folder** that the MOD files go to (`.` is the game's own folder, for a loader such as BepInEx): relative, forward slashes, at most four plain
   segments, never `..` or a drive. The launcher writes a `.cairn-pack` marker there listing what it placed, so it only updates or
   removes its own files. A folder of that name that Cairn did not make is left alone (the install says so).
 * `companion` (optional) -- one program of the pack (a path inside it, carried in the pack) that is started with the game.
@@ -89,3 +89,7 @@ On the game's page the mod row works as for any mod (download, update, remove, c
 **Play**, which starts the companion (if it is not running) and then the game; the mod hosts and joins by itself. The game's folder
 is the one Steam or **Locate game...** found. `hostSteps` / `joinSteps` in the game's `game.json` replace the three generic lines
 under "How it works".
+
+With `installDir: "."` there is no folder to call foreign, so the check is per file: a file of the game (or the player's) with the same name and
+other bytes is never overwritten (the install says which), a file that is already exactly the pack's is adopted, and removing the mod takes out
+only the files Cairn listed in its `.cairn-pack` marker, then the folders that emptied; the game's folder itself stays.

@@ -24,6 +24,9 @@ public class ExternalContractTests
     }
 
     [Fact]
+    public void TheGamesOwnFolderCanBeTheInstallFolder() => Assert.Equal(".", PackContract.Parse(Json("."))!.InstallDir);
+
+    [Fact]
     public void ACompanionProgramInsideThePackIsAccepted() =>
         Assert.Equal("bin/proxy.exe", PackContract.Parse(Json(extra: ", \"companion\": \"bin/proxy.exe\""))!.Companion);
 
@@ -201,7 +204,76 @@ public class ExternalInstallTests : IDisposable
     {
         Assert.Null(ExternalInstall.CompanionPath(Packs, "noita"));
     }
+
+    // ---- a mod that installs into the game's own folder (a loader such as BepInEx) --------------------------------------------
+
+    private static readonly Dictionary<string, string> LoaderFiles = new() { ["winhttp.dll"] = "loader", ["BepInEx/plugins/mp/mp.dll"] = "plugin" };
+
+    [Fact]
+    public async Task AModForTheGamesOwnFolderIsPlacedBesideTheGamesFiles()
+    {
+        File.WriteAllText(Path.Combine(Game, "game.exe"), "the game");
+        await Download(Zip(LoaderFiles, installDir: "."));
+        var r = ExternalInstall.Place(Game, Packs, "noita");
+        Assert.True(r.Ok, r.Message);
+        Assert.True(ExternalInstall.IsPlaced(Game, Packs, "noita"));
+        Assert.Equal("loader", File.ReadAllText(Path.Combine(Game, "winhttp.dll")));
+        Assert.Equal("plugin", File.ReadAllText(Path.Combine(Game, "BepInEx", "plugins", "mp", "mp.dll")));
+        Assert.Equal("the game", File.ReadAllText(Path.Combine(Game, "game.exe")));
+    }
+
+    [Fact]
+    public async Task AFileOfTheGameWithTheSameNameAndOtherBytesIsNeverOverwritten()
+    {
+        File.WriteAllText(Path.Combine(Game, "winhttp.dll"), "the player's own");
+        await Download(Zip(LoaderFiles, installDir: "."));
+        var r = ExternalInstall.Place(Game, Packs, "noita");
+        Assert.False(r.Ok);
+        Assert.Contains("winhttp.dll", r.Message);
+        Assert.Equal("the player's own", File.ReadAllText(Path.Combine(Game, "winhttp.dll")));
+        Assert.False(File.Exists(Path.Combine(Game, "BepInEx", "plugins", "mp", "mp.dll")));   // nothing was placed
+    }
+
+    [Fact]
+    public async Task AFileThatIsAlreadyExactlyOursIsAdopted()
+    {
+        File.WriteAllText(Path.Combine(Game, "winhttp.dll"), "loader");
+        await Download(Zip(LoaderFiles, installDir: "."));
+        Assert.True(ExternalInstall.Place(Game, Packs, "noita").Ok);
+    }
+
+    [Fact]
+    public async Task RemovingFromTheGamesFolderTakesOutOnlyOurFilesAndNeverTheGameFolder()
+    {
+        File.WriteAllText(Path.Combine(Game, "game.exe"), "the game");
+        Directory.CreateDirectory(Path.Combine(Game, "BepInEx", "config"));
+        File.WriteAllText(Path.Combine(Game, "BepInEx", "config", "theirs.cfg"), "kept");
+        await Download(Zip(LoaderFiles, installDir: "."));
+        ExternalInstall.Place(Game, Packs, "noita");
+
+        Assert.True(ExternalInstall.Unplace(Game, Packs, "noita").Ok);
+        Assert.True(Directory.Exists(Game));
+        Assert.Equal("the game", File.ReadAllText(Path.Combine(Game, "game.exe")));
+        Assert.False(File.Exists(Path.Combine(Game, "winhttp.dll")));
+        Assert.False(File.Exists(Path.Combine(Game, ExternalInstall.MarkerName)));
+        Assert.False(Directory.Exists(Path.Combine(Game, "BepInEx", "plugins")));   // the folders we emptied go
+        Assert.Equal("kept", File.ReadAllText(Path.Combine(Game, "BepInEx", "config", "theirs.cfg")));   // the ones with something else stay
+    }
+
+    [Fact]
+    public async Task AnUpdateInTheGamesFolderDropsOnlyWhatTheOldVersionPlaced()
+    {
+        File.WriteAllText(Path.Combine(Game, "game.exe"), "the game");
+        await Download(Zip(LoaderFiles, installDir: "."));
+        ExternalInstall.Place(Game, Packs, "noita");
+        await Download(Zip(new() { ["winhttp.dll"] = "loader2" }, version: "1.1.0", installDir: "."), "1.1.0");
+        Assert.True(ExternalInstall.Place(Game, Packs, "noita").Ok);
+        Assert.Equal("loader2", File.ReadAllText(Path.Combine(Game, "winhttp.dll")));
+        Assert.False(File.Exists(Path.Combine(Game, "BepInEx", "plugins", "mp", "mp.dll")));
+        Assert.True(File.Exists(Path.Combine(Game, "game.exe")));
+    }
 }
+
 
 public class ModCompanionTests
 {
