@@ -19,7 +19,7 @@ namespace Cairn.Launcher.Models
     }
 
     /// <summary>The whole menu as a game's mod describes it: same shape for every game, only the content differs.</summary>
-    public sealed record MenuState(string Game, string Title, string Blocked, string Note, IReadOnlyList<MenuItem> Items)
+    public sealed record MenuState(string Game, string Title, string Blocked, string Note, IReadOnlyList<MenuItem> Items, bool Submenu = false)
     {
         public static readonly MenuState Empty = new("", "Mod menu", "", "", Array.Empty<MenuItem>());
     }
@@ -187,14 +187,14 @@ namespace Cairn.Launcher.Models
         /// action: a stray arrow must not do "I'm stuck"); Enter does the item, whatever it is. A locked item (the host's)
         /// is left to the mod, which says why it refuses.
         /// </summary>
-        public (string Id, string Verb)? Request(MenuKey key)
+        public (string Id, string Verb, int Dir)? Request(MenuKey key)
         {
             var sel = Selected;
             if (sel is null || sel.Disabled) return null;
             return key switch
             {
-                MenuKey.Enter => (sel.Id, "enter"),
-                MenuKey.Left or MenuKey.Right => sel.Kind is MenuKind.OnOff or MenuKind.Choice or MenuKind.Key ? (sel.Id, "nudge") : null,
+                MenuKey.Enter => (sel.Id, "enter", 1),
+                MenuKey.Left or MenuKey.Right => sel.Kind is MenuKind.OnOff or MenuKind.Choice or MenuKind.Key ? (sel.Id, "nudge", key == MenuKey.Left ? -1 : 1) : null,
                 _ => null,
             };
         }

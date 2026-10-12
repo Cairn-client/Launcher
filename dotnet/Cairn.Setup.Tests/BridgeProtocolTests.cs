@@ -148,4 +148,15 @@ public class BridgeProtocolTests
         Assert.Null(BridgeProtocol.Parse("""{"t":"toast","text":""}"""));
         Assert.Equal(200, ((BridgeToast)BridgeProtocol.Parse("{\"t\":\"toast\",\"text\":\"" + new string('x', 900) + "\"}")!).Text.Length);
     }
+
+    [Fact]
+    public void ASubmenuAndANudgesDirectionAreSaid()
+    {
+        Assert.True(((BridgeMenu)BridgeProtocol.Parse("""{"t":"menu","back":true,"items":[]}""")!).Back);
+        Assert.False(((BridgeMenu)BridgeProtocol.Parse("""{"t":"menu","items":[]}""")!).Back);
+        Assert.Equal("""{"t":"do","id":"x","verb":"nudge","dir":-1}""", BridgeProtocol.Do("x", "nudge", -1));
+        Assert.Equal("""{"t":"do","id":"x","verb":"nudge"}""", BridgeProtocol.Do("x", "nudge", 1));       // as before: nothing new for a nudge to the right
+        Assert.Equal("""{"t":"do","id":"x","verb":"enter"}""", BridgeProtocol.Do("x", "enter", -1));      // a direction means nothing to Enter
+        Assert.Equal("""{"t":"back"}""", BridgeProtocol.Back());
+    }
 }

@@ -101,16 +101,16 @@ namespace Cairn.Launcher.Services
         // What the launcher asks of the mod: through the bridge when the game has one, else as a call in the game's console.
         private void SendAttach() { if (_bridge is not null) _bridge.Send(BridgeProtocol.Attach()); else _outgoing.Enqueue(InGameMenuProtocol.Attach); }
         private void SendAskState() { if (_bridge is not null) _bridge.Send(BridgeProtocol.AskState()); else _outgoing.Enqueue(InGameMenuProtocol.AskState); }
-        private void SendDo(string id, string verb)
+        private void SendDo(string id, string verb, int dir = 1)
         {
-            if (_bridge is not null) { if (BridgeProtocol.Do(id, verb) is { } m) _bridge.Send(m); }
+            if (_bridge is not null) { if (BridgeProtocol.Do(id, verb, dir) is { } m) _bridge.Send(m); }
             else if (InGameMenuProtocol.DoCall(id, verb) is { } call) _outgoing.Enqueue(call);
         }
 
         /// <summary>A bridge's menu as the menu the launcher draws (the same for every game).</summary>
         internal static MenuState ToMenuState(string game, BridgeMenu m) => new(game, m.Title.Length > 0 ? m.Title : "Mod menu", m.Blocked, m.Note,
             m.Items.Select(i => new MenuItem(i.Id, i.Group, i.Kind switch { "onoff" => MenuKind.OnOff, "choice" => MenuKind.Choice, "key" => MenuKind.Key, "action" => MenuKind.Action, _ => MenuKind.Info },
-                i.On, i.Locked, i.Value, i.Label, i.Help, i.Gate, i.Disabled)).ToList());
+                i.On, i.Locked, i.Value, i.Label, i.Help, i.Gate, i.Disabled)).ToList(), m.Back);
 
         /// <summary>A line in the temp folder, for when the launcher's own log says nothing (kept small).</summary>
         internal static void Trace(string text)
@@ -245,6 +245,7 @@ namespace Cairn.Launcher.Services
                                 break;
                             case MenuKey.Back:
                                 if (_inDlssMenu) ExitDlssSubmenu();
+                                else if (_bridge is not null && _nav.State.Submenu) _bridge.Send(BridgeProtocol.Back());   // a submenu of the game's own program: Back goes to it
                                 else Close();
                                 break;
                             case MenuKey.Up: _nav.Step(-1); break;
@@ -257,7 +258,7 @@ namespace Cairn.Launcher.Services
                                 else if (_nav.Request(key) is { } req)
                                 {
                                     if (req.Id == Dlss5.MenuItemId) { if (req.Verb == "enter") EnterDlssSubmenu(); }
-                                    else SendDo(req.Id, req.Verb);
+                                    else SendDo(req.Id, req.Verb, req.Dir);
                                 }
                                 break;
                         }
