@@ -1,6 +1,7 @@
 // Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
 // GPLv3 section 7 additional terms: AUTHORS.md. Unofficial, free, not affiliated with or endorsed by the studios or publishers
 // of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md).
+using Cairn.Setup;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -132,18 +133,19 @@ namespace Cairn.Launcher.Pages
         private async Task RefreshHomeFriendsIfStaleAsync()
         {
             if (homeFriendsState == "checking" || DateTime.UtcNow - homeFriendsAt < TimeSpan.FromSeconds(50)) return;
-            if (showJoinSteam || steamBusy || gameRunning || setupSnapshot is null || !SetupAllGood) return;
-            string agent = AgentExe();
-            if (!File.Exists(agent)) { homeFriendsState = "unavailable"; return; }
+            if (showJoinSteam || steamBusy || gameRunning || !setupChecked || !SetupAllGood) return;
+            string? program = PackSessionProgram();
+            if (program is null) { homeFriendsState = "unavailable"; return; }
             homeFriendsState = "checking";
             await InvokeAsync(StateHasChanged);
             try
             {
-                var r = await AgentHelper.RunAsync<SteamFriendsData>(agent, $"--steam-friends --steam-app {settings.SteamAppId}{SteamGameArg}", "STEAM-FRIENDS", TimeSpan.FromSeconds(25));
+                var r = await PackSession.FriendsOnceAsync(program, settings.SteamAppId, settings.GamePath ?? "");
                 if (r is { State: "ok" })
                 {
-                    var fresh = HomeLogic.NewlyHosting(homeFriends?.Select(f => f.Name), r.Friends.Select(f => f.Name));
-                    homeFriends = r.Friends; homeFriendsState = "ok";
+                    var friends = r.Friends.Select(f => new SteamFriendData { Name = f.Name, Code = f.Code, Release = f.Release }).ToList();
+                    var fresh = HomeLogic.NewlyHosting(homeFriends?.Select(f => f.Name), friends.Select(f => f.Name));
+                    homeFriends = friends; homeFriendsState = "ok";
                     if (fresh.Count > 0) TrayService.Notify("A friend is hosting", string.Join(", ", fresh) + (fresh.Count == 1 ? " is" : " are") + " hosting a game. Open Cairn to join.");
                 }
                 else homeFriendsState = "unavailable";

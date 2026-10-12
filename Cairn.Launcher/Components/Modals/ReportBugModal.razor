@@ -53,20 +53,20 @@
 
     // combat visualisation, item K: supplied by Home, which owns the settings these paths
     // come from. Empty is fine -- LogBundle skips what it cannot find.
-    [Parameter] public string GameRoot { get; set; } = "";
-    [Parameter] public string AgentDirectory { get; set; } = "";
-    [Parameter] public string RelayDirectory { get; set; } = "";
+    /// <summary>Fills a folder with what the game's pack has to say about a session (its program's logs collect) and returns it; null when it has nothing.</summary>
+    [Parameter] public Func<Task<string?>>? PackLogs { get; set; }
 
     private string collectResult = "";
 
     private void OpenGitHubIssues() => UrlLauncher.Open(GitHubIssuesUrl);
     private void OpenDiscord() => UrlLauncher.Open(DiscordInviteUrl);
 
-    private void CollectLogs()
+    private async Task CollectLogs()
     {
         try
         {
-            string zip = LogBundle.Collect(GameRoot, AgentDirectory, RelayDirectory);
+            string? packLogs = PackLogs is null ? null : await PackLogs();
+            string zip = LogBundle.Collect(packLogs);
             collectResult = $"Saved to your Desktop: {System.IO.Path.GetFileName(zip)}";
         }
         catch (Exception ex)

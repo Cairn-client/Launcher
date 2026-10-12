@@ -35,57 +35,6 @@ namespace Cairn.Launcher.Models
         public string? SteamCode { get; set; }
     }
 
-    // the host's relay, GET api/local/status (loopback only).
-    public class RelayLocalStatusData
-    {
-        public string Release { get; set; } = "";
-        public RelaySteamData Steam { get; set; } = new();
-        public int Players { get; set; }
-        public bool HostConnected { get; set; }
-        public string? RefusedRelease { get; set; }
-        public int RefusedSecondsAgo { get; set; } = -1;
-    }
-
-    public class RelaySteamData
-    {
-        public string State { get; set; } = "off";
-        public string Message { get; set; } = "";
-        public uint AppId { get; set; }
-        public string AppName { get; set; } = "";
-        public string? Code { get; set; }
-        public int Peers { get; set; }
-    }
-
-    // CairnClient.exe --test-connection (ConnectionTest.Result.ToJson).
-    public class TestConnectionData
-    {
-        public bool Reachable { get; set; }
-        public string Via { get; set; } = "";
-        public int RttMs { get; set; } = -1;
-        public int ConnectMs { get; set; } = -1;
-        public string? HostRelease { get; set; }
-        public string MyRelease { get; set; } = "";
-        public bool VersionMatch { get; set; }
-        public bool? HostConnected { get; set; }
-        public int Players { get; set; } = -1;
-        public string Kind { get; set; } = "";
-        public string Message { get; set; } = "";
-        public string Next { get; set; } = "";
-        public int SteamPingMs { get; set; } = -1;
-        public bool? Relayed { get; set; }
-        public string Detail { get; set; } = "";
-    }
-
-    // CairnClient.exe --steam-friends (SteamFriendsList). Names are shown, never logged.
-    public class SteamFriendsData
-    {
-        public string State { get; set; } = "";
-        public string Message { get; set; } = "";
-        public string Next { get; set; } = "";
-        public string App { get; set; } = "";
-        public List<SteamFriendData> Friends { get; set; } = new();
-    }
-
     public class SteamFriendData
     {
         public string Name { get; set; } = "";
@@ -98,19 +47,6 @@ namespace Cairn.Launcher.Models
         public string MapName { get; set; } = "Unknown";
         public int Players { get; set; } = 0;
         public int MaxPlayers { get; set; } = 0;
-    }
-
-    // Mirrors VersionStatusDto/PeerVersionDto in dotnet/Cairn.Client/VersionIpcServer.cs.
-    public class VersionStatusData
-    {
-        public string MyReleaseVersion { get; set; } = "";
-        public List<PeerVersionData> Peers { get; set; } = new();
-    }
-
-    public class PeerVersionData
-    {
-        public byte GhostId { get; set; }
-        public string ReleaseVersion { get; set; } = "";
     }
 
     public class AppSettings

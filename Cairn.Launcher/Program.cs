@@ -20,13 +20,6 @@ class Program
     [STAThread]
     static void Main(string[] args)
     {
-        if (args.Length > 1 && args[0] == "--menu-probe") { try { Cairn.Launcher.Services.MenuDemo.Probe(args[1]); } catch (Exception ex) { File.WriteAllText(Path.Combine(Path.GetTempPath(), "cairn-menu-probe-error.txt"), ex.ToString()); } return; }
-        if (args.Contains("--menu-demo"))
-        {
-            try { Cairn.Launcher.Services.MenuDemo.Run(); }
-            catch (Exception ex) { File.WriteAllText(Path.Combine(Path.GetTempPath(), "cairn-menu-demo-error.txt"), ex.ToString()); }
-            return;
-        }   // the in-game menu over the screen, no game needed
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
             // combat visualisation (item J): Blazor's per-component render/init Debug lines

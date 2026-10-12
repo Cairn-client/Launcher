@@ -60,7 +60,7 @@ namespace Cairn.Launcher.Pages
             s.State += v => _ = InvokeAsync(() => ApplyPackView(v));
             s.Problem += p => _ = InvokeAsync(() => OnPackProblem(p));
             s.Error += t => _ = InvokeAsync(() => { UiService.ShowError(t); });
-            s.Message += (title, text) => _ = InvokeAsync(() => ShowMessage(title, text, ""));
+            s.Message += (title, text, next) => _ = InvokeAsync(() => ShowMessage(title, text, next));
             s.Toast += t => _ = InvokeAsync(() => ShowToast(t));
             s.Game += g => _ = InvokeAsync(() => OnPackGame(g));
             s.GameExit += () => _ = InvokeAsync(OnPackGameExit);
@@ -90,6 +90,94 @@ namespace Cairn.Launcher.Pages
                 StartSaveRootPath());
         }
 
+
+        // ------------------------------------------------------------ the entry points (the pack's session is the only way to host and join)
+
+        private static string SteamAppNameOf(uint app) => app switch { 2429020 => "KCD2 Modding Tools (2429020)", 480 => "Spacewar (480)", 1771300 => "KCD2 retail (1771300)", _ => $"app {app}" };
+
+        private const string ModTooOldText = "This mod is too old for this launcher: update it from the game's page, then try again.";
+
+        private async Task OpenHostModal()
+        {
+            if (await OfferUpdateBeforeAsync("host")) return;   // a newer version is offered once
+            if (!await EnsureSetupReadyAsync()) return;          // before a relay is started
+            await OpenHostModalViaPackAsync();
+        }
+
+        private async Task LaunchGame(ServerInfo server)
+        {
+            if (!await EnsureSetupReadyAsync()) return;   // Host and Join unlock at Ready!
+            await LaunchGameViaPackAsync(server);
+        }
+
+        private Task ConnectToGame() => ConnectToGameViaPackAsync();
+
+        private void StopHostedRelay()
+        {
+            packSession?.RelayStop();
+            packRelayUp = false;
+        }
+
+        private Task SendJoinChoiceAsync(string choice)
+        {
+            packSession?.Choice(choice);
+            return Task.CompletedTask;
+        }
+
+        private void ResetLaunchState()
+        {
+            Log.Information("MP-LAUNCH launch state reset (stage was {Stage})", launchStage);
+            packSession?.Cancel();
+            launchStage = LaunchStage.Idle;
+            pendingGameProcess = null;
+            launchStatusMessage = "";
+            StartGameOnLaunchReset();   // the game's own menu again
+            connectGateOpen = true;
+            connectGateReason = "";
+            StateHasChanged();
+        }
+
+        /// <summary>This launch's main menu is the pack's Start Game / Join Game (the screens only need to know it is on).</summary>
+        private volatile bool startGameTakeover;
+        private void StartGameOnLaunchReset() => startGameTakeover = false;
+
+        /// <summary>Where the start saves are (the pack's session is told, as it runs from the mod's own folder).</summary>
+        private string StartSaveRootPath() => Environment.GetEnvironmentVariable("CAIRN_START_SAVE") is { Length: > 0 } envRoot ? envRoot : ResolveAgainstLauncher(settings.StartSavePath);
+
+        private Task FindSteamFriendsAsync()
+        {
+            if (EnsurePackSession() is not { } ps) { UiService.ShowError(ModTooOldText); return Task.CompletedTask; }
+            steamBusy = true; steamBusyText = "Asking Steam which friends are hosting..."; steamFriendsNote = ""; StateHasChanged();
+            ConfigurePackSession();
+            ps.AskFriends();
+            return Task.CompletedTask;
+        }
+
+        private Task ShowConnectionTestAsync(ServerInfo server, bool launching)
+        {
+            if (EnsurePackSession() is not { } ps) { UiService.ShowError(ModTooOldText); return Task.CompletedTask; }
+            ConfigurePackSession();
+            ps.TestConnection(server.Ip ?? "", server.Port, server.SteamCode);
+            return Task.CompletedTask;
+        }
+
+        /// <summary>After a Steam failure: the same game, the agent restarted with the host's address.</summary>
+        private async Task ConnectByAddressAfterSteamAsync()
+        {
+            string text = fallbackAddress.Trim();
+            string host = text; int port = settings.HostPort;
+            int colon = text.LastIndexOf(':');
+            if (colon > 0 && text.IndexOf(':') == colon && int.TryParse(text[(colon + 1)..], out int p)) { host = text[..colon]; port = p; }
+            if (!NetService.ValidateServerAddress(host, showError: false) || port is <= 0 or > 65535)
+            {
+                ShowMessage("STEAM CONNECTION FAILED", "That address doesn't look right. Type it like 203.0.113.7:7778 or myhost.example.net:7778.", "", addressFallback: true);
+                return;
+            }
+            showMessage = false;
+            if (packSession is { Alive: true } ps && launchStage == LaunchStage.Connected) { ConfigurePackSession(); ps.Fallback(host, port); }
+            else await LaunchGame(new ServerInfo { Name = "(Address)", Ip = host, Port = port });
+            StateHasChanged();
+        }
         // ------------------------------------------------------------ what the pack reports
 
         private void ApplyPackView(SessionView v)
@@ -202,7 +290,7 @@ namespace Cairn.Launcher.Pages
             hostErrorMessage = "";
             hostLanAddresses = NetService.GetLocalIPv4Addresses();
             var s = EnsurePackSession();
-            if (s is null) { UiService.ShowError("Hosting couldn't start: the mod's program is missing. Reinstall the mod from the game's page."); return; }
+            if (s is null) { UiService.ShowError(ModTooOldText); return; }
             if (!packRelayUp)
             {
                 ConfigurePackSession();
@@ -222,7 +310,7 @@ namespace Cairn.Launcher.Pages
             lastLaunchServer = server;   // LAUNCH ANYWAY repeats this launch
             if (launchStage != LaunchStage.Idle && launchStage != LaunchStage.Failed) { UiService.ShowError("A launch is already in progress."); return; }
             var s = EnsurePackSession();
-            if (s is null) { UiService.ShowError("The game couldn't be started: the mod's program is missing. Reinstall the mod from the game's page."); return; }
+            if (s is null) { UiService.ShowError(ModTooOldText); return; }
             ConfigurePackSession();
             bool skip = skipModFileCheckOnce;
             skipModFileCheckOnce = false;

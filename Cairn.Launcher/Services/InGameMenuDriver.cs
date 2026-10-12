@@ -11,7 +11,6 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using Cairn.Launcher.Components.Shared;
 using Cairn.Launcher.Models;
 using Cairn.Setup;
 using Serilog;
@@ -19,10 +18,10 @@ using Serilog;
 namespace Cairn.Launcher.Services
 {
     /// <summary>
-    /// The shared in-game menu of one running game. The mod says what its menu holds in a log line (read from the game's kcd.log),
-    /// this draws it over the game, takes the keys while it is open (Insert opens and closes it, Up and Down choose, Left and Right
-    /// change, Enter selects, Esc closes) and asks the mod, through the game's console, to do what was chosen. Until the mod has
-    /// answered once, nothing is taken: a game without the launcher's menu keeps its own keys.
+    /// The shared in-game menu of one running game. The game's bridge (Cairn.Setup/BridgeProtocol.cs, docs/BRIDGE.md) says what the mod's menu holds, its notices and
+    /// the lines its characters speak; this draws them over the game, takes the keys while the menu is open (Insert opens and closes it, Up and Down choose, Left and Right
+    /// change, Enter selects, Esc goes back or closes) and sends the bridge what was chosen. Until the mod has answered once nothing is taken: a game without the
+    /// launcher's menu keeps its own keys.
     /// </summary>
     internal sealed class InGameMenuDriver
     {
@@ -38,30 +37,12 @@ namespace Cairn.Launcher.Services
                            VK_INSERT = 0x2D, VK_ADD = 0x6B, VK_SUBTRACT = 0x6D;
 
         private readonly Process _game;
-        private readonly DateTime _startLocal;
-        private readonly string _gameRoot;
         private readonly int _toggleVk;
-        private bool _dlss5;                             // DLSS 5 is enabled/installed in the game: menu row is active, otherwise greyed out
-        public bool Dlss5Active
-        {
-            get => _dlss5;
-            set
-            {
-                if (_dlss5 == value) return;
-                _dlss5 = value;
-                if (!_dlss5 && _inDlssMenu) ExitDlssSubmenu();
-                else if (_lastModState is { } st) _nav.Update(WithOwnRows(st));
-            }
-        }
-        private string? _optiScalerIniPath;              // path to OptiScaler.ini
-        private bool _inDlssMenu;                        // whether the overlay is currently inside the DLSS 5 / OptiScaler submenu
-        private MenuState? _lastModState;                // the mod's newest menu before our own rows
-        private MenuState? _lastState;                   // the mod's newest menu, with the launcher's own row
+        private readonly BridgeServer _bridge;
 
         private readonly MenuNav _nav = new();
         private readonly ConcurrentQueue<MenuKey> _keys = new();
         private readonly ConcurrentQueue<MenuState> _states = new();
-        private readonly ConcurrentQueue<string> _outgoing = new();
         private volatile bool _open;          // read by the hook thread: the menu holds the keys
         private volatile bool _attached;      // the mod answered: it knows the launcher draws the menu
         private volatile bool _stop;
@@ -69,22 +50,14 @@ namespace Cairn.Launcher.Services
         private double _openedAt = -100;   // when the menu was opened (the driver's clock)
         private readonly bool[] _down = new bool[256];   // hook thread: which keys are held (a repeat of Enter or Esc is not a press)
 
-        // A game whose mod talks to the launcher through its bridge (Cairn.Setup/BridgeProtocol.cs) instead of the game's log and console.
-        private readonly BridgeServer? _bridge;
-        private readonly bool _launcherRows;   // the launcher adds its own rows (DLSS 5) to a bridged menu too: Kingdom Come II's
-
-        public InGameMenuDriver(Process game, DateTime startLocal, string gameRoot, string menuKeyName, bool dlss5 = false, BridgeServer? bridge = null, bool launcherRows = false)
+        public InGameMenuDriver(Process game, string menuKeyName, BridgeServer bridge)
         {
             _bridge = bridge;
-            _launcherRows = launcherRows;
-            _dlss5 = dlss5;
             _game = game;
-            _startLocal = startLocal;
-            _gameRoot = gameRoot;
             _toggleVk = (menuKeyName ?? "").Trim().ToLowerInvariant() switch { "np_add" => VK_ADD, "np_subtract" => VK_SUBTRACT, _ => VK_INSERT };
         }
 
-        /// <summary>settings.json's MenuKey ("insert", "np_add", "np_subtract"; anything else is Insert).</summary>
+        /// <summary>The menu key the player chose (settings.json's MenuKey); Insert when there is none.</summary>
         public static string ReadMenuKey(string settingsFile)
         {
             try
@@ -98,21 +71,10 @@ namespace Cairn.Launcher.Services
 
         public void Stop() => _stop = true;
 
-        // What the launcher asks of the mod: through the bridge when the game has one, else as a call in the game's console.
-        private void SendAttach() { if (_bridge is not null) _bridge.Send(BridgeProtocol.Attach()); else _outgoing.Enqueue(InGameMenuProtocol.Attach); }
-        private void SendAskState() { if (_bridge is not null) _bridge.Send(BridgeProtocol.AskState()); else _outgoing.Enqueue(InGameMenuProtocol.AskState); }
-        private void SendDo(string id, string verb, int dir = 1)
-        {
-            if (_bridge is not null) { if (BridgeProtocol.Do(id, verb, dir) is { } m) _bridge.Send(m); }
-            else if (InGameMenuProtocol.DoCall(id, verb) is { } call) _outgoing.Enqueue(call);
-        }
-
-        /// <summary>A bridge's menu as the menu the launcher draws (the same for every game).</summary>
         internal static MenuState ToMenuState(string game, BridgeMenu m) => new(game, m.Title.Length > 0 ? m.Title : "Mod menu", m.Blocked, m.Note,
             m.Items.Select(i => new MenuItem(i.Id, i.Group, i.Kind switch { "onoff" => MenuKind.OnOff, "choice" => MenuKind.Choice, "key" => MenuKind.Key, "action" => MenuKind.Action, _ => MenuKind.Info },
                 i.On, i.Locked, i.Value, i.Label, i.Help, i.Gate, i.Disabled)).ToList(), m.Back);
 
-        /// <summary>A line in the temp folder, for when the launcher's own log says nothing (kept small).</summary>
         internal static void Trace(string text)
         {
             try
@@ -132,23 +94,33 @@ namespace Cairn.Launcher.Services
             Log.Information("in-game menu: watching {Game} (toggle key vk 0x{Vk:X2})", gameName, _toggleVk);
             OverlayWindow? overlay = null;
             KeyboardHook? hook = null;
-            using var console = _bridge is null ? new GameConsole() : null;
-            KcdLogFollower? follower = null;
             var clock = Stopwatch.StartNew();
-            double nextFind = 0, nextAttach = 0, nextRefresh = 0, nextWindow = 0;
+            double nextAttach = 0, nextRefresh = 0, nextWindow = 0;
             Int32Rect client = default;
             bool gameFront = false;
-            var sending = Task.CompletedTask;
             string subtitle = "";      // a partner's spoken line, shown until subtitleUntil (the driver's clock)
             double subtitleUntil = 0;
-            // what the overlay was last told: it is told again only when something changed (the loop runs every 30 ms; the menu's whole picture used
-            // to be rebuilt each time, and the hidden subtitle and notice windows were asked to hide 33 times a second)
+            // what the overlay was last told: it is told again only when something changed (the loop runs every 30 ms)
             (bool Vis, MenuState? State, int Sel, string Blocked, Int32Rect Rect, int Tick) lastMenu = (false, null, -2, "", default, 0);
             (bool Vis, string Text, Int32Rect Rect, int Tick) lastSub = (false, "", default, 0), lastNote = (false, "", default, 0);   // Tick: once a second the window is told again, which also puts it back above the game
             string notice = "";        // a notice of the mod (a partner joining), shown until the mod hides it or two minutes pass
             double noticeUntil = 0;
-            Action<BridgeIn>? onBridge = null;
-            Action<string>? onBridgeConnection = null;
+
+            // the game's bridge speaks for the mod: its menu, notices and spoken lines
+            Action<BridgeIn> onBridge = msg =>
+            {
+                switch (msg)
+                {
+                    case BridgeMenu m: _states.Enqueue(ToMenuState(_bridge.Game, m)); break;
+                    case BridgeNotice n: notice = n.Text; noticeUntil = n.Show ? clock.Elapsed.TotalSeconds + 120 : 0; break;
+                    case BridgeSubtitle s: subtitle = s.Text; subtitleUntil = clock.Elapsed.TotalSeconds + s.Seconds; break;
+                }
+            };
+            Action<string> onBridgeConnection = game =>
+            {
+                if (game.Length == 0) { _attached = false; return; }   // the bridge went away: the menu is the game's own until it is back
+                Log.Information("in-game menu: the bridge of {Game} connected", game);
+            };
 
             try
             {
@@ -157,77 +129,28 @@ namespace Cairn.Launcher.Services
                 if (overlay.Dispatcher is { } d) await d.InvokeAsync(() => hook.Install()).Task;
                 if (overlay.Dispatcher is null) { Log.Warning("in-game menu: the overlay could not start"); return; }
 
-                if (_dlss5)
-                {
-                    _optiScalerIniPath = Dlss5.FindOptiScalerIni(_gameRoot, _game);
-                    if (!string.IsNullOrEmpty(_optiScalerIniPath))
-                    {
-                        Dlss5.EnsureShortcutKeyDisabled(_optiScalerIniPath);
-                        Log.Information("in-game menu: OptiScaler.ini found at {Path}, shortcut key disabled", _optiScalerIniPath);
-                    }
-                }
-
-                if (_bridge is { } bridge)
-                {
-                    // the game's bridge speaks for the mod: its menu, notices and spoken lines go where the mod's log lines go
-                    onBridge = msg =>
-                    {
-                        switch (msg)
-                        {
-                            case BridgeMenu m: _states.Enqueue(ToMenuState(bridge.Game, m)); break;
-                            case BridgeNotice n: notice = n.Text; noticeUntil = n.Show ? clock.Elapsed.TotalSeconds + 120 : 0; break;
-                            case BridgeSubtitle s: subtitle = s.Text; subtitleUntil = clock.Elapsed.TotalSeconds + s.Seconds; break;
-                        }
-                    };
-                    onBridgeConnection = game =>
-                    {
-                        if (game.Length == 0) { _attached = false; return; }   // the bridge went away: the menu is the game's own until it is back
-                        Log.Information("in-game menu: the bridge of {Game} connected", game);
-                    };
-                    bridge.Received += onBridge;
-                    bridge.ConnectionChanged += onBridgeConnection;
-                }
+                _bridge.Received += onBridge;
+                _bridge.ConnectionChanged += onBridgeConnection;
 
                 while (!_game.HasExited && !_stop)
                 {
                     double now = clock.Elapsed.TotalSeconds;
 
-                    if (_bridge is null && follower is null && now >= nextFind)
-                    {
-                        if (await Task.Run(() => LogBundle.FindKcdLog(_gameRoot)) is string path)
-                        {
-                            follower = new KcdLogFollower(path, _startLocal);
-                            follower.OnLine = line =>
-                            {
-                                if (InGameMenuProtocol.Parse(line) is { } st) _states.Enqueue(st);
-                                else if (InGameMenuProtocol.ParseNotice(line) is { } note) { notice = note.Text; noticeUntil = note.Show ? clock.Elapsed.TotalSeconds + 120 : 0; }
-                                else if (InGameMenuProtocol.ParseSubtitle(line) is { } sub) { subtitle = sub.Text; subtitleUntil = clock.Elapsed.TotalSeconds + sub.Seconds; }
-                            };
-                            Log.Information("in-game menu: reading the game's log {Path}", path);
-                        }
-                        else nextFind = now + 5;
-                    }
-                    follower?.Poll(now);
-
-                    // the mod answers (state lines): attached, and the picture is fresh
+                    // the mod answers (menu messages): attached, and the picture is fresh
                     while (_states.TryDequeue(out var st))
                     {
                         _blockedVks = st.Items.Where(i => i.Gate.Length > 0 && i.On != true)
                             .Select(i => InGameMenuProtocol.VkOfGate(i.Gate)).Where(v => v is not null).Select(v => v!.Value).Distinct().ToArray();
                         if (!_attached) Log.Information("in-game menu: the mod answered ({Items} items): the launcher draws the menu from now on", st.Items.Count);
                         _attached = true;
-                        _lastModState = st;
-                        if (!_inDlssMenu)
-                        {
-                            _nav.Update(WithOwnRows(st));
-                        }
+                        _nav.Update(st);
                     }
 
                     // until the mod has answered, ask (it learns the launcher draws the menu, and says what it holds)
-                    if (!_attached && (_bridge is not null ? _bridge.Connected : follower is { Reading: true }) && now >= nextAttach)
+                    if (!_attached && _bridge.Connected && now >= nextAttach)
                     {
                         nextAttach = now + 3;
-                        SendAttach();
+                        _bridge.Send(BridgeProtocol.Attach());
                     }
 
                     // keys
@@ -236,44 +159,23 @@ namespace Cairn.Launcher.Services
                         switch (key)
                         {
                             case MenuKey.Toggle:
-                                if (_open)
-                                {
-                                    _inDlssMenu = false;
-                                    Close();
-                                }
+                                if (_open) Close();
                                 else Open(now, ref nextRefresh);
                                 break;
                             case MenuKey.Back:
-                                if (_inDlssMenu) ExitDlssSubmenu();
-                                else if (_bridge is not null && _nav.State.Submenu) _bridge.Send(BridgeProtocol.Back());   // a submenu of the game's own program: Back goes to it
+                                if (_nav.State.Submenu) _bridge.Send(BridgeProtocol.Back());   // a submenu of the game's own program: Back goes to it
                                 else Close();
                                 break;
                             case MenuKey.Up: _nav.Step(-1); break;
                             case MenuKey.Down: _nav.Step(1); break;
                             default:
-                                if (_inDlssMenu)
-                                {
-                                    HandleDlssKey(key);
-                                }
-                                else if (_nav.Request(key) is { } req)
-                                {
-                                    // the DLSS 5 row is the launcher's own unless the game's program draws it (a bridge without launcher rows): then it is sent like any other row
-                                    if (req.Id == Dlss5.MenuItemId && (_bridge is null || _launcherRows)) { if (req.Verb == "enter") EnterDlssSubmenu(); }
-                                    else SendDo(req.Id, req.Verb, req.Dir);
-                                }
+                                if (_nav.Request(key) is { } req && BridgeProtocol.Do(req.Id, req.Verb, req.Dir) is { } m) _bridge.Send(m);
                                 break;
                         }
                     }
 
                     // while it is open the picture is asked for once a second (the role, the partner and the connection change by themselves)
-                    if (_open && now >= nextRefresh) { nextRefresh = now + (now - _openedAt < 2 ? 0.25 : 1); SendAskState(); }
-
-                    // the console: one call at a time, in the order they were made
-                    if (sending.IsCompleted && _outgoing.TryDequeue(out var next))
-                    {
-                        string call = next;
-                        sending = Task.Run(async () => { try { await console!.LuaAsync(call); } catch (Exception ex) { Log.Debug(ex, "in-game menu: a console call failed"); } });
-                    }
+                    if (_open && now >= nextRefresh) { nextRefresh = now + (now - _openedAt < 2 ? 0.25 : 1); _bridge.Send(BridgeProtocol.AskState()); }
 
                     // the window: where the game is, and whether it is in front
                     if (now >= nextWindow)
@@ -320,50 +222,12 @@ namespace Cairn.Launcher.Services
             {
                 _open = false;
                 try { overlay?.Render(false, MenuState.Empty, -1, "", default); overlay?.RenderSubtitle(false, "", default); overlay?.RenderNotice(false, "", default); } catch (Exception) { }
-                if (_bridge is not null) { if (onBridge is not null) _bridge.Received -= onBridge; if (onBridgeConnection is not null) _bridge.ConnectionChanged -= onBridgeConnection; }
+                _bridge.Received -= onBridge;
+                _bridge.ConnectionChanged -= onBridgeConnection;
                 hook?.Dispose();
                 overlay?.Dispose();
                 Log.Information("in-game menu: stopped");
             }
-        }
-
-        /// <summary>The mod's menu with the launcher's own rows: DLSS 5's (active when enabled/installed, greyed out when disabled).</summary>
-        private MenuState WithOwnRows(MenuState st)
-        {
-            if (_bridge is not null && !_launcherRows) return _lastState = st;   // the launcher's own rows (DLSS 5) belong to Kingdom Come II's menu
-            var items = st.Items.Where(i => i.Id != Dlss5.MenuItemId).Append(Dlss5.MenuItem(_inDlssMenu, _dlss5)).ToList();
-            return _lastState = st with { Items = items };
-        }
-
-        private void EnterDlssSubmenu()
-        {
-            if (!_dlss5) return;
-            _inDlssMenu = true;
-            _optiScalerIniPath ??= Dlss5.FindOptiScalerIni(_gameRoot, _game);
-            if (!string.IsNullOrEmpty(_optiScalerIniPath)) Dlss5.EnsureShortcutKeyDisabled(_optiScalerIniPath);
-            _nav.Update(Dlss5.BuildSubmenu(_lastModState?.Game ?? "Kingdom Come: Together", _optiScalerIniPath));
-        }
-
-        private void ExitDlssSubmenu()
-        {
-            _inDlssMenu = false;
-            if (_lastModState is { } st) _nav.Update(WithOwnRows(st));
-        }
-
-        private void HandleDlssKey(MenuKey key)
-        {
-            var sel = _nav.Selected;
-            if (sel is null) return;
-            if (sel.Id == "dlss5_back")
-            {
-                if (key == MenuKey.Enter) ExitDlssSubmenu();
-                return;
-            }
-
-            int dir = key == MenuKey.Left ? -1 : 1;
-            _optiScalerIniPath ??= Dlss5.FindOptiScalerIni(_gameRoot, _game);
-            Dlss5.StepSetting(_optiScalerIniPath, sel.Id, dir);
-            _nav.Update(Dlss5.BuildSubmenu(_lastModState?.Game ?? "Kingdom Come: Together", _optiScalerIniPath));
         }
 
         private void Open(double now, ref double nextRefresh)
@@ -372,7 +236,7 @@ namespace Cairn.Launcher.Services
             _open = true;
             _nav.Show();
             _openedAt = now;
-            SendAskState();
+            _bridge.Send(BridgeProtocol.AskState());
             nextRefresh = now + 0.25;
         }
 
@@ -393,7 +257,6 @@ namespace Cairn.Launcher.Services
             return fgPid == (uint)pid;
         }
 
-        /// <summary>The keyboard hook, on the overlay's thread: the menu's keys while the game is in front; true keeps the key from the game.</summary>
         private bool OnKey(int vk, bool down)
         {
             // a key whose switch in the menu is off never reaches the game (F3, the game's own fly mode, while "Free movement" is off)

@@ -36,79 +36,6 @@ namespace Cairn.Launcher.Models
         public const char ItemSep = '|';
         public const char FieldSep = '~';
 
-        /// <summary>The menu_state line's payload from a kcd.log line, or null when the line is something else.</summary>
-        public static MenuState? Parse(string line)
-        {
-            string pfx = ModLua.EventPrefix;
-            int at = line.IndexOf(pfx, StringComparison.Ordinal);
-            if (at < 0) return null;
-            string rest = line[(at + pfx.Length)..];
-            int s1 = rest.IndexOf(' ');
-            if (s1 < 0 || !long.TryParse(rest.AsSpan(0, s1), NumberStyles.None, CultureInfo.InvariantCulture, out _)) return null;
-            rest = rest[(s1 + 1)..];
-            const string name = "menu_state ";
-            if (!rest.StartsWith(name, StringComparison.Ordinal)) return null;
-            string payload = rest[name.Length..].TrimEnd();
-
-            var parts = payload.Split(ItemSep);
-            var head = parts[0].Split(FieldSep);
-            if (head.Length < 4) return null;
-            var items = new List<MenuItem>();
-            for (int i = 1; i < parts.Length; i++)
-            {
-                var f = parts[i].Split(FieldSep);
-                if (f.Length < 8 || f[0].Length == 0) continue;   // a damaged item is left out, not the whole menu
-                MenuKind? kind = f[2] switch { "onoff" => MenuKind.OnOff, "choice" => MenuKind.Choice, "key" => MenuKind.Key, "action" => MenuKind.Action, "info" => MenuKind.Info, _ => null };
-                if (kind is null) continue;
-                bool? on = f[3] == "1" ? true : f[3] == "0" ? false : null;
-                items.Add(new MenuItem(f[0], f[1], kind.Value, on, f[4] == "1", f[5], f[6], f[7], f.Length > 8 ? f[8] : ""));
-            }
-            return new MenuState(head[0], head[1], head[2], head[3], items);
-        }
-
-        /// <summary>
-        /// A partner's spoken line from a kcd.log line: <c>[CAIRN-EVT] v1 &lt;seq&gt; subtitle &lt;seconds&gt;~&lt;text&gt;</c> (the mod's Cairn_SpeechShow),
-        /// or null when the line is something else. The seconds are kept between 1 and 15, the text to 400 characters.
-        /// </summary>
-        public static (double Seconds, string Text)? ParseSubtitle(string line)
-        {
-            string pfx = ModLua.EventPrefix;
-            int at = line.IndexOf(pfx, StringComparison.Ordinal);
-            if (at < 0) return null;
-            string rest = line[(at + pfx.Length)..];
-            int s1 = rest.IndexOf(' ');
-            if (s1 < 0 || !long.TryParse(rest.AsSpan(0, s1), NumberStyles.None, CultureInfo.InvariantCulture, out _)) return null;
-            rest = rest[(s1 + 1)..];
-            const string name = "subtitle ";
-            if (!rest.StartsWith(name, StringComparison.Ordinal)) return null;
-            string payload = rest[name.Length..].TrimEnd();
-            int sep = payload.IndexOf(FieldSep);
-            if (sep <= 0 || !double.TryParse(payload.AsSpan(0, sep), NumberStyles.Float, CultureInfo.InvariantCulture, out double secs)) return null;
-            string text = payload[(sep + 1)..].Trim();
-            if (text.Length == 0) return null;
-            return (Math.Clamp(secs, 1, 15), text.Length > 400 ? text[..400] : text);
-        }
-
-        /// <summary>
-        /// A notice the mod wants shown (a partner joining, the sleep question, a message; several lines joined by "^^"): <c>[CAIRN-EVT] v1 &lt;seq&gt; notice &lt;text&gt;</c> shows it until
-        /// <c>[CAIRN-EVT] v1 &lt;seq&gt; notice_hide</c>. Null when the line is something else; Text is empty for the hide.
-        /// </summary>
-        public static (bool Show, string Text)? ParseNotice(string line)
-        {
-            string pfx = ModLua.EventPrefix;
-            int at = line.IndexOf(pfx, StringComparison.Ordinal);
-            if (at < 0) return null;
-            string rest = line[(at + pfx.Length)..];
-            int s1 = rest.IndexOf(' ');
-            if (s1 < 0 || !long.TryParse(rest.AsSpan(0, s1), NumberStyles.None, CultureInfo.InvariantCulture, out _)) return null;
-            rest = rest[(s1 + 1)..].TrimEnd();
-            if (rest == "notice_hide") return (false, "");
-            if (!rest.StartsWith("notice ", StringComparison.Ordinal)) return null;
-            string text = rest[7..].Trim();
-            if (text.Length == 0) return null;
-            return (true, text.Length > 400 ? text[..400] : text);   // lines are separated by "^^"
-        }
-
         /// <summary>The virtual-key code of a gate key name ("f1" to "f12"), or null for a name this does not know.</summary>
         public static int? VkOfGate(string name)
         {
@@ -116,19 +43,6 @@ namespace Cairn.Launcher.Models
             return n.Length is 2 or 3 && n[0] == 'f' && int.TryParse(n.AsSpan(1), NumberStyles.None, CultureInfo.InvariantCulture, out int k) && k is >= 1 and <= 12 ? 0x70 + k - 1 : null;
         }
 
-        /// <summary>The console call that asks the mod for its state (it answers with a menu_state line).</summary>
-        public static string AskState => ModLua.Call(ModLua.MenuRequest, "\"state\"");
-
-        /// <summary>Tells the mod the launcher draws the menu: the mod's own key handling steps aside.</summary>
-        public static string Attach => ModLua.Call(ModLua.MenuRequest, "\"attach\"");
-
-        /// <summary>The console call for "do this to that item"; the id is the mod's own, kept to letters, digits and underscores.</summary>
-        public static string? DoCall(string id, string verb)
-        {
-            if (id.Length is 0 or > 40 || !id.All(c => char.IsAsciiLetterOrDigit(c) || c == '_')) return null;
-            if (verb is not ("enter" or "nudge")) return null;
-            return ModLua.Call(ModLua.MenuRequest, $"\"do {id} {verb}\"");
-        }
     }
 
     /// <summary>The keys the menu takes while it is open.</summary>

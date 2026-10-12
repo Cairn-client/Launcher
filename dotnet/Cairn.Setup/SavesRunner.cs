@@ -30,4 +30,13 @@ public static class SavesRunner
         if (toast is null) return (false, run.StartError ?? (run.TimedOut ? "It took too long and was stopped." : "The program did not answer."), slots);
         return (!toast.Error, toast.Text, slots);
     }
+
+    /// <summary>Deletes every save of the game and every character and chest the mod kept (the program refuses while the game runs). The message is what to tell the player.</summary>
+    public static async Task<(bool Ok, string Message)> DeleteAllAsync(string program, CancellationToken ct = default, TimeSpan? timeout = null)
+    {
+        var run = await OptionRunner.RunAsync(program, new[] { "saves", "delete-all" }, timeout ?? Timeout, _ => { }, ct).ConfigureAwait(false);
+        var toast = (run.Lines ?? Array.Empty<string>()).Select(BridgeProtocol.Parse).OfType<BridgeToast>().LastOrDefault();
+        if (toast is null) return (false, run.StartError ?? (run.TimedOut ? "It took too long and was stopped." : "The program did not answer."));
+        return (!toast.Error, toast.Text);
+    }
 }

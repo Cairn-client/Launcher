@@ -6,6 +6,7 @@ using System.IO;
 using System.Text.Json;
 using System.Windows.Forms;
 using Cairn.Launcher.Components.Shared;
+using Cairn.Setup;
 using Serilog;
 
 namespace Cairn.Launcher.Pages
@@ -55,91 +56,48 @@ namespace Cairn.Launcher.Pages
             return picked;
         }
 
-        private static async Task<JsonElement?> ValidateStartSaveAsync(string agent, string file, string style)
-        {
-            var psi = new ProcessStartInfo { FileName = agent, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, WorkingDirectory = Path.GetDirectoryName(agent) ?? "" };
-            foreach (var a in new[] { Cairn.Launcher.Models.ModLua.HelperFlag, "validate", "--file", file, "--style", style }) psi.ArgumentList.Add(a);
-            using var p = Process.Start(psi);
-            if (p is null) return null;
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-            string output = await p.StandardOutput.ReadToEndAsync(cts.Token);
-            await p.WaitForExitAsync(cts.Token);
-            string? line = output.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.StartsWith(Cairn.Launcher.Models.ModLua.HelperTag + " ", StringComparison.Ordinal));
-            return line is null ? null : JsonDocument.Parse(line[(Cairn.Launcher.Models.ModLua.HelperTag.Length + 1)..]).RootElement.Clone();
-        }
 
-        private static bool CheckPassed(JsonElement result, string name) =>
-            result.TryGetProperty("checks", out var cs) && cs.EnumerateArray().Any(c => c.GetProperty("name").GetString() == name && c.GetProperty("pass").GetBoolean());
+        // ------------------------------------------------------------ what the game's pack does for the settings window and the logs
 
-        /// <summary>Settings > Saves: every save of the game and every character and chest the mod kept goes, so a new adventure starts clean.</summary>
+        /// <summary>The program of the game's pack (<c>optionsProgram</c>), or null when it is not downloaded.</summary>
+        private string? PackProgramPath() => ExternalInstall.OptionsProgramPath(PacksRoot, ModInstall.PackId) is { } p && File.Exists(p) ? p : null;
+
+        /// <summary>Settings > Saves: every save of the game and every character and chest the mod kept goes, so a new adventure starts clean (the pack's program does it).</summary>
         private async Task DeleteAllSavesAsync()
         {
-            if (gameRunning)
-            {
-                UiService.ShowError("Close the game first: its saves cannot be deleted while it is running.");
-                return;
-            }
-            var r = await Task.Run(() => Cairn.Launcher.Models.SaveCleaner.Clean(Cairn.Launcher.Models.SaveCleaner.DefaultSavesRoot, Cairn.Launcher.Models.SaveCleaner.DefaultDataRoots));
-            Log.Information("saves: deleted {Saves} save(s) and {Folders} mod item(s); error: {Error}", r.Saves, r.ModFolders, r.Error);
-            if (r.Error.Length > 0) UiService.ShowError("Some saves could not be deleted (is the game closed?): " + r.Error);
-            else ShowToast(r.Saves + r.ModFolders == 0 ? "There were no saves to delete." : $"Deleted {r.Saves} save(s) and the mod's characters and chests.");
+            if (gameRunning) { UiService.ShowError("Close the game first: its saves cannot be deleted while it is running."); return; }
+            if (PackProgramPath() is not { } program) { UiService.ShowError(ModTooOldText); return; }
+            var (ok, message) = await SavesRunner.DeleteAllAsync(program);
+            Log.Information("saves: delete all: {Ok}: {Message}", ok, message);
+            if (ok) ShowToast(message); else UiService.ShowError(message);
             await InvokeAsync(StateHasChanged);
         }
+
+        /// <summary>
+        /// A joiner's new character (and a host's New adventure) begin from a start save placed in start-save\&lt;playstyle&gt; beside the launcher. A player makes one from his own
+        /// Modding Tools game: he picks the file, the pack's program checks it and files it under the playstyle it fits.
+        /// </summary>
         private async Task AddStartSaveAsync()
         {
-            try
-            {
-                string? file = PickSaveFile();
-                if (file is null) return;
-                string agent = AgentExe();
-                if (!File.Exists(agent)) { ShowMessage("START SAVE", "The agent (CairnClient.exe) is not beside the launcher, so the save cannot be checked.", "Run Setup again."); return; }
-
-                string? style = null;
-                JsonElement? result = null;
-                foreach (var st in new[] { "adviser", "soldier", "scout" })
-                {
-                    var j = await ValidateStartSaveAsync(agent, file, st);
-                    if (j is null) continue;
-                    result ??= j;
-                    if (CheckPassed(j.Value, $"the {st} playstyle")) { style = st; result = j; break; }
-                }
-                if (result is null) { ShowMessage("START SAVE", "The save could not be read.", "Pick a save of your Modding Tools game."); return; }
-
-                // what must hold for a Henry to be taken from it; the rest only warns
-                string[] must = { "reads and verifies", "Modding Tools build", "after the prologue, as Henry", "a playthrough seed" };
-                var failed = must.Where(n => !CheckPassed(result.Value, n)).ToList();
-                if (failed.Count > 0)
-                {
-                    string why = string.Join("; ", result.Value.GetProperty("checks").EnumerateArray()
-                        .Where(c => !c.GetProperty("pass").GetBoolean() && must.Contains(c.GetProperty("name").GetString()))
-                        .Select(c => c.GetProperty("name").GetString() + (c.GetProperty("detail").GetString() is { Length: > 0 } d ? " (" + d + ")" : "")));
-                    ShowMessage("START SAVE", "This save cannot be used: " + why + ".", "Pick a save made in the Modding Tools build, as Henry, after the prologue.");
-                    return;
-                }
-
-                bool guessed = style is null;
-                style ??= "adviser";
-                string dir = Path.Combine(StartSaveRoot, style);
-                Directory.CreateDirectory(dir);
-                foreach (var old in Directory.GetFiles(dir, "*.whs")) File.Delete(old);
-                File.Copy(file, Path.Combine(dir, Path.GetFileName(file)), overwrite: true);
-                Log.Information("start save: {File} placed as the {Style} start save", file, style);
-
-                var warn = result.Value.GetProperty("checks").EnumerateArray()
-                    .Where(c => !c.GetProperty("pass").GetBoolean() && c.GetProperty("name").GetString() is "no partner / mod data in the world" or "where Hans and Henry part ways")   // the header names matter only for sharing a save
-                    .Select(c => c.GetProperty("name").GetString()).ToList();
-                ShowMessage("START SAVE ADDED",
-                    $"{Path.GetFileName(file)} is now the {style} start save" + (guessed ? " (its playstyle could not be told, so it is filed as adviser)." : "."),
-                    warn.Count == 0 ? "You can now join with a new character or start a new adventure."
-                                    : "It works, but it is not a clean start (" + string.Join(", ", warn) + ").");
-            }
-            catch (Exception ex)
-            {
-                Log.Warning(ex, "start save: not added");
-                ShowMessage("START SAVE", "The start save could not be added: " + ex.Message, "");
-            }
+            string? file = PickSaveFile();
+            if (file is null) return;
+            if (PackProgramPath() is not { } program) { ShowMessage("START SAVE", ModTooOldText, ""); return; }
+            bool answered = false;
+            await PackSession.RunOnceAsync(program, new[] { "startsave", "add", "--file", file, "--start-saves", StartSaveRoot },
+                s => s.Message += (title, text, next) => { answered = true; _ = InvokeAsync(() => ShowMessage(title, text, next)); }, TimeSpan.FromMinutes(4));
+            if (!answered) ShowMessage("START SAVE", "The start save could not be added.", "");
         }
 
+        /// <summary>The game's side of Save the logs and Report a bug: the pack's program copies its game's logs into a folder, which the bundle adds. Null when there is nothing.</summary>
+        private async Task<string?> CollectPackLogsAsync()
+        {
+            if (PackProgramPath() is not { } program) return null;
+            string dir = Path.Combine(Path.GetTempPath(), "cairn-logs-" + Guid.NewGuid().ToString("N")[..8]);
+            var args = new List<string> { "logs", "collect", "--out", dir };
+            if (!string.IsNullOrWhiteSpace(settings.GamePath)) { args.Add("--game-exe"); args.Add(settings.GamePath); }
+            await PackSession.RunOnceAsync(program, args, _ => { }, TimeSpan.FromSeconds(60));
+            return Directory.Exists(dir) ? dir : null;
+        }
         // ---- one-click update -------------------------------------------------------------------------------------------
         // A window opens by itself at start when a newer release is out, and Host / Join look again and ask before they start when one is. Both open the
         // update window: what is new, UPDATE NOW or LATER. UPDATE NOW downloads that release's installer from this repository's own
@@ -266,7 +224,7 @@ namespace Cairn.Launcher.Pages
             }
         }
         /// <summary>Cairn: Settings > Save my logs. The same bundle Report bug used to offer: one zip on the Desktop, then Explorer shows it.</summary>
-        private void CollectMyLogs()
+        private async Task CollectMyLogs()
         {
             try
             {
@@ -288,7 +246,7 @@ namespace Cairn.Launcher.Pages
                 t.Join();
                 if (target is null) return;
                 if (File.Exists(target)) File.Delete(target);   // the dialog asked about overwriting already
-                string zip = LogBundle.Collect(LogBundleGameRoot, LogBundleAgentDirectory, LogBundleRelayDirectory, target);
+                string zip = LogBundle.Collect(await CollectPackLogsAsync(), target);
                 try { Process.Start(new ProcessStartInfo("explorer.exe", "/select,\"" + zip + "\"") { UseShellExecute = true })?.Dispose(); } catch { }
                 ShowMessage("LOGS SAVED", "The logs are saved: " + Path.GetFileName(zip) + ".", "");
             }

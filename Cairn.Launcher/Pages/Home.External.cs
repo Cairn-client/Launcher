@@ -205,7 +205,7 @@ namespace Cairn.Launcher.Pages
             {
                 inGameMenu?.Stop();
                 string key = Cairn.Launcher.Services.InGameMenuDriver.ReadMenuKey(SettingsFileName);
-                var driver = new Cairn.Launcher.Services.InGameMenuDriver(proc, DateTime.Now, folder, key, bridge: bridge);
+                var driver = new Cairn.Launcher.Services.InGameMenuDriver(proc, key, bridge);
                 inGameMenu = driver;
                 _ = Task.Run(driver.RunAsync);
                 Log.Information("games: {Game} menu started on its bridge", game.Id);

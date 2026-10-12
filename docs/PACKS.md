@@ -130,3 +130,14 @@ is shown with the step (or as the failure), `pending` says the PC needs that lon
 A launcher that does not know a pack's `setup` (or a pack without it) uses the setup checklist the launcher has always had.
 
 A pack can also run the game's connection (`"session": true`, [SESSION.md](SESSION.md)): the same program is started as `session` and owns the relay, the game's start, the plugin and the agent.
+
+### The other things the program is asked
+
+| Arguments | What it does |
+| --- | --- |
+| `session` | the connection side of a session, see [SESSION.md](SESSION.md) |
+| `friends --steam-app N [--game-exe PATH]` | one `friends` line: the Steam friends who are hosting (the Home page asks every minute) |
+| `saves delete-all` | every save and the mod's characters and chests; a `toast` line, then the new list; refused while the game runs |
+| `startsave add --file F --start-saves DIR` | checks a save with the game's own checker and files it as a start save; one `message` line |
+| `logs collect --out DIR [--game-exe PATH]` | copies the game's logs and the mod's into `DIR` for "Save the logs" and "Report a bug" |
+| `setup do unplace-mod` | takes the mod's files out of the game again (when the mod is removed) |
