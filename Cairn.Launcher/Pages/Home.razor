@@ -251,10 +251,6 @@
                                     @if (BlockedReasonOfInstalled(game) is { } badMod) { <span class="mod-note err">This version has a known problem: @badMod </span> }
                                     @if (blockedOffers.TryGetValue(game.Id, out var heldBack)) { <span class="mod-note err">The newest version (@heldBack) is on hold and is not offered.</span> }
                                     @if (packMessage.Length > 0) { <span class="mod-note @(packMessageIsError ? "err" : "")">@packMessage</span> }
-                                    @if (game.ModRepo.Length > 0)
-                                    {
-                                        <button class="link-btn" title="@(ChannelOf(game.Id) == "beta" ? "You are offered beta versions of this mod. Click to follow stable versions only." : "Click to be offered beta versions of this mod too.")" @onclick="() => ToggleChannelAsync(game.Id)">@(ChannelOf(game.Id) == "beta" ? "Beta: on" : "Beta: off")</button>
-                                    }
                                 </dd>
                             </div>
                         @if (game.Requirements.Count > 0)
@@ -654,6 +650,7 @@ else if (launchStage != LaunchStage.Idle && launchStage != LaunchStage.Connected
                 OnCollectLogs="@CollectMyLogs"
                 OnAddStartSave="@AddStartSaveAsync"
                 OnOpenStartSave="@OpenStartSaveFolder"
+                OnToggleChannel="@ToggleChannelAsync"
                 Dlss5Gpu="@Dlss5Gpu"
                 Dlss5GpuText="@Dlss5GpuText"
                 Dlss5Busy="@dlss5Busy"

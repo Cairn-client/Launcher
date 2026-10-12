@@ -161,6 +161,19 @@
                         <div class="cairn-hint">Needed once, to <i>Join with a new character</i> or start a <i>New adventure</i>. Pick a save of your own Modding Tools game, played past the prologue; the launcher checks it and puts it in place.</div>
                     </div>
 
+                    @* Release channel: stable or beta versions of the mod *@
+                    @if (game.ModRepo.Length > 0)
+                    {
+                        <div class="settings-section">Updates</div>
+                        <div class="cairn-input-group">
+                            <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" checked="@(IsBetaChannel(game.Id))" @onchange="() => OnToggleChannel.InvokeAsync(game.Id)" />
+                                Receive beta versions of this mod
+                            </label>
+                            <div class="cairn-hint">Beta versions offer the latest multiplayer features and fixes earlier. Both players in a session should use the same version.</div>
+                        </div>
+                    }
+
                     @* DLSS 5 through DLSS 5 Autopilot (MIT): put in the game's folder when this is saved, taken out when it is cleared *@
                     <div class="settings-section">Graphics</div>
                     <div class="cairn-input-group">
@@ -178,9 +191,23 @@
                 }
                 else
                 {
-                    <div class="settings-empty">
-                        <strong>@game.DisplayName</strong> has no settings yet. They appear here once multiplayer for this game is available.
-                    </div>
+                    @if (game.ModRepo.Length > 0)
+                    {
+                        <div class="settings-section">Updates</div>
+                        <div class="cairn-input-group">
+                            <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" checked="@(IsBetaChannel(game.Id))" @onchange="() => OnToggleChannel.InvokeAsync(game.Id)" />
+                                Receive beta versions of this mod
+                            </label>
+                            <div class="cairn-hint">Beta versions offer the latest multiplayer features and fixes earlier. Both players in a session should use the same version.</div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="settings-empty">
+                            <strong>@game.DisplayName</strong> has no settings yet. They appear here once multiplayer for this game is available.
+                        </div>
+                    }
                 }
 
                 <div class="modal-actions">
@@ -219,9 +246,13 @@
     [Parameter] public GpuClass Dlss5Gpu { get; set; } = GpuClass.None;
     [Parameter] public string Dlss5GpuText { get; set; } = "";
     [Parameter] public bool Dlss5Busy { get; set; }
+    [Parameter] public EventCallback<string> OnToggleChannel { get; set; }
     [Parameter] public bool GameRunning { get; set; }
     public const string GeneralScope = "general";
     private bool confirmUninstall;
+
+    private bool IsBetaChannel(string gameId) =>
+        Settings.ModChannels.TryGetValue(gameId, out var c) && string.Equals(c, "beta", StringComparison.OrdinalIgnoreCase);
 
     // ---- the General settings are tabs; the search box looks across all of them ----
     private string tab = "hosting";
