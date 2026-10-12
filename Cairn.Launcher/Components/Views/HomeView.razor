@@ -84,7 +84,22 @@
                 @for (int i = 0; i < Slides.Count; i++)
                 {
                     int target = i;
-                    <button class="dot @(i == index ? "on" : "")" role="tab" aria-label="@Slides[i].DisplayName" aria-selected="@(i == index ? "true" : "false")" @onclick="() => GoTo(target)"></button>
+                    bool active = i == index;
+                    bool passed = i < index;
+                    <button class="dot @(active ? "on" : "") @(passed ? "passed" : "")" role="tab"
+                            aria-label="@Slides[i].DisplayName" aria-selected="@(active ? "true" : "false")"
+                            @onclick="() => GoTo(target)">
+                        <span class="dot-track">
+                            @if (active)
+                            {
+                                <span class="dot-fill active-fill" @key="slideCycle"></span>
+                            }
+                            else
+                            {
+                                <span class="dot-fill @(passed ? "full" : "")"></span>
+                            }
+                        </span>
+                    </button>
                 }
             </div>
         </section>
@@ -273,9 +288,28 @@
     private string ArtFor(GameProfile g, bool active) =>
         g.HeroImage.Length > 0 ? g.HeroImage : g.BackgroundImage;
 
-    private void GoTo(int i) { index = i; }
-    private void Next() { index = (index + 1) % Math.Max(1, Slides.Count); }
-    private void Previous() { index = (index - 1 + Slides.Count) % Math.Max(1, Slides.Count); }
+    private int slideCycle;
+
+    private void GoTo(int i)
+    {
+        index = i;
+        slideCycle++;
+        RestartTimer();
+    }
+
+    private void Next()
+    {
+        index = (index + 1) % Math.Max(1, Slides.Count);
+        slideCycle++;
+        RestartTimer();
+    }
+
+    private void Previous()
+    {
+        index = (index - 1 + Slides.Count) % Math.Max(1, Slides.Count);
+        slideCycle++;
+        RestartTimer();
+    }
 
     private void OnShowcaseKey(KeyboardEventArgs e)
     {
@@ -283,24 +317,41 @@
         else if (e.Key == "ArrowLeft") Previous();
     }
 
-    protected override void OnInitialized()
+    private void RestartTimer()
     {
-        // one slide every seven seconds; hovering the slideshow holds it
+        cts?.Cancel();
+        cts?.Dispose();
         cts = new CancellationTokenSource();
         var token = cts.Token;
-        _ = Task.Run(async () =>
+        _ = RunTimerAsync(token);
+    }
+
+    private async Task RunTimerAsync(CancellationToken token)
+    {
+        try
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(7));
-            try
+            while (!token.IsCancellationRequested)
             {
-                while (await timer.WaitForNextTickAsync(token))
+                await Task.Delay(7000, token);
+                while (paused && !token.IsCancellationRequested)
                 {
-                    if (paused || Slides.Count < 2) continue;
-                    await InvokeAsync(() => { Next(); StateHasChanged(); });
+                    await Task.Delay(200, token);
                 }
+                if (token.IsCancellationRequested || Slides.Count < 2) continue;
+                await InvokeAsync(() =>
+                {
+                    index = (index + 1) % Math.Max(1, Slides.Count);
+                    slideCycle++;
+                    StateHasChanged();
+                });
             }
-            catch (OperationCanceledException) { }
-        });
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    protected override void OnInitialized()
+    {
+        RestartTimer();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

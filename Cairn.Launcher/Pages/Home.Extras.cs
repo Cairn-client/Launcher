@@ -96,7 +96,11 @@ namespace Cairn.Launcher.Pages
             if (searchBar is not null) _ = InvokeAsync(searchBar.FocusAsync);
         }
 
-        private void PickFromSearch(string gameId) => OpenGameFromHome(gameId);
+        private void PickFromSearch(string gameId)
+        {
+            OpenGameFromHome(gameId);
+            StateHasChanged();
+        }
         // ---- session history: play again ---------------------------------------------------------------------------------------------
 
         /// <summary>The two sessions before the latest one, newest first (each game once).</summary>

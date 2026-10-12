@@ -42,7 +42,11 @@ namespace Cairn.Launcher.Pages
         /// <summary>Goes to a page. Leaving Settings without saving puts the unsaved edits back, as closing the old window did.</summary>
         private void NavigateTo(AppView view)
         {
-            if (view == currentView) return;
+            if (view == currentView)
+            {
+                if (view == AppView.Library && SelectedProfile is { } alreadyShown) _ = LoadGameInfoAsync(alreadyShown);
+                return;
+            }
             if (currentView == AppView.Settings) CancelSettings();
             if (view == AppView.Settings) OpenSettings();
             else currentView = view;
@@ -98,6 +102,7 @@ namespace Cairn.Launcher.Pages
         {
             SelectGame(gameId);
             NavigateTo(AppView.Library);
+            StateHasChanged();
         }
         // ---- Home: continue, friends, mods, favourites, update banner, the tour --------------------------------------------------
 
