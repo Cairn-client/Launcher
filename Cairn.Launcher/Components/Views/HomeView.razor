@@ -24,19 +24,6 @@
         </div>
     }
 
-    @if (ModUpdates.Count > 0)
-    {
-        <div class="update-banner mod-update" role="status">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 11 12 16 17 11"/><path d="M5 21h14"/></svg>
-            <div class="update-text">
-                <strong>@(ModUpdates.Count == 1 ? "A new version of the mod is ready" : $"New versions of {ModUpdates.Count} mods are ready").</strong>
-                <span>@string.Join(", ", ModUpdates.Select(m => $"{m.Game.DisplayName} {m.Version}"))</span>
-                <span class="muted">Updating downloads it and puts it in the game.</span>
-            </div>
-            <button class="update-btn" disabled="@(ModBusyId is not null)" @onclick="OnUpdateMods">@(ModBusyId is not null ? $"Updating... {(int)(ModProgress * 100)}%" : "Update mods")</button>
-        </div>
-    }
-
     @if (Slides.Count > 0)
     {
         var current = Slides[Math.Min(index, Slides.Count - 1)];
@@ -237,12 +224,8 @@
     [Parameter] public string FriendsState { get; set; } = "idle";
     [Parameter] public IReadOnlyList<SteamFriendData>? Friends { get; set; }
     [Parameter] public EventCallback<SteamFriendData> OnJoinFriend { get; set; }
-    [Parameter] public string? ModBusyId { get; set; }
-    [Parameter] public double ModProgress { get; set; }
     /// <summary>The sessions before the last one, newest first.</summary>
     [Parameter] public IReadOnlyList<(GameProfile Game, RecentSession Session)> History { get; set; } = Array.Empty<(GameProfile, RecentSession)>();
-    [Parameter] public IReadOnlyList<HomeModRow> ModUpdates { get; set; } = Array.Empty<HomeModRow>();
-    [Parameter] public EventCallback OnUpdateMods { get; set; }
     [Parameter] public ISet<string> Favorites { get; set; } = new HashSet<string>();
     [Parameter] public EventCallback<string> OnToggleFavorite { get; set; }
 
