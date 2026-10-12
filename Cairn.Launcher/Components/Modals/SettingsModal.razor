@@ -26,8 +26,8 @@
         }
         else
         {
-            <div class="save-list">
-                @foreach (var slot in Saves.Take(ShowAllSaves ? Saves.Count : SavesShown))
+            <div class="save-list save-scroll">
+                @foreach (var slot in Saves)
                 {
                     <div class="save-row">
                         <div class="save-main"><span class="save-name">@slot.Name</span><span class="save-detail">@slot.Detail</span></div>
@@ -36,10 +36,6 @@
                     </div>
                 }
             </div>
-            @if (Saves.Count > SavesShown)
-            {
-                <button class="link-btn save-more" @onclick="OnToggleShowAllSaves">@(ShowAllSaves ? "Show fewer" : $"Show all {Saves.Count}")</button>
-            }
             @if (GameRunning)
             {
                 <div class="cairn-hint">The game is running: a save written in the last ten minutes is kept, since the game may be using it.</div>
@@ -55,6 +51,19 @@
                 {
                     <div class="modal-title" style="text-align: center;">@game.DisplayName.ToUpperInvariant()</div>
                     <div class="settings-scope">Game settings</div>
+                }
+
+                @{
+                    // a game with saves has two pages: its settings, and its saves (the list scrolls)
+                    bool gameHasSaves = game is not null && (ExeIsSetting || (SavesKnown && Saves.Count > 0));
+                    bool onSaves = gameHasSaves && gameTab == "saves";
+                }
+                @if (gameHasSaves)
+                {
+                    <div class="settings-tabs" role="tablist" aria-label="Game settings">
+                        <button class="settings-tab @(!onSaves ? "on" : "")" role="tab" aria-selected="@(!onSaves ? "true" : "false")" @onclick='() => gameTab = "settings"'>Settings</button>
+                        <button class="settings-tab @(onSaves ? "on" : "")" role="tab" aria-selected="@(onSaves ? "true" : "false")" @onclick='() => gameTab = "saves"'>Saves</button>
+                    </div>
                 }
 
                 @if (game is null)
@@ -150,6 +159,38 @@
                     </div>
                     }
                 }
+                else if (onSaves)
+                {
+                    @* the game's saves page: the start save, delete all, and the list of saves (it scrolls) *@
+                    @if (ExeIsSetting)
+                    {
+                        <div class="cairn-input-group">
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <button class="cairn-btn" @onclick="OnAddStartSave">ADD A START SAVE...</button>
+                                <button class="cairn-btn" @onclick="OnOpenStartSave">OPEN ITS FOLDER</button>
+                            </div>
+                            <div class="cairn-hint">Needed once, to <i>Join with a new character</i> or start a <i>New adventure</i>. Pick a save of your own Modding Tools game, played past the prologue; the launcher checks it and puts it in place.</div>
+                        </div>
+
+                        <div class="cairn-input-group">
+                            @if (!confirmDeleteSaves)
+                            {
+                                <button class="cairn-btn danger" disabled="@GameRunning" @onclick="() => confirmDeleteSaves = true">DELETE ALL SAVES</button>
+                                <div class="cairn-hint">Deletes every save of the game and the characters and chests the mod kept, to start clean. The start saves stay. Close the game first.</div>
+                            }
+                            else
+                            {
+                                <div class="cairn-hint" style="color: var(--cairn-warn);">Delete every save of the game and everything the mod kept? This cannot be undone.</div>
+                                <div style="display: flex; gap: 10px; margin-top: 8px;">
+                                    <button class="cairn-btn danger" @onclick="DeleteSavesAsync">YES, DELETE ALL</button>
+                                    <button class="cairn-btn" @onclick="() => confirmDeleteSaves = false">CANCEL</button>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @savesList
+                }
                 else if (ExeIsSetting)
                 {
                     <div class="settings-section">Game</div>
@@ -180,33 +221,6 @@
                         </select>
                         <div class="cairn-hint">Both players must use the same one. Leave it unless the tester page says otherwise.</div>
                     </div>
-
-                    <div class="settings-section">Saves</div>
-                    <div class="cairn-input-group">
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            <button class="cairn-btn" @onclick="OnAddStartSave">ADD A START SAVE...</button>
-                            <button class="cairn-btn" @onclick="OnOpenStartSave">OPEN ITS FOLDER</button>
-                        </div>
-                        <div class="cairn-hint">Needed once, to <i>Join with a new character</i> or start a <i>New adventure</i>. Pick a save of your own Modding Tools game, played past the prologue; the launcher checks it and puts it in place.</div>
-                    </div>
-
-                    <div class="cairn-input-group">
-                        @if (!confirmDeleteSaves)
-                        {
-                            <button class="cairn-btn danger" disabled="@GameRunning" @onclick="() => confirmDeleteSaves = true">DELETE ALL SAVES</button>
-                            <div class="cairn-hint">Deletes every save of the game and the characters and chests the mod kept, to start clean. The start saves stay. Close the game first.</div>
-                        }
-                        else
-                        {
-                            <div class="cairn-hint" style="color: var(--cairn-warn);">Delete every save of the game and everything the mod kept? This cannot be undone.</div>
-                            <div style="display: flex; gap: 10px; margin-top: 8px;">
-                                <button class="cairn-btn danger" @onclick="DeleteSavesAsync">YES, DELETE ALL</button>
-                                <button class="cairn-btn" @onclick="() => confirmDeleteSaves = false">CANCEL</button>
-                            </div>
-                        }
-                    </div>
-
-                    @savesList
 
                     @* Release channel: stable or beta versions of the mod *@
                     @if (game.ModRepo.Length > 0)
@@ -243,14 +257,8 @@
                     }
                 }
 
-                @if (game is not null && !ExeIsSetting && SavesKnown && Saves.Count > 0)
-                {
-                    <div class="settings-section">Saves</div>
-                    @savesList
-                }
-
                 @* the toggles the game's own mod offers (game.json "options"): saved with this window, done by the pack's program *@
-                @if (game is not null && game.Options.Count > 0)
+                @if (game is not null && !onSaves && game.Options.Count > 0)
                 {
                     <div class="settings-section">Options</div>
                     @foreach (var option in game.Options)
@@ -342,6 +350,7 @@
 
     // ---- the General settings are tabs; the search box looks across all of them ----
     private string tab = "hosting";
+    private string gameTab = "settings";   // a game with saves has two pages: "settings" and "saves"
     private string query = "";
 
     private static readonly (string Id, string Title)[] Tabs =
