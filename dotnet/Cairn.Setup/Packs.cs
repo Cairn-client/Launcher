@@ -22,7 +22,11 @@ public static class PackKinds
 {
     public const string Mod = "mod";
     public const string Content = "content";
-    public static bool IsKnown(string kind) => kind is Mod or Content;
+    /// <summary>A game's mod that lives in the game's own folder and brings its own way to start a session (its own menu or companion program): Cairn installs and updates it and starts the game.</summary>
+    public const string External = "external";
+    public static bool IsKnown(string kind) => kind is Mod or Content or External;
+    /// <summary>The pack is a game's mod (either kind), as opposed to content.</summary>
+    public static bool IsGameMod(string kind) => kind is Mod or External;
 }
 
 /// <summary>
@@ -33,7 +37,8 @@ public sealed record PackContract(
     string Id, string Version, string Upstream, string ModFolder, string LuaPrefix,
     string Agent, string Relay, string Native, string BrandPak, string AgentConfig, string LauncherMin,
     IReadOnlyList<string> ReplacesFolders, IReadOnlyDictionary<string, string>? Lua = null,
-    string Kind = PackKinds.Mod, IReadOnlyList<PackDependency>? DependsOn = null, int MenuProtocol = 1, string InstallTo = "")
+    string Kind = PackKinds.Mod, IReadOnlyList<PackDependency>? DependsOn = null, int MenuProtocol = 1, string InstallTo = "",
+    string InstallDir = "", string Companion = "")
 {
     public const string FileName = "pack.json";
     /// <summary>The version of the mod-menu messages (the launcher draws the menu; the mod sends its items) this launcher speaks; a pack that needs a newer one is refused.</summary>
@@ -68,15 +73,21 @@ public sealed record PackContract(
             int menuProtocol = r.TryGetProperty("menuProtocol", out var mp) && mp.ValueKind == JsonValueKind.Number && mp.TryGetInt32(out var mpv) ? mpv : 1;
             var c = new PackContract(S("id"), S("version"), S("upstream"), S("modFolder"), S("luaPrefix"),
                 S("agent"), S("relay"), S("native"), S("brandPak"), S("agentConfig"), S("launcherMin"), replaces, lua,
-                kind, deps, menuProtocol, S("installTo"));
+                kind, deps, menuProtocol, S("installTo"), S("installDir"), S("companion"));
             bool common = IsPlainName(c.Id) && c.Version.Length > 0 && PackKinds.IsKnown(kind) && deps is not null && menuProtocol >= 1
                           && (c.InstallTo.Length == 0 || c.InstallTo == StartSaveTarget) && replaces.All(IsPlainName) && luaOk;
-            // a game's mod names its programs and its mod folder; content is only files
-            bool ok = common && (kind == PackKinds.Content
-                ? (c.Agent.Length == 0 && c.Relay.Length == 0 && c.Native.Length == 0)
-                : IsPlainName(c.ModFolder) && c.LuaPrefix.Length is > 0 and <= 40
-                  && IsPackPath(c.Agent) && IsPackPath(c.Relay) && IsPackPath(c.Native)
-                  && (c.BrandPak.Length == 0 || IsPackPath(c.BrandPak)) && (c.AgentConfig.Length == 0 || IsFileName(c.AgentConfig)));
+            bool noPrograms = c.Agent.Length == 0 && c.Relay.Length == 0 && c.Native.Length == 0;
+            // a game's mod names its programs and its mod folder; content is only files; an external mod names a folder inside the
+            // game's own folder (and may carry one program to start with the game); only an external mod has those two fields
+            bool ok = common && (c.InstallDir.Length == 0 && c.Companion.Length == 0 || kind == PackKinds.External) && kind switch
+            {
+                PackKinds.Content => noPrograms,
+                PackKinds.External => noPrograms && c.InstallTo.Length == 0 && IsGameRelativeDir(c.InstallDir)
+                                      && (c.Companion.Length == 0 || IsPackPath(c.Companion)),
+                _ => IsPlainName(c.ModFolder) && c.LuaPrefix.Length is > 0 and <= 40
+                     && IsPackPath(c.Agent) && IsPackPath(c.Relay) && IsPackPath(c.Native)
+                     && (c.BrandPak.Length == 0 || IsPackPath(c.BrandPak)) && (c.AgentConfig.Length == 0 || IsFileName(c.AgentConfig)),
+            };
             return ok ? c : null;
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or FormatException)
@@ -121,6 +132,17 @@ public sealed record PackContract(
     private static bool IsPackPath(string s) => s.Length is > 0 and <= 120 && !s.Contains("..") && !Path.IsPathRooted(s) && !s.Contains(':')
         && s.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.' or '/');
 
+    /// <summary>
+    /// A folder inside the game's own folder (<c>mods/quant.ew</c>): relative, forward slashes, 1 to 4 plain segments, no <c>..</c>, no drive.
+    /// The launcher puts an external mod's files there and nowhere else.
+    /// </summary>
+    internal static bool IsGameRelativeDir(string s)
+    {
+        if (s.Length is 0 or > 120 || s.Contains("..") || s.Contains(':') || s.Contains('\\') || s.StartsWith('/') || s.EndsWith('/')) return false;
+        var parts = s.Split('/');
+        return parts.Length <= 4 && parts.All(p => p.Length > 0 && p[0] != '.' && p.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.' or ' '));
+    }
+
     /// <summary>A program of the pack as a path on this PC (the pack's files folder + the contract's relative path).</summary>
     public static string Resolve(string filesDir, string relative) => Path.GetFullPath(Path.Combine(filesDir, relative.Replace('/', Path.DirectorySeparatorChar)));
 }
@@ -136,7 +158,7 @@ public sealed record PackIndex(int Schema, IReadOnlyList<PackInfo> Packs)
     public const string FileName = "pack-index.json";
 
     public PackInfo? ForGame(string gameId) =>
-        Packs.FirstOrDefault(p => p.Kind == PackKinds.Mod && string.Equals(p.Game, gameId, StringComparison.OrdinalIgnoreCase));
+        Packs.FirstOrDefault(p => PackKinds.IsGameMod(p.Kind) && string.Equals(p.Game, gameId, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Reads a catalog; null when it is not one this launcher understands (bad JSON, another schema, a malformed entry).</summary>
     public static PackIndex? Parse(string json)
@@ -362,6 +384,8 @@ public static class PackInstaller
             foreach (var program in new[] { contract.Agent, contract.Relay, contract.Native })
                 if (!listed.Contains(program.Replace('/', Path.DirectorySeparatorChar)))
                     return new PackResult(false, $"the contract names {program}, which the pack does not carry");
+        if (contract.Kind == PackKinds.External && contract.Companion.Length > 0 && !listed.Contains(contract.Companion.Replace('/', Path.DirectorySeparatorChar)))
+            return new PackResult(false, $"the contract names {contract.Companion}, which the pack does not carry");
         return new PackResult(true, "");
     }
 
