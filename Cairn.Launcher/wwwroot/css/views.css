@@ -634,13 +634,28 @@
 
     .view .keys dt {
         flex: none;
-        width: 64px;
+        width: 92px;
+        display: flex;
+        gap: 4px;
+        white-space: nowrap;
     }
 
     .view .keys dd {
         margin: 0;
         color: var(--cairn-parchment-dim, var(--cairn-muted));
     }
+
+.view kbd.arrow {
+    display: inline-grid;
+    place-items: center;
+    min-width: 34px;
+    padding: 3px 6px;
+}
+
+.view kbd.arrow svg {
+    width: 14px;
+    height: 14px;
+}
 
 .view kbd {
     display: inline-block;

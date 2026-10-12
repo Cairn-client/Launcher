@@ -102,7 +102,7 @@ namespace Cairn.Launcher.Pages
         {
             "Download the game's mod above, then press Host a game. Cairn starts the game for you.",
             "Start or load the world you want to share.",
-            "Press Invite to ask a friend on Cairn, or send them your host code.",
+            "Wait for the game to have loaded before the player joins.",
         };
         private static readonly IReadOnlyList<string> GenericJoinSteps = new[]
         {

@@ -19,7 +19,7 @@
   "hostSteps": [
     "Download the mod above, then press Host a game. Cairn starts Kingdom Come: Deliverance II for you.",
     "In the game's menu choose Start Game, then New adventure or one of your saves.",
-    "Press Invite to ask a friend on Cairn, or send them your host code."
+    "Wait for the game to have loaded before the player joins."
   ],
   "joinSteps": [
     "Download the mod above, then press Join a game.",
