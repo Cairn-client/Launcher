@@ -8,15 +8,11 @@
 ; to compile if that folder is not there.
 ;
 ; What it does that a plain file-copy installer does not:
-;   * finds Steam, the game, the KCD2 Modding Tools and their workspace with
-;     the launcher's own detection code (CairnSetup.exe,
-;     SteamDetect.iss), so the two can never disagree,
-;   * deploys the game mod into <ModdingTools>\Mods\cairn when the Modding
-;     Tools are installed AND set up; otherwise installs everything else and
-;     leaves the rest to the launcher's checklist (no dead end),
-;   * pre-seeds the launcher's settings.json with the game path it found, so
-;     first launch needs zero configuration (only when there is no
-;     settings.json yet -- the player's file is never written by Setup),
+;   * knows nothing of any game: it installs the launcher, and the launcher is
+;     where a game is chosen, its mod downloaded and its setup done (each game's
+;     pack does that, see docs\PACKS.md),
+;   * verifies after installing that every file landed and nothing foreign sits
+;     in the install folder,
 ;   * installs the WebView2 runtime when missing, which the Photino-based
 ;     launcher cannot render without.
 
@@ -41,8 +37,6 @@
 #define AppPublisher "Cairn"
 #define AppUrl "https://github.com/Cairn-client/launcher"
 
-; ModdingToolsAppId is defined by SteamDetect.iss, included at the top of
-; [Code] below, alongside the evidence it was read from.
 
 ; Evergreen WebView2 Runtime bootstrapper. Microsoft's documented permanent
 ; redirect; ~2 MB, and it installs per-user when Setup is not elevated, which
@@ -150,12 +144,8 @@ Source: "..\release\Cairn\*"; DestDir: "{app}"; Flags: ignoreversion overwritere
 ; pack, published with the release (tools\Build-Packs.ps1) and downloaded by the
 ; launcher when the player chooses it; the launcher then places it once the
 ; Modding Tools are set up. So there is nothing for this script to copy into a
-; game folder, and ShouldPlaceMod() is always False.
+; game folder.
 
-; the setup helper, extracted to the temporary folder before anything is installed
-; (detection on the wizard's first page). It is also installed into the app folder by
-; the wildcard above, for the launcher's one UAC step.
-Source: "..\release\Cairn\CairnSetup.exe"; Flags: dontcopy
 
 [Icons]
 ; WorkingDir matters and is not decoration: settings.json is a bare relative
@@ -192,10 +182,7 @@ Type: files; Name: "{autodesktop}\{#Old3ShortcutName}.lnk"
 ; were still present and left an orphan key behind.
 Root: HKCU; Subkey: "Software\Cairn"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Cairn"; ValueType: string; ValueName: "InstallDir"; ValueData: "{app}"
-; written only when known/placed; the launcher writes both itself once its
-; checklist places a held-back mod (Home.FirstRun.cs RecordModsPath).
-Root: HKCU; Subkey: "Software\Cairn"; ValueType: string; ValueName: "GamePath"; ValueData: "{code:GetDetectedGameExe}"; Check: HaveGameExe
-Root: HKCU; Subkey: "Software\Cairn"; ValueType: string; ValueName: "ModsPath"; ValueData: "{code:GetCairnTargetDir}"; Check: ShouldPlaceMod
+
 
 [Run]
 Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; Description: "Launch {#AppName} now"; Flags: nowait postinstall skipifsilent
@@ -208,19 +195,7 @@ Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; Flags: nowait; Check: Rela
 Type: filesandordirs; Name: "{app}"
 
 [Code]
-#include "SteamDetect.iss"
-
 var
-  DetectedGameExe: String;
-  DetectedGameRoot: String;
-  SteamFound: Boolean;
-  ModdingToolsRegistered: Boolean;
-  // the shared detection's verdict. True only when the Modding Tools are
-  // installed and their workspace linked; otherwise the mod is held back.
-  PlaceMod: Boolean;
-  DetectReason: String;
-  DetectWorked: Boolean;
-
   // post-install verification state. See VerifyInstalledFiles.
   // (Line comments, not brace ones: an Inno constant in braces inside a brace
   // comment closes the comment early -- Pascal comments do not nest.)
@@ -559,37 +534,6 @@ end;
 
 { ------------------------------------------------------------- mod folder }
 
-function ModsDir(): String;
-begin
-  if DetectedGameRoot = '' then
-    Result := ''
-  else
-    Result := DetectedGameRoot + '\Mods';
-end;
-
-function GetCairnTargetDir(Param: String): String;
-begin
-  Result := ModsDir();
-  if Result <> '' then
-    Result := Result + '\cairn';
-end;
-
-function GetDetectedGameExe(Param: String): String;
-begin
-  Result := DetectedGameExe;
-end;
-
-{ [Files]/[Registry] Check functions. }
-function ShouldPlaceMod(): Boolean;
-begin
-  Result := PlaceMod and (DetectedGameRoot <> '');
-end;
-
-function HaveGameExe(): Boolean;
-begin
-  Result := DetectedGameExe <> '';
-end;
-
 { DelTree is the normal path, but it was observed failing once on this folder
   while a handle was still open on it -- the same thing an Explorer window, a
   running game or an antivirus scan will do on a user's machine. So: try,
@@ -619,126 +563,7 @@ begin
   Result := not DirExists(Target);
 end;
 
-{. What RemoveModFolder used to be called for on every upgrade, and why
-  it is not any more.
-
-  PrepareToInstall deleted the whole mod folder before the file copy ran.
-  When that copy then aborted -- one read-only file in the install dir was enough, see
-  the Files-section comment -- the player was left with NO mod in their game
-  at all, from an installer that reported nothing but a cancel. Observed on
-  2026-08-28 against Setup 0.18.8. (A line here may not start with a square
-  bracket, even inside a comment: ISCC reads it as a section tag.)
-
-  So for our own upgrades: prune instead of delete. Everything that is not
-  one of the two files we own goes (that is what the delete was really for --
-  clearing loose pak *sources*, a stray Data\Libs\Tables being the failure
-  that started it), and the two we own are left in place for [Files] to
-  overwrite. An install that dies half way now leaves the previous version's
-  mod working rather than no mod at all.
-
-  A foreign cairn still gets the full RemoveModFolder after the explicit ask:
-  keeping half of somebody else's mod would be worse than replacing it. }
-procedure PruneDirTo(const Dir: String; const KeepFile, KeepFile2: String);
-var
-  FindRec: TFindRec;
-  Full: String;
-begin
-  if not DirExists(Dir) then Exit;
-  if FindFirst(Dir + '\*', FindRec) then
-  try
-    repeat
-      if (FindRec.Name = '.') or (FindRec.Name = '..') then Continue;
-      Full := Dir + '\' + FindRec.Name;
-      if (FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
-        DelTree(Full, True, True, True)
-      else if (CompareText(FindRec.Name, KeepFile) <> 0) and (CompareText(FindRec.Name, KeepFile2) <> 0) then
-      begin
-        { Clear read-only first, for the same reason [Files] carries
-          overwritereadonly: a flagged file must not stop the install. }
-        ClearReadOnly(Full);
-        DeleteFile(Full);
-      end;
-    until not FindNext(FindRec);
-  finally
-    FindClose(FindRec);
-  end;
-end;
-
-{ True when the folder now holds nothing but (at most) our own two files. }
-function PruneModFolder(const Target: String): Boolean;
-var
-  FindRec: TFindRec;
-  Full: String;
-begin
-  Result := True;
-  if not DirExists(Target) then Exit;
-
-  if FindFirst(Target + '\*', FindRec) then
-  try
-    repeat
-      if (FindRec.Name = '.') or (FindRec.Name = '..') then Continue;
-      Full := Target + '\' + FindRec.Name;
-      if (FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
-      begin
-        if CompareText(FindRec.Name, 'Data') = 0 then
-          { cairn_keys.pak is ours too (built here from the game's own files); kept so a
-            failed rebuild after the copy leaves the previous keys working. }
-          PruneDirTo(Full, 'cairn.pak', 'cairn_keys.pak')
-        else
-          DelTree(Full, True, True, True);
-      end
-      else if CompareText(FindRec.Name, 'mod.manifest') <> 0 then
-      begin
-        ClearReadOnly(Full);
-        DeleteFile(Full);
-      end;
-    until not FindNext(FindRec);
-  finally
-    FindClose(FindRec);
-  end;
-
-  { The two we own are about to be overwritten by [Files]; clear read-only on
-    them too so that overwrite cannot be the thing that fails. }
-  if FileExists(Target + '\mod.manifest') then
-    ClearReadOnly(Target + '\mod.manifest');
-  if FileExists(Target + '\Data\cairn.pak') then
-    ClearReadOnly(Target + '\Data\cairn.pak');
-end;
-
-{ -------------------------------------------------------------- the gate }
-
-procedure RefreshDetection();
-begin
-  { /STEAMROOT=<dir> makes detection read a fixture tree instead of the real
-    Steam install. This exists so the installer's cases can be exercised
-    without touching real Steam metadata -- renaming a live appmanifest to
-    fake "not installed" costs a multi-gigabyte redownload, because Steam
-    treats the missing manifest as "not installed" and drops the app's
-    entitlement, and the game then refuses to start with a licence error.
-    Learned the expensive way. See docs\INSTALLER-TESTING.md. A path that
-    does not exist reproduces "Steam is not installed". }
-  DetectWorked := RunDetect(ExpandConstant('{param:steamroot|}'), '');
-  SteamFound := DetectValue('steam_found') = '1';
-  ModdingToolsRegistered := DetectValue('mt_registered') = '1';
-  DetectedGameExe := DetectValue('mt_exe');
-  DetectedGameRoot := DetectValue('mt_root');
-  { The mod is a separate download the launcher fetches (tools\Build-Packs.ps1), never placed by Setup. The detection still reports place_mod; it is not acted on. }
-  PlaceMod := False;
-  DetectReason := DetectValue('reason');
-  if DetectedGameRoot = '' then
-    DetectedGameExe := '';
-  if not DetectWorked then
-    DetectReason := 'Setup could not check your Steam library. The launcher will check it again and finish setup.';
-end;
-
 { ------------------------------------------------------------ wizard flow }
-
-procedure InitializeWizard();
-begin
-  { no page about a game: Setup installs the launcher, and the launcher is where a game is chosen and its mod downloaded.
-    The detection still runs, quietly, to pre-seed the launcher's settings. }
-  RefreshDetection();
-end;
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
@@ -867,18 +692,8 @@ begin
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
-var
-  Target: String;
 begin
   Result := '';
-
-  { no refusal here any more, also under /VERYSILENT. Without set-up
-    Modding Tools the launcher, agent and the rest still install (with the
-    mod staged in the app folder), and the launcher's checklist finishes. }
-  if ShouldPlaceMod() then
-    Log('install: the Modding Tools are set up; the mod goes into ' + GetCairnTargetDir(''))
-  else
-    Log('install: the mod is held back for the launcher to place (' + DetectReason + ')');
 
   { The process gate, before anything is written -- see its comment above. }
   Result := EnsureNothingRunning();
@@ -889,68 +704,6 @@ begin
   if Result <> '' then Exit;
 
   Result := EnsureWebView2();
-  if Result <> '' then Exit;
-
-  if not ShouldPlaceMod() then Exit;
-
-  Target := GetCairnTargetDir('');
-  if DirExists(Target) then
-  begin
-    { Our own marker means this is an upgrade; anything else is somebody
-      else's cairn and gets an explicit ask before it is replaced. }
-    if not RegValueExists(HKCU, 'Software\Cairn', 'ModsPath') then
-    begin
-      if not WizardSilent then
-        if MsgBox('There is already a mod folder at:' + #13#10#13#10 + Target + #13#10#13#10 +
-                  'It was not put there by this installer. Replace it?',
-                  mbConfirmation, MB_YESNO) <> IDYES then
-        begin
-          Result := 'Setup was cancelled so the existing mod folder could be kept.';
-          Exit;
-        end;
-
-      if not RemoveModFolder(Target) then
-      begin
-        Result := 'The existing mod folder could not be removed:' + #13#10 + Target + #13#10#13#10 +
-                  'Close the game (and any Explorer window showing that folder) and try again.';
-        Exit;
-      end;
-    end
-    else
-      { Ours: prune, do not delete -- see PruneModFolder. }
-      PruneModFolder(Target);
-  end;
-
-  if not ForceDirectories(ModsDir()) then
-    Result := 'The game''s Mods folder could not be created:' + #13#10 + ModsDir();
-end;
-
-{ Pre-seed settings.json so the first launch needs no trip to Settings.
-  Only GamePath is written: every other field in AppSettings has a usable C#
-  default, and a partial file deserialises to exactly those defaults.
-
-  only when there is no settings.json at all. The file is the
-  player's: an existing one is never written, whatever it holds -- until
-  0.44.0 a file whose GamePath was "" was replaced by the seed, and every
-  other setting in it was lost on upgrade. An empty GamePath is filled by the
-  launcher instead, as that one key (Home.FirstRun.cs AdoptDetectedGamePath). }
-procedure SeedSettings();
-var
-  Path, Json, Escaped: String;
-  Lines: TArrayOfString;
-begin
-  Path := ExpandConstant('{app}\settings.json');
-  // nothing found yet -- the launcher fills GamePath once its checklist finds the Modding Tools.
-  if DetectedGameExe = '' then Exit;
-  if FileExists(Path) then Exit;
-
-  Escaped := DetectedGameExe;
-  StringChangeEx(Escaped, '\', '\\', True);
-
-  Json := '{"GamePath":"' + Escaped + '"}';
-  SetArrayLength(Lines, 1);
-  Lines[0] := Json;
-  SaveStringsToUTF8FileWithoutBOM(Path, Lines, False);
 end;
 
 { ================================================ verify, sweep and repair }
@@ -1171,7 +924,7 @@ procedure VerifyInstalledFiles();
 var
   Failures, Removed, Verdict: TArrayOfString;
   I, FailCount, RemovedCount, Line: Integer;
-  Detail, LoadError, ModDir: String;
+  Detail, LoadError: String;
   Gone: Boolean;
 begin
   VerifyFailed := False;
@@ -1204,19 +957,7 @@ begin
         Log('verify FAIL: ' + Detail);
       end;
 
-    { a held-back mod is verified where it was put -- the staged copy
-      in the app folder is an APP entry above; the game folder is the
-      launcher's to fill, after its checklist links the workspace. }
-    ModDir := GetCairnTargetDir('');
-    if ShouldPlaceMod() then
-    for I := 0 to GetArrayLength(ManMod) - 1 do
-      if not VerifyEntry(ModDir, ManMod[I], Detail) then
-      begin
-        FailCount := FailCount + 1;
-        SetArrayLength(Failures, FailCount);
-        Failures[FailCount - 1] := 'game mod: ' + Detail;
-        Log('verify FAIL: game mod: ' + Detail);
-      end;
+
   end;
 
   { The verdict file is the record every tool reads: tools\Verify-Install.ps1,
@@ -1227,12 +968,9 @@ begin
   SetArrayLength(Verdict, FailCount + RemovedCount + 3);
 #endif
   Line := 0;
-  if (FailCount = 0) and not ShouldPlaceMod() then
+  if FailCount = 0 then
     Verdict[0] := 'PASS  ' + IntToStr(GetArrayLength(ManApp)) +
                   ' component(s) verified by sha256 against the install manifest; mod held back for the launcher'
-  else if FailCount = 0 then
-    Verdict[0] := 'PASS  ' + IntToStr(GetArrayLength(ManApp) + GetArrayLength(ManMod)) +
-                  ' component(s) verified by sha256 against the install manifest'
   else
     Verdict[0] := 'FAIL  ' + IntToStr(FailCount) + ' component(s) did not install correctly:';
   Line := 1;
@@ -1249,11 +987,8 @@ begin
     Verdict[Line] := '  removed ' + Removed[I];
     Line := Line + 1;
   end;
-  // read by tools\Verify-Install.ps1, which then expects no mod in the game folder yet.
-  if ShouldPlaceMod() then
-    Verdict[Line] := 'mod placed by Setup'
-  else
-    Verdict[Line] := 'mod held back: the launcher downloads it, then places it once the Modding Tools are set up';
+  // the launcher downloads each game's mod and its pack's setup places it; Setup never does
+  Verdict[Line] := 'mod held back: the launcher downloads it, then places it once the game is set up';
 #ifdef ReleaseCandidate
   // tools\Build-Installer.ps1 -ReleaseCandidate; read by tools\Verify-Install.ps1.
   Verdict[Line + 1] := 'not soak-tested: release candidate, not for public release';
@@ -1263,7 +998,7 @@ begin
 
   if FailCount = 0 then
   begin
-    Log('verify: PASS (' + IntToStr(GetArrayLength(ManApp) + GetArrayLength(ManMod)) +
+    Log('verify: PASS (' + IntToStr(GetArrayLength(ManApp)) +
         ' components, ' + IntToStr(RemovedCount) + ' stale removed)');
     Exit;
   end;
@@ -1312,25 +1047,6 @@ end;
 // writes Mods\cairn\Data\cairn_keys.pak (dotnet\Cairn.Client\KeybindPak.cs).
 // Not part of the verdict: a failure costs the keys only (the console commands
 // still work), and the launcher runs it again before every game start.
-procedure BuildKeysPak();
-var
-  ResultCode: Integer;
-  Agent, Params: String;
-begin
-  Agent := ExpandConstant('{app}\CairnClient.exe');
-  if (not ShouldPlaceMod()) or not FileExists(Agent) then
-  begin
-    // a held-back mod gets its keys from the launcher, after it places the mod.
-    Log('keys pak: skipped (mod held back, or no agent)');
-    Exit;
-  end;
-  Params := '--keys-pak --game-root "' + DetectedGameRoot + '" --mod-dir "' + GetCairnTargetDir('') + '"';
-  if Exec(Agent, Params, ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-    Log('keys pak: agent exit ' + IntToStr(ResultCode) + ' (0 = cairn_keys.pak in place)')
-  else
-    Log('keys pak: the agent could not be started (' + SysErrorMessage(ResultCode) + ')');
-end;
-
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssInstall then
@@ -1338,8 +1054,6 @@ begin
   else if CurStep = ssPostInstall then
   begin
     VerifyInstalledFiles();
-    if not VerifyFailed then BuildKeysPak();
-    SeedSettings();
     BackupFinish();
     RestoreKeptData();   // Cairn: what an earlier uninstall kept, where it is missing
   end;

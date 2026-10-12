@@ -116,7 +116,8 @@ uses the ones it needs:
 ```
 {"step":{"id":"workspace","title":"Game files linked","status":"working","detail":"...","action":"link-workspace","actionLabel":"Try again","progress":0.4,"optional":false,"system":false,"auto":"while"}}
 {"done":true,"ready":true,"optionalNeedsYou":false}
-{"found":{"moddingToolsExe":"C:\...\KingdomCome.exe"}}      (optional: a path the launcher may remember)
+{"gameExeNote":"..."}                                        (optional: what is wrong with the executable the launcher passed, shown beside the setting)
+{"found":{"gameExe":"C:\...\game.exe","gameDir":"C:\...\game"}}   (optional: the executable the launcher may remember, and the folder the game's options belong in)
 ```
 
 * `status` is `done`, `working` (nothing for the player to do), `needs-you` or `waiting` (an earlier step first). `action` is a word the program understands

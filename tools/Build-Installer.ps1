@@ -88,19 +88,10 @@ if (-not $SkipPublish) {
 }
 
 # the .iss embeds this folder wholesale, so an empty or missing one would compile into an installer that installs nothing
-foreach ($f in @("Cairn.Launcher.exe", "CairnSetup.exe")) {
+foreach ($f in @("Cairn.Launcher.exe")) {
     if (-not (Test-Path (Join-Path $payload $f))) { throw "release payload incomplete: $payload\$f not found (run without -SkipPublish)" }
 }
 
-# the installer's detection (the probe, and its cases end to end: a Setup compiled from this Cairn.iss, on fake Steam
-# libraries, isolated from any real install). Scratch under the git-ignored release\.
-$helper = Join-Path $payload "CairnSetup.exe"
-& powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "Test-InstallerDetect.ps1") `
-    -WorkDir (Join-Path $root "release\first_run-detect-fixtures") -HelperExe $helper
-if ($LASTEXITCODE -ne 0) { throw "Test-InstallerDetect.ps1 FAILED. Not shipping." }
-& powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "first_run\Test-SetupCases.ps1") `
-    -WorkDir (Join-Path $root "release\first_run-setup-cases") -HelperExe $helper
-if ($LASTEXITCODE -ne 0) { throw "tools\first_run\Test-SetupCases.ps1 FAILED. Not shipping." }
 
 # a manifest of everything this Setup carries, so the installer can prove after installing that every file landed and that
 # nothing else sits in the install directory (tools\New-InstallManifest.ps1 owns the format). It runs after publish and

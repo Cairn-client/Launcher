@@ -24,9 +24,9 @@ presence (a launcher feature), the update window.
 
 ## What is still KCD2-shaped
 
-* The installer (`installer/Cairn.iss`, `CairnSetup.exe` from `dotnet/Cairn.SetupHost`) and the `Cairn.Setup` classes it uses (`SetupProbe`, the workspace links, `GameLocator`): the
-  installer's first-run pages find Steam and the Modding Tools. They duplicate what the pack's `setup` does and are the next thing to retire.
-* The game's executable is a setting only for KCD2 (`GameExeIsSetting`, its Modding Tools build, which only its pack's setup can find); every other game is found in Steam or where the player pointed, and
-  the pack is handed that file. Everything else that names a pack (setup, session, start-game, logs, saves, the menu bridge) is looked up by the selected game's id, so a second game whose pack says
+* Nothing else in the launcher or its installer knows KCD2: the installer installs the launcher and nothing about any game (it no longer looks for Steam or the Modding Tools), and
+  the launcher has no code for the Modding Tools build, the workspace links or the mod folder.
+* The game's executable is a setting only for KCD2 (`GameExeIsSetting`: the player's `GamePath` key, set by the pack's setup from what it found, with the pack's own note shown beside it); every other game is found in Steam or where the player pointed, and
+  the pack is handed that file. The folder a game's options belong in is the pack's (`found.gameDir` of `setup check`); a pack that does not report it (a KCD2 mod before 0.2.13) has no option status until it is updated. Everything else that names a pack (setup, session, start-game, logs, saves, the menu bridge) is looked up by the selected game's id, so a second game whose pack says
   `"session": true` / `"setup": true` is run the same way, with no launcher change.
 * The settings.json keys of the KCD2 session (`GamePath`, `HostPort`, `ConnectGate`, ...) are the player's file; the launcher passes them to the session as they are.

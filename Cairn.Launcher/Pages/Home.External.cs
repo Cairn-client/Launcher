@@ -113,7 +113,6 @@ namespace Cairn.Launcher.Pages
         private bool showAllSaves;
         private bool savesKnown;      // the list on screen is the game's own (read from its program or its bridge), not a guess
         private bool savesLoading;
-        private bool externalBridgeConnected;
 
         /// <summary>The bridge of this game is connected (the game runs and its mod has a bridge).</summary>
         private bool BridgeConnectedFor(GameProfile g) => externalBridge is { Connected: true } b && string.Equals(b.Game, g.Id, StringComparison.OrdinalIgnoreCase);
@@ -124,7 +123,6 @@ namespace Cairn.Launcher.Pages
             var bridge = externalBridge = new BridgeServer();
             bridge.ConnectionChanged += game =>
             {
-                externalBridgeConnected = game.Length > 0;
                 if (game.Length > 0) bridge.Send(BridgeProtocol.AskSaves());
                 else { externalSaves = Array.Empty<BridgeSaveSlot>(); deleteSaveAsked = null; }
                 _ = InvokeAsync(StateHasChanged);

@@ -1,44 +1,16 @@
-// Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
-// GPLv3 section 7 additional terms: AUTHORS.md. This project's own code only; Kingdom Come: Deliverance II and its
-// content belong to Warhorse Studios and PLAION. Unofficial, free, not affiliated with or endorsed by them.
-using System.Diagnostics;
-
+// Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+// GPLv3 section 7 additional terms: AUTHORS.md. Unofficial, free, not affiliated with or endorsed by the studios or publishers
+// of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md).
 namespace Cairn.Setup;
 
 /// <summary>
-/// The parts of the machine setup reads that are not plain files: the
-/// registry, the process list, free disk space. Behind an interface so the
-/// unit tests can run the whole checklist against a fake Steam library in a
-/// scratch folder without the real machine leaking in. The file system itself
-/// is not abstracted: the fakes are real folders.
+/// The one part of the machine the launcher reads that is not a plain file: where Steam is installed (the registry). Behind an interface so the
+/// unit tests can look for games in a fake Steam library in a scratch folder without the real machine leaking in.
 /// </summary>
 public interface ISetupHost
 {
     /// <summary>Steam's install folder from the registry (HKCU SteamPath, then HKLM InstallPath), or null.</summary>
     string? SteamRootFromRegistry();
-
-    bool IsProcessRunning(string processName);
-
-    /// <summary>
-    /// True/false when Steam's registry says who is signed in; null when it
-    /// cannot tell. The current client leaves HKCU\...\ActiveProcess\ActiveUser
-    /// at 0 while running and signed in (observed on the maintainer's machine,
-    /// 2026-10-02), so 0 means "unknown", never "signed out". The value itself
-    /// (an account id) is never returned.
-    /// </summary>
-    bool? SteamSignedIn();
-
-    /// <summary>Free bytes on the volume holding <paramref name="path"/>, or null when it cannot be read.</summary>
-    long? FreeBytes(string path);
-
-    /// <summary>The .NET 6 runtime Warhorse's WorkspaceSetup.exe is built against (net6.0, no roll-forward).</summary>
-    bool HasDotNet6Runtime();
-
-    /// <summary>the Visual C++ 2013 runtime (x64) the Modding Tools' trace server needs.</summary>
-    bool HasVcRuntime2013() => VcRuntime2013.PresentIn(Environment.SystemDirectory);
-
-    /// <summary>Cairn: the Visual C++ 2010 runtime (x64): "MSVCR100.dll was not found" on a fresh Windows.</summary>
-    bool HasVcRuntime2010() => VcRuntime2013.Present2010In(Environment.SystemDirectory);
 }
 
 public sealed class RealSetupHost : ISetupHost
@@ -67,63 +39,6 @@ public sealed class RealSetupHost : ISetupHost
     {
         path = SetupPaths.Normalize(raw);
         return path.Length > 0 && Directory.Exists(path);
-    }
-
-    public bool IsProcessRunning(string processName)
-    {
-        try
-        {
-            var procs = Process.GetProcessesByName(processName);
-            foreach (var p in procs) p.Dispose();
-            return procs.Length > 0;
-        }
-        catch { return false; }
-    }
-
-    public bool? SteamSignedIn()
-    {
-        if (!OperatingSystem.IsWindows()) return null;
-        try
-        {
-            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam\ActiveProcess");
-            if (key?.GetValue("ActiveUser") is int user && user != 0) return true;
-        }
-        catch { }
-        return null;
-    }
-
-    public long? FreeBytes(string path)
-    {
-        try
-        {
-            var root = Path.GetPathRoot(Path.GetFullPath(path));
-            if (string.IsNullOrEmpty(root)) return null;
-            return new DriveInfo(root).AvailableFreeSpace;
-        }
-        catch { return null; }
-    }
-
-    public bool HasDotNet6Runtime()
-    {
-        foreach (var baseDir in DotNetRoots())
-        {
-            try
-            {
-                var shared = Path.Combine(baseDir, "shared", "Microsoft.NETCore.App");
-                if (Directory.Exists(shared) &&
-                    Directory.EnumerateDirectories(shared, "6.*").Any())
-                    return true;
-            }
-            catch { }
-        }
-        return false;
-    }
-
-    private static IEnumerable<string> DotNetRoots()
-    {
-        var env = Environment.GetEnvironmentVariable("DOTNET_ROOT");
-        if (!string.IsNullOrWhiteSpace(env)) yield return env;
-        yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet");
     }
 }
 

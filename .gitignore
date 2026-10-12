@@ -21,7 +21,6 @@ publish/
 # Probe output, regenerated per run
 tools/probe-results.txt
 
-# Compiled installer test harness (tools/Test-InstallerDetect.ps1 rebuilds it)
 installer/tests/*.exe
 
 # Native build tree (CMake + Ninja), and the plugin's own log

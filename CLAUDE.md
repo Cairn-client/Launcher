@@ -12,8 +12,7 @@ each mod on its own.
 | Path | What it is |
 | --- | --- |
 | `Cairn.Launcher/` | the launcher: Blazor UI hosted in a native window (.NET 8, WinForms/WPF host) |
-| `dotnet/Cairn.Setup/` | first-run setup, install checks, the pack store (`Packs.cs`), `CairnSetup.exe` helper source |
-| `dotnet/Cairn.SetupHost/`, `Cairn.Setup.FakeTool/` | the NativeAOT setup helper, and a fake tool for the setup tests |
+| `dotnet/Cairn.Setup/` | where Steam and the games are, the pack store (`Packs.cs`), the catalog, the clients of the pack program (`PackSetup`, `PackSession`, `GameOptions`), the bridge server |
 | `dotnet/Cairn.MasterServer/` | the server list and friend presence |
 | `dotnet/Cairn.Protocol/` | the API shared by the launcher and the master server (`MasterApi`, `PresenceApi`) |
 | `dotnet/Cairn.*.Tests/` | xunit tests (`Setup`, `MasterServer`) |
@@ -52,5 +51,5 @@ on a tag.
 ## Pitfalls
 
 - Text files are LF in the repo (Windows converts on checkout); scripted edits must not add a BOM or change line endings.
-- The installer's end-to-end tests (`tools/first_run/Test-SetupCases.ps1`) compile a real Setup; they need Inno Setup and a few minutes.
+- The installer (`installer/Cairn.iss`) knows nothing of any game; compile it with `tools/Build-Installer.ps1` (needs Inno Setup). Do not run the compiled Setup on a machine with a real Cairn install: it shares the real one's AppId.
 - Never commit `settings.json` or anything under `release/`.

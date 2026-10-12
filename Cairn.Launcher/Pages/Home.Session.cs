@@ -174,14 +174,6 @@ namespace Cairn.Launcher.Pages
             return Task.CompletedTask;
         }
 
-        private Task ShowConnectionTestAsync(ServerInfo server, bool launching)
-        {
-            if (EnsurePackSession() is not { } ps) { UiService.ShowError(ModTooOldText); return Task.CompletedTask; }
-            ConfigurePackSession();
-            ps.TestConnection(server.Ip ?? "", server.Port, server.SteamCode);
-            return Task.CompletedTask;
-        }
-
         /// <summary>After a Steam failure: the same game, the agent restarted with the host's address.</summary>
         private async Task ConnectByAddressAfterSteamAsync()
         {

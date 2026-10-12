@@ -51,14 +51,12 @@ namespace Cairn.Launcher.Pages
         private bool showReportBug = false;
         private bool showVersionMismatch = false;
         private string versionMismatchMessage = "";
-        private CancellationTokenSource? versionPollCts;
         // the joiner's world transfer ("Receiving the world... 62%"), polled from the agent.
         private string joinStatusMessage = "";
         private string joinStatusState = "idle";   // "choose" shows the first-join buttons
         private bool joinCanFresh;                 // no usable save -- "Join with a new character"
         // a joiner waits at the main menu and joins the host's world from there.
         internal const string JoinerReadyText = "Stay at the main menu. Don't load a save. Click CONNECT -- you'll join your host's world automatically.";
-        private bool ownWorldModalShown;           // the "you loaded your own save" modal, once per stretch
 
         private DotNetObjectReference<Home>? objRef;
         private AppSettings settings = new AppSettings();
@@ -87,9 +85,6 @@ namespace Cairn.Launcher.Pages
         private enum LaunchStage { Idle, WaitingForConnect, Injecting, Verifying, Connected, Failed }
         private LaunchStage launchStage = LaunchStage.Idle;
         private Process? pendingGameProcess = null;
-        private ServerInfo? pendingServer = null;
-        private string? pendingDllPath = null;
-        private string? pendingGameExe = null;   // beta patch
         private string launchStatusMessage = "";
         // the agent started by ConnectToGame, tracked so a later Connect
         // (e.g. after the game was closed and relaunched without restarting the
@@ -99,7 +94,6 @@ namespace Cairn.Launcher.Pages
         // reconnect/respawn war -- ~4000 spawn cycles in ~10 minutes -- because
         // neither side's ghost could ever be cleanly removed while the other
         // kept reasserting it.
-        private Process? agentProcess = null;
         #endregion
 
         #region Filter State
@@ -553,9 +547,6 @@ namespace Cairn.Launcher.Pages
             catch (Exception ex)
             {
                 Log.Warning(ex, "Could not start the local master server");
-                // classified for the log only -- the master server is optional (the browser list stays empty).
-                if (LaunchBlocks.FromStartFailure(ex, Path.GetFileName(masterServerPath), IsInstalledFile(masterServerPath)) is { } b)
-                    Log.Warning("{Line} (the optional master server; nothing shown)", b.LogLine);
                 hostedMasterServerProcess = null;
             }
         }
@@ -594,22 +585,6 @@ namespace Cairn.Launcher.Pages
             }
             hostedMasterServerProcess = null;
         }
-
-        /// <summary>
-        /// Both builds name their executable KingdomCome.exe, so the filename
-        /// cannot tell them apart, and neither can WHGame.dll — retail ships
-        /// that one too. What actually differs is that the Modding Tools build
-        /// links its engine modules as separate DLLs (45 of them beside the
-        /// executable) while retail is monolithic (6, none of these).
-        ///
-        /// Framework.dll and CrySystem.dll are the two the plugin depends on
-        /// specifically: the IAT hook rewrites WHGame.dll's import of
-        /// Framework.dll's C_ModulesManager::Update, and the reflection ABI is
-        /// exported from CrySystem.dll. So this tests for what is needed rather
-        /// than for an install path.
-        /// </summary>
-        public static bool IsModdingToolsBuild(string gamePath) =>
-            Cairn.Setup.GameLocator.IsModdingToolsBuild(gamePath);   // the one copy, shared with Setup
 
         /// <summary>
         /// The install root, two levels above KingdomCome.exe
@@ -653,51 +628,11 @@ namespace Cairn.Launcher.Pages
         /// (LogBundle skips what it cannot find).
         /// </summary>
         private string LogBundleGameRoot =>
-            string.IsNullOrWhiteSpace(settings.GamePath) ? "" : GameRootOf(settings.GamePath);
-
-        /// <summary>combat visualisation, item K: where the agent writes agent.log.</summary>
-        private string LogBundleAgentDirectory =>
-            Path.GetDirectoryName(AgentExe()) ?? "";
-
-        /// <summary>
-        /// where the relay writes relay*.log, if it is running (or has
-        /// ever run) from this install -- same resolution rule as
-        /// LogBundleAgentDirectory, and the same "just resolve the path,
-        /// AddIfPresent skips what is not there" handling for a joiner's
-        /// machine, which has no local relay process at all.
-        /// </summary>
-        private string LogBundleRelayDirectory =>
-            Path.GetDirectoryName(RelayExe()) ?? "";
-
-        // ---- the programs of a game's mod (the pack's contract names them; a path in settings.json still wins) ----
-
-        private PackContract? ModContract => PackStore.ReadContract(PacksRoot, ActiveGameId);
-
-        private string ProgramPath(string setting, Func<PackContract, string?> fromPack)
-        {
-            if (!string.IsNullOrWhiteSpace(setting)) return ResolveAgainstLauncher(setting);
-            var rel = ModContract is { } c ? fromPack(c) : null;
-            return string.IsNullOrEmpty(rel) ? "" : PackContract.Resolve(PackStore.FilesDir(PacksRoot, ActiveGameId), rel);
-        }
-
-        /// <summary>The agent (the program that talks to the game's mod and to the relay).</summary>
-        private string AgentExe() => ProgramPath(settings.AgentPath, c => c.Agent);
-
-        /// <summary>The relay a host starts.</summary>
-        private string RelayExe() => ProgramPath(settings.RelayPath, c => c.Relay);
-
-        /// <summary>The native plugin loaded into the game.</summary>
-        private string NativeDll() => ProgramPath(settings.DllPath, c => c.Native);
-
-        /// <summary>The picture pak for the game's main menu; "" when the pack has none.</summary>
-        private string BrandPakFile() => ProgramPath("", c => c.BrandPak.Length > 0 ? c.BrandPak : null);
-
-        /// <summary>The agent's process name (its file name without ".exe"), for stopping strays.</summary>
-        private string AgentProcessName() => Path.GetFileNameWithoutExtension(AgentExe()) is { Length: > 0 } n ? n : "";
+            packGameDirs.TryGetValue(ActiveGameId, out var dir) ? dir : GameExeOf(ActiveGameId) is { } exe ? GameRootOf(exe) : "";
 
         /// <summary>
         /// A relative path in settings means "next to the launcher", which is
-        /// where a packaged build puts the DLL, the injector and the agent.
+        /// where a packaged build puts the programs it ships.
         /// </summary>
         private static string ResolveAgainstLauncher(string path)
         {
@@ -710,8 +645,6 @@ namespace Cairn.Launcher.Pages
 
         private void ConfirmExit()
         {
-            versionPollCts?.Cancel();
-            hostPollCts?.Cancel();
             setupPollCts?.Cancel();   // first-run setup
             StopHostedRelay();
             packSession?.Dispose();

@@ -316,7 +316,6 @@ namespace Cairn.Launcher.Pages
 
         private static string ReviewClass(GameInfo? i) => i?.PositivePercent switch { >= 70 => "score good", >= 40 => "score mixed", < 40 => "score bad", _ => "" };
 
-        private static string ScoreClass(int s) => s >= 75 ? "good" : s >= 50 ? "mixed" : "bad";
 
         // ---- mod updates from Home ------------------------------------------------------------------------------------------------
 

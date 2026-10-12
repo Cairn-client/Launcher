@@ -59,7 +59,7 @@
 		<!-- ReleaseVersionCompare, the only piece of this project
 		     the launcher needs; it does not speak the wire protocol itself. -->
 		<ProjectReference Include="..\dotnet\Cairn.Protocol\Cairn.Protocol.csproj" />
-		<!-- the first-run checklist; the same detection code Setup runs (CairnSetup.exe). -->
+		<!-- the first-run checklist; where Steam and the games are, the pack store, the clients of the pack program. -->
 		<ProjectReference Include="..\dotnet\Cairn.Setup\Cairn.Setup.csproj" />
 	</ItemGroup>
 

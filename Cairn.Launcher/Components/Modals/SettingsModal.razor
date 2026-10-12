@@ -155,7 +155,7 @@
                     <div class="settings-section">Game</div>
 
                     <div class="cairn-input-group">
-                        <label class="cairn-label">Game Executable Path (Modding Tools build)</label>
+                        <label class="cairn-label">Game executable path</label>
 
                         <div style="display: flex; gap: 10px;">
                             <input class="cairn-input" @bind="Settings.GamePath" style="flex-grow: 1;" />
@@ -165,13 +165,9 @@
                             </button>
                         </div>
 
-                        @if (!string.IsNullOrWhiteSpace(Settings.GamePath) && !Home.IsModdingToolsBuild(Settings.GamePath))
+                        @if (!string.IsNullOrWhiteSpace(Settings.GamePath) && ExeNote.Length > 0)
                         {
-                            <div class="cairn-hint" style="color: var(--cairn-warn);">
-                                This does not look like the Modding Tools build. Multiplayer needs
-                                KCD2Mod\Bin\Win64ReleaseSteamLTO_DLL\KingdomCome.exe — the retail
-                                executable has no debug API and no module DLLs to hook.
-                            </div>
+                            <div class="cairn-hint" style="color: var(--cairn-warn);">@ExeNote</div>
                         }
                     </div>
 
@@ -315,6 +311,8 @@
     [Parameter] public EventCallback OnOpenStartSave { get; set; }
     /// <summary>The game's executable is a setting of the launcher (Kingdom Come II's Modding Tools build): its path is asked for here.</summary>
     [Parameter] public bool ExeIsSetting { get; set; }
+    /// <summary>What the game's pack says is wrong with the executable path, in its words ("" = nothing).</summary>
+    [Parameter] public string ExeNote { get; set; } = "";
     /// <summary>What the pack's program said about each of the game's options on this PC (id to status); empty until it has answered.</summary>
     [Parameter] public IReadOnlyDictionary<string, Cairn.Setup.OptionStatus> OptionStatuses { get; set; } = new Dictionary<string, Cairn.Setup.OptionStatus>();
     /// <summary>The game's saves (its bridge while it runs, its program otherwise) and what the window is doing with them.</summary>

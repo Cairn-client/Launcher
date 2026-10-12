@@ -17,7 +17,7 @@ public enum PackStepStatus { Done, Working, NeedsYou, Waiting }
 public sealed record PackStep(string Id, string Title, PackStepStatus Status, string Detail, string? Action = null, string? ActionLabel = null,
                               double? Progress = null, bool Optional = false, bool System = false, string? Auto = null);
 
-public sealed record PackSetupReport(IReadOnlyList<PackStep> Steps, bool Ready, bool OptionalNeedsYou, string? GameExe = null);
+public sealed record PackSetupReport(IReadOnlyList<PackStep> Steps, bool Ready, bool OptionalNeedsYou, string? GameExe = null, string? GameDir = null, string? GameExeNote = null);
 
 public sealed record PackActionResult(bool Ok, string Message, int PendingSeconds = 0);
 
@@ -62,7 +62,7 @@ public static class PackSetup
     {
         var steps = new List<PackStep>();
         bool done = false, ready = false, optionalNeedsYou = false;
-        string? mtExe = null;
+        string? mtExe = null, gameDir = null, exeNote = null;
         var run = await RunAsync(program, Args("check", null, gameExe), timeout ?? CheckTimeout, line =>
         {
             if (steps.Count < MaxSteps && ParseStep(line) is { } step && steps.All(x => x.Id != step.Id)) { steps.Add(step); return; }
@@ -77,15 +77,20 @@ public static class PackSetup
                     ready = r.TryGetProperty("ready", out var rd) && rd.ValueKind == JsonValueKind.True;
                     optionalNeedsYou = r.TryGetProperty("optionalNeedsYou", out var on) && on.ValueKind == JsonValueKind.True;
                 }
+                else if (r.TryGetProperty("gameExeNote", out var gn) && gn.ValueKind == JsonValueKind.String)
+                    exeNote = CatalogLimits.Text(gn.GetString() ?? "", 400);
                 else if (r.TryGetProperty("found", out var f) && f.ValueKind == JsonValueKind.Object && (f.TryGetProperty("gameExe", out var e) || f.TryGetProperty("moddingToolsExe", out e)) && e.ValueKind == JsonValueKind.String)
+                {
                     mtExe = e.GetString();
+                    if (f.TryGetProperty("gameDir", out var gd) && gd.ValueKind == JsonValueKind.String) gameDir = gd.GetString();
+                }
             }
             catch (JsonException) { }
         }, ct).ConfigureAwait(false);
         if (run.TimedOut || !done || steps.Count == 0) return null;
         // the launcher decides readiness itself from the steps: a program cannot say "ready" over a step that is not done
         bool really = steps.All(x => x.Optional || x.Status == PackStepStatus.Done);
-        return new PackSetupReport(steps, ready && really, optionalNeedsYou && really, mtExe);
+        return new PackSetupReport(steps, ready && really, optionalNeedsYou && really, mtExe, gameDir, string.IsNullOrEmpty(exeNote) ? null : exeNote);
     }
 
     /// <summary>Does one action the program named in a step. <paramref name="say"/> gets the program's progress lines, <paramref name="progress"/> its 0..1 numbers.</summary>

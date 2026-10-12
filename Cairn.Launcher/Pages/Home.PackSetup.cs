@@ -20,6 +20,8 @@ namespace Cairn.Launcher.Pages
         /// <summary>The pack's checklist as of the last check; null when the game's pack does not provide one (the launcher's own checklist is used then).</summary>
         private PackSetupReport? packSetup;
         private string packSetupGameId = "";   // the game packSetup is about
+        private readonly Dictionary<string, string> packExeNotes = new();   // what each game's pack said about the executable it was given ("" = nothing wrong)
+        private readonly Dictionary<string, string> packGameDirs = new();   // the folder each game's pack said its options belong in (setup check, found.gameDir)
         private (string StepId, string Action)? packBusy;
         private string? packBusyLine;
         private double? packBusyProgress;
@@ -56,6 +58,8 @@ namespace Cairn.Launcher.Pages
                 return false;
             }
             packSetup = report;
+            if (!string.IsNullOrWhiteSpace(report.GameDir)) packGameDirs[gameId] = report.GameDir;
+            packExeNotes[gameId] = report.GameExeNote ?? "";
             AdoptDetectedGamePath(report.GameExe);
             foreach (var done in report.Steps.Where(x => x.Status == PackStepStatus.Done).Select(x => x.Id).ToList())
             {
