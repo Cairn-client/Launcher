@@ -25,7 +25,7 @@ $records = $raw -split [char]0x1e | Where-Object { $_.Trim() }
 $lines = foreach ($r in $records) {
     $subject, $body = $r -split [char]0x1f, 2
     $t = ($subject.Trim()) -replace '^\d+\.\d+\.\d+:\s*', ''
-    $qualifies = $true
+    $qualifies = $t -notmatch '^\d+\.\d+\.\d+$'   # the bare version commit that starts a repository is no change
     if ($t -match '^(?<type>[a-z]+)(\((?<scope>[^)]*)\))?!?:\s*(?<msg>.+)$') {
         if ($Matches.type -notin 'feat', 'fix', 'perf', 'refactor', 'revert') { $qualifies = $false } else { $t = $Matches.msg }
     }
