@@ -24,6 +24,7 @@ public static class ExternalInstall
     {
         if (!PackContract.IsGameRelativeDir(contract.InstallDir)) return null;
         string root = Path.GetFullPath(gameRoot).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        if (contract.InstallDir == PackContract.GameRoot) return root.TrimEnd(Path.DirectorySeparatorChar);   // the game's own folder
         string target = Path.GetFullPath(Path.Combine(root, contract.InstallDir.Replace('/', Path.DirectorySeparatorChar)));
         return target.StartsWith(root, StringComparison.OrdinalIgnoreCase) && target.Length > root.Length ? target : null;
     }
@@ -76,10 +77,22 @@ public static class ExternalInstall
                     return new ModInstall.PlaceResult(false, $"the downloaded copy of {e.Rel} is {why}");
 
             var marker = ReadMarker(target);
-            if (Directory.Exists(target) && marker is null && Directory.EnumerateFileSystemEntries(target).Any())
-                return new ModInstall.PlaceResult(false, $"a folder named {c.InstallDir} is already in the game and Cairn did not put it there; remove it first");
+            bool atRoot = c.InstallDir == PackContract.GameRoot;
             if (marker is { } old && old.Id != packId)
-                return new ModInstall.PlaceResult(false, $"{c.InstallDir} belongs to another mod");
+                return new ModInstall.PlaceResult(false, atRoot ? "the game's folder already holds another mod's files" : $"{c.InstallDir} belongs to another mod");
+            if (!atRoot && Directory.Exists(target) && marker is null && Directory.EnumerateFileSystemEntries(target).Any())
+                return new ModInstall.PlaceResult(false, $"a folder named {c.InstallDir} is already in the game and Cairn did not put it there; remove it first");
+            if (atRoot)
+            {
+                // in the game's own folder there is no folder to call foreign: a file of the game, or of the player, with the same name and other bytes is theirs and stays
+                var ours = new HashSet<string>((marker?.Files ?? Array.Empty<string>()).Select(Norm), StringComparer.OrdinalIgnoreCase);
+                foreach (var e in mods)
+                {
+                    var existing = Path.Combine(target, Norm(e.Rel));
+                    if (File.Exists(existing) && !ours.Contains(Norm(e.Rel)) && !Matches(existing, e, out _))
+                        return new ModInstall.PlaceResult(false, $"{e.Rel} is already in the game and is not Cairn's; remove it first");
+                }
+            }
 
             Directory.CreateDirectory(target);
             // the files an earlier version placed and this one no longer has
@@ -121,7 +134,10 @@ public static class ExternalInstall
             if (ReadMarker(target) is not { } m || m.Id != packId) return new ModInstall.PlaceResult(true, "the folder is not Cairn's, so it stays");
             foreach (var rel in m.Files) DeleteInside(target, rel);
             File.Delete(Path.Combine(target, MarkerName));
-            RemoveEmptyDirs(new DirectoryInfo(target));
+            if (c.InstallDir == PackContract.GameRoot)
+                foreach (var rel in m.Files) PruneEmptyParents(target, rel);   // the game's own folder is never removed, nor a folder that holds anything else
+            else
+                RemoveEmptyDirs(new DirectoryInfo(target));
             return new ModInstall.PlaceResult(true, $"removed {m.Files.Count} file(s)");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -146,6 +162,18 @@ public static class ExternalInstall
         if (!path.StartsWith(target + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || !File.Exists(path)) return;
         new FileInfo(path).IsReadOnly = false;
         File.Delete(path);
+    }
+
+    // from the folder a removed file was in, up to (not including) the mod's folder: each one that is now empty goes
+    private static void PruneEmptyParents(string target, string rel)
+    {
+        var dir = Path.GetDirectoryName(Path.GetFullPath(Path.Combine(target, Norm(rel))));
+        while (!string.IsNullOrEmpty(dir) && dir.Length > target.Length && dir.StartsWith(target + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+               && Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
+        {
+            Directory.Delete(dir);
+            dir = Path.GetDirectoryName(dir);
+        }
     }
 
     private static bool RemoveEmptyDirs(DirectoryInfo dir)
