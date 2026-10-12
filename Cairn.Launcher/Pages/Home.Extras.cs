@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.JSInterop;
+using Cairn.Launcher.Components.Views;
 using Cairn.Launcher.Models;
 using Serilog;
 
@@ -85,23 +86,17 @@ namespace Cairn.Launcher.Pages
         private RecentSession? PlayedOf(string gameId) =>
             recent.Entries.FirstOrDefault(e => string.Equals(e.GameId, gameId, StringComparison.OrdinalIgnoreCase));
 
-        // ---- quick search (Ctrl+K) ----------------------------------------------------------------------------------------------
+        // ---- search (the box in the top bar; Ctrl+K puts the cursor in it) ----------------------------------------------------
 
-        private bool showQuickSearch;
+        private SearchBar? searchBar;
 
         [JSInvokable]
         public void ToggleQuickSearchJS()
         {
-            showQuickSearch = !showQuickSearch;
-            StateHasChanged();
+            if (searchBar is not null) _ = InvokeAsync(searchBar.FocusAsync);
         }
 
-        private void PickFromQuickSearch(string gameId)
-        {
-            showQuickSearch = false;
-            OpenGameFromHome(gameId);
-        }
-
+        private void PickFromSearch(string gameId) => OpenGameFromHome(gameId);
         // ---- session history: play again ---------------------------------------------------------------------------------------------
 
         /// <summary>The two sessions before the latest one, newest first (each game once).</summary>

@@ -144,33 +144,6 @@
     border-right: 1px solid var(--cairn-oak);
 }
 
-.game-search {
-    width: 100%;
-    margin: 0 0 12px;
-    padding: 10px 12px;
-    background: var(--cairn-ink);
-    border: 1px solid var(--cairn-oak);
-    border-radius: 8px;
-    color: var(--cairn-parchment);
-    font-family: var(--cairn-font-family);
-    font-size: 13.5px;
-    outline: none;
-    user-select: text;
-}
-
-    .game-search::placeholder {
-        color: var(--cairn-muted-dim);
-    }
-
-    .game-search:focus {
-        border-color: var(--cairn-oak-lit);
-    }
-
-    .game-search::-webkit-search-cancel-button {
-        filter: grayscale(1) invert(1) opacity(0.5);
-        cursor: pointer;
-    }
-
 .side-label {
     font-size: 11px;
     letter-spacing: 2.5px;

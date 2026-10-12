@@ -390,17 +390,6 @@
     border-color: rgba(255, 107, 129, 0.5);
 }
 
-/* Search in the top bar */
-.nav-btn.search-btn kbd {
-    margin-left: 6px;
-    padding: 1px 6px;
-    border: 1px solid var(--cairn-oak-lit);
-    border-radius: 5px;
-    font-family: inherit;
-    font-size: 10.5px;
-    color: var(--cairn-muted);
-}
-
 /* the right-click menu of a game */
 .ctx-backdrop {
     position: fixed;
@@ -505,107 +494,6 @@
 @keyframes cairn-toast {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: none; }
-}
-
-/* quick search */
-.qs-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 350;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding-top: 14vh;
-    background: rgba(5, 7, 10, 0.6);
-    backdrop-filter: blur(3px);
-}
-
-.qs-box {
-    width: min(560px, calc(100vw - 48px));
-    border: 1px solid var(--cairn-oak-lit);
-    border-radius: 14px;
-    background: var(--cairn-ink);
-    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
-    overflow: hidden;
-}
-
-.qs-input {
-    width: 100%;
-    padding: 16px 18px;
-    border: none;
-    border-bottom: 1px solid var(--cairn-oak);
-    background: transparent;
-    color: var(--cairn-parchment);
-    font-family: inherit;
-    font-size: 16px;
-    outline: none;
-}
-
-.qs-list {
-    list-style: none;
-    margin: 0;
-    padding: 6px;
-    max-height: 46vh;
-    overflow-y: auto;
-}
-
-.qs-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
-    padding: 8px 10px;
-    border: none;
-    border-radius: 8px;
-    background: transparent;
-    color: inherit;
-    font-family: inherit;
-    text-align: left;
-    cursor: pointer;
-}
-
-    .qs-item.on {
-        background: rgba(255, 255, 255, 0.08);
-    }
-
-.qs-logo {
-    flex: none;
-    display: grid;
-    place-items: center;
-    width: 54px;
-    height: 34px;
-}
-
-    .qs-logo img {
-        max-width: 100%;
-        max-height: 100%;
-        object-fit: contain;
-    }
-
-.qs-text {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.qs-name {
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.qs-sub {
-    font-size: 12px;
-    color: var(--cairn-muted);
-}
-
-.qs-empty, .qs-hint {
-    padding: 10px 14px;
-    font-size: 12px;
-    color: var(--cairn-muted);
-}
-
-.qs-hint {
-    border-top: 1px solid var(--cairn-oak);
 }
 
 /* Continue: the sessions before */

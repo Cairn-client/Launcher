@@ -353,7 +353,7 @@ namespace Cairn.Launcher.Pages
         [JSInvokable]
         public void ExitApp()
         {
-            if (showQuickSearch) { showQuickSearch = false; StateHasChanged(); return; }
+            if (searchBar is { IsOpen: true }) { searchBar.Close(); StateHasChanged(); return; }
             if (menuGameId is not null) { menuGameId = null; StateHasChanged(); return; }
             if (showSettings) { CancelSettings(); StateHasChanged(); return; }
             if (showGameSettings) { CancelGameSettings(); StateHasChanged(); return; }

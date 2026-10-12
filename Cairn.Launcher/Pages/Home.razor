@@ -29,7 +29,7 @@
         </nav>
 
         <nav class="nav right" aria-label="Launcher">
-            <button class="nav-btn search-btn" title="Search games (Ctrl+K)" aria-label="Search games" @onclick="() => showQuickSearch = true">Search <kbd>Ctrl K</kbd></button>
+            <SearchBar @ref="searchBar" Games="@GameProfileRegistry.All()" OnPc="@IsGameFound" Favorites="@HomeFavorites" OnPick="@PickFromSearch" />
             <button class="nav-btn @(currentView == AppView.Settings ? "active" : "")" aria-current="@(currentView == AppView.Settings ? "page" : null)" title="Settings (F10)" @onclick="() => NavigateTo(AppView.Settings)">Settings</button>
             <button class="nav-btn @(currentView == AppView.Versions ? "active" : "")" aria-current="@(currentView == AppView.Versions ? "page" : null)" @onclick="() => NavigateTo(AppView.Versions)">Versions</button>
             <button class="nav-btn @(currentView == AppView.Help ? "active" : "")" aria-current="@(currentView == AppView.Help ? "page" : null)" @onclick="() => NavigateTo(AppView.Help)">Help</button>
@@ -44,8 +44,6 @@
     {
 
     <aside class="sidebar">
-        <input class="game-search" type="search" placeholder="Search games" aria-label="Search games"
-               @bind="gameFilter" @bind:event="oninput" />
 
         <div class="list-controls">
             <div class="filter-checks" role="group" aria-label="Show only">
@@ -474,10 +472,6 @@
         </div>
     }
 </div>
-
-<QuickSearch IsVisible="@showQuickSearch" Games="@GameProfileRegistry.All()" OnPc="@IsGameFound" Favorites="@HomeFavorites"
-             OnPick="@PickFromQuickSearch" OnClose="@(() => showQuickSearch = false)" />
-
 
 @* friends on Cairn: who is online right now, to invite to the game this launcher hosts *@
 @if (showInvite)
