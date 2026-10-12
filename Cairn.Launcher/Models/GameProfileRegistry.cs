@@ -120,6 +120,7 @@ namespace Cairn.Launcher.Models
                 JoinSteps = (m.JoinSteps ?? Array.Empty<string>()).ToList(),
                 OwnSession = m.OwnSession,
                 Setup = (m.Setup ?? Array.Empty<SetupRule>()).ToList(),
+                Options = (m.Options ?? Array.Empty<GameOption>()).ToList(),
             };
         }
 
