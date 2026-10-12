@@ -5,8 +5,8 @@
     align-items: center;
     gap: 16px;
     padding: 12px clamp(32px, 6vw, 96px);
-    background: linear-gradient(90deg, rgba(232, 200, 114, 0.18), rgba(232, 200, 114, 0.05));
-    border-bottom: 1px solid rgba(232, 200, 114, 0.35);
+    background: linear-gradient(90deg, rgba(var(--cairn-gold-rgb), 0.18), rgba(var(--cairn-gold-rgb), 0.05));
+    border-bottom: 1px solid rgba(var(--cairn-gold-rgb), 0.35);
 }
 
     .home .update-banner svg {
@@ -54,14 +54,13 @@
     flex: none;
     padding: 8px 18px;
     border: none;
-    border-radius: 8px;
-    background: var(--cairn-gold);
-    color: #1a1407;
+    border-radius: 999px;
+    background: #E9ECEE;
+    color: #0C0C0C;
     font-family: inherit;
-    font-size: 12.5px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0;
     cursor: pointer;
 }
 
@@ -72,7 +71,7 @@
 
 /* the showcase always uses Cairn gold */
 .showcase {
-    --accent: var(--cairn-gold, #e8c872);
+    --accent: var(--cairn-gold, var(--cairn-gold));
     outline: none;
 }
 
@@ -86,8 +85,8 @@
     }
 
     .showcase .slide-cta {
-        background: var(--cairn-gold, #e8c872);
-        color: #1a1407;
+        background: #E9ECEE;
+        color: #0C0C0C;
     }
 
 
@@ -96,7 +95,7 @@
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(100deg, #10141a 20%, #1a2029 40%, #10141a 60%);
+    background: linear-gradient(100deg, #0b0c0d 20%, #14171a 40%, #0b0c0d 60%);
     background-size: 220% 100%;
     animation: cairn-shimmer 1.6s linear infinite;
 }
@@ -116,7 +115,7 @@
 
 .tile {
     padding: 16px 18px 18px;
-    border-radius: 14px;
+    border-radius: 12px;
     border: 1px solid var(--cairn-oak);
     background: rgba(var(--cairn-shadow-rgb, 20, 22, 26), 0.55);
     min-width: 0;
@@ -126,9 +125,9 @@
         margin: 0 0 12px;
         font-size: 12.5px;
         font-weight: 600;
-        letter-spacing: 2px;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
-        color: var(--cairn-parchment-dim, var(--cairn-muted));
+        color: var(--cairn-parchment);
     }
 
     .tile p {
@@ -319,7 +318,7 @@
 .tour-card {
     width: min(520px, calc(100vw - 48px));
     padding: 28px 30px 24px;
-    border-radius: 16px;
+    border-radius: 12px;
     border: 1px solid var(--cairn-oak-lit);
     background: var(--cairn-ink);
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
@@ -342,8 +341,9 @@
     }
 
 .tour-step {
+    font-family: var(--cairn-font-mono);
     font-size: 11.5px;
-    letter-spacing: 2px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--cairn-gold);
 }
@@ -569,7 +569,7 @@
 
 /* the focus ring while a controller is used */
 body.pad-focus :focus {
-    outline: 2px solid var(--cairn-gold);
+    outline: 2px solid var(--cairn-focus);
     outline-offset: 2px;
 }
 
@@ -708,7 +708,7 @@ button.ready-check.fail:hover {
     margin: 14px 0 16px;
     padding: 16px 18px;
     border: 1px solid var(--cairn-oak-lit);
-    border-radius: 14px;
+    border-radius: 12px;
     background: rgba(255, 255, 255, 0.03);
     text-align: left;
 }
@@ -721,8 +721,9 @@ button.ready-check.fail:hover {
 }
 
 .code-label {
+    font-family: var(--cairn-font-mono);
     font-size: 11.5px;
-    letter-spacing: 2px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--cairn-muted);
 }
@@ -829,10 +830,11 @@ button.ready-check.fail:hover {
 
 /* the game page: the card runs the full width, in columns with headings */
 .info-title {
+    font-family: var(--cairn-font-mono);
     margin-bottom: 14px;
     font-size: 11.5px;
     font-weight: 600;
-    letter-spacing: 2px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--cairn-muted);
 }
@@ -897,11 +899,11 @@ button.chip.ready-check {
 
             .filter-checks .check input:checked {
                 border-color: var(--cairn-gold);
-                background: var(--cairn-gold) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2317130a' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") center / 11px no-repeat;
+                background: var(--cairn-gold) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230c0c0c' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") center / 11px no-repeat;
             }
 
             .filter-checks .check input:focus-visible {
-                outline: 2px solid var(--cairn-gold);
+                outline: 2px solid var(--cairn-focus);
                 outline-offset: 2px;
             }
 
@@ -994,7 +996,7 @@ dl.details.modbar dd {
     margin-top: 16px;
     padding: 20px 26px 12px;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 14px;
+    border-radius: 12px;
     background: rgba(var(--cairn-shadow-rgb), 0.62);
     backdrop-filter: blur(10px);
 }
@@ -1032,7 +1034,7 @@ dl.details.modbar dd {
 }
 
 .feature-pill.ready { color: #8fd7a3; border-color: rgba(143, 215, 163, 0.4); background: rgba(143, 215, 163, 0.08); }
-.feature-pill.test { color: #e8c872; border-color: rgba(232, 200, 114, 0.45); background: rgba(232, 200, 114, 0.08); }
+.feature-pill.test { color: var(--cairn-gold); border-color: rgba(var(--cairn-gold-rgb), 0.45); background: rgba(var(--cairn-gold-rgb), 0.08); }
 .feature-pill.planned { color: #8fb8e8; border-color: rgba(143, 184, 232, 0.4); background: rgba(143, 184, 232, 0.08); }
 
 .feature-tabs {
@@ -1095,7 +1097,7 @@ dl.details.modbar dd {
     background: #8fd7a3;
 }
 
-.feature-dot.test { background: #e8c872; }
+.feature-dot.test { background: var(--cairn-gold); }
 .feature-dot.planned { background: #8fb8e8; }
 
 .feature-name {

@@ -19,9 +19,9 @@
         margin: 0;
         font-size: 13px;
         font-weight: 600;
-        letter-spacing: 2px;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
-        color: var(--cairn-parchment-dim, var(--cairn-muted));
+        color: var(--cairn-parchment);
     }
 
     .view .lead {
@@ -78,7 +78,7 @@
     position: relative;
     height: clamp(360px, 54vh, 580px);
     overflow: hidden;
-    background: #0d1014;
+    background: #0c0c0c;
 }
 
 .slide {
@@ -110,8 +110,8 @@
 .slide-shade {
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, rgba(13, 16, 20, 0.94) 0%, rgba(13, 16, 20, 0.72) 30%, rgba(13, 16, 20, 0.08) 64%),
-                linear-gradient(0deg, var(--cairn-shadow) 0%, rgba(13, 16, 20, 0) 40%);
+    background: linear-gradient(90deg, rgba(12, 12, 12, 0.94) 0%, rgba(12, 12, 12, 0.72) 30%, rgba(12, 12, 12, 0.08) 64%),
+                linear-gradient(0deg, var(--cairn-shadow) 0%, rgba(12, 12, 12, 0) 40%);
 }
 
 .slide-body {
@@ -140,7 +140,7 @@
     }
 
     .state.soon {
-        background: rgba(232, 200, 114, 0.16);
+        background: rgba(var(--cairn-gold-rgb), 0.16);
         color: var(--cairn-gold);
     }
 
@@ -155,7 +155,8 @@
     margin: 0;
     font-family: var(--cairn-font-special);
     font-size: 40px;
-    font-weight: 600;
+    font-weight: 400;
+    letter-spacing: -0.03em;
     text-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
 }
 
@@ -189,23 +190,22 @@
 
 .slide-cta {
     margin-top: 4px;
-    padding: 11px 26px;
+    padding: 0 22px;
+    height: 40px;
     border: none;
-    border-radius: 9px;
-    background: var(--cairn-gold);
-    color: #1a1407;
+    border-radius: 999px;
+    background: #E9ECEE;
+    color: #0C0C0C;
     font-family: inherit;
-    font-size: 13.5px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
-    text-transform: uppercase;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0;
     cursor: pointer;
-    transition: transform 0.12s, filter 0.12s;
+    transition: background-color 0.2s;
 }
 
     .slide-cta:hover {
-        transform: translateY(-1px);
-        filter: brightness(1.08);
+        background: #FFFFFF;
     }
 
 .arrow {
@@ -296,11 +296,11 @@
 
 .dot-fill.full {
     width: 100%;
-    background: var(--cairn-gold, #e8c872);
+    background: var(--cairn-gold, var(--cairn-gold));
 }
 
 .dot-fill.active-fill {
-    background: var(--cairn-gold, #e8c872);
+    background: var(--cairn-gold, var(--cairn-gold));
     animation: dotProgress 7s linear forwards;
 }
 
@@ -326,9 +326,9 @@
         margin: 0 0 12px;
         font-size: 13px;
         font-weight: 600;
-        letter-spacing: 2px;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
-        color: var(--cairn-parchment-dim, var(--cairn-muted));
+        color: var(--cairn-parchment);
     }
 
     .shelf .count {
@@ -366,7 +366,7 @@
 }
 
 .shelf-row::-webkit-scrollbar-thumb:hover {
-    background: var(--cairn-gold, #e8c872);
+    background: var(--cairn-gold, var(--cairn-gold));
 }
 
 .poster {
@@ -378,7 +378,7 @@
     overflow: hidden;
     border-radius: 12px;
     border: 1px solid var(--cairn-oak);
-    background: #10141a;
+    background: #0b0c0d;
     font-family: inherit;
     text-align: left;
     cursor: pointer;
@@ -476,7 +476,7 @@
 .view .card {
     padding: 20px 22px;
     margin-bottom: 16px;
-    border-radius: 14px;
+    border-radius: 12px;
     border: 1px solid var(--cairn-oak);
     background: rgba(var(--cairn-shadow-rgb, 20, 22, 26), 0.55);
 }
