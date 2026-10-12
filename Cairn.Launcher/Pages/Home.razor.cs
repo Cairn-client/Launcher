@@ -318,7 +318,9 @@ namespace Cairn.Launcher.Pages
                             launchedGameId = "";
                             // a relay this launcher started for the hosted game goes with it: left running it holds the host port, and the
                             // next Host finds the port taken
-                            if (wasHost) StopHostedRelay();
+                            StopHostedRelay();
+                            // and so does the agent: nothing is left running from the mod's folder, so an update of the mod can replace its files
+                            StopExistingAgent();
                             // the Modding Tools' helper programs go with the game, so Steam stops showing the tools as running
                             _ = Task.Run(CloseModdingTools);
                             // the game closed on its own (the player quit it, or it crashed): the launch it belonged to is over, so the next

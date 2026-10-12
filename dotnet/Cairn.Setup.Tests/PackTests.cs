@@ -251,6 +251,37 @@ public class PackInstallerTests : IDisposable
     }
 
     [Fact]
+    public async Task AnUpdateGoesThroughWhileALogIsInUse()
+    {
+        var first = BuildZip(Files);
+        await PackInstaller.DownloadAsync(InfoFor(first), AnyUrl, _root, Serving(first));
+        var bin = Path.Combine(PackStore.FilesDir(_root, "kcd2"), PackStore.BinFolder);
+        // the agent of the last session still has its log open
+        using var held = new FileStream(Path.Combine(bin, "agent.log"), FileMode.Create, FileAccess.ReadWrite, FileShare.None);
+
+        var second = BuildZip(Files, version: "0.3.0");
+        var r = await PackInstaller.DownloadAsync(InfoFor(second, version: "0.3.0"), AnyUrl, _root, Serving(second));
+        Assert.True(r.Ok, r.Message);
+        Assert.Equal("0.3.0", PackStore.Read(_root, "kcd2")!.Version);
+        Assert.Equal("stub Relay.exe", File.ReadAllText(Path.Combine(PackStore.FilesDir(_root, "kcd2"), PackStore.BinFolder, "Relay.exe")));
+    }
+
+    [Fact]
+    public async Task AnUpdateThatCannotReplaceAFileInUseSaysSoPlainly()
+    {
+        var first = BuildZip(Files);
+        await PackInstaller.DownloadAsync(InfoFor(first), AnyUrl, _root, Serving(first));
+        var bin = Path.Combine(PackStore.FilesDir(_root, "kcd2"), PackStore.BinFolder);
+        using var held = new FileStream(Path.Combine(bin, "Relay.exe"), FileMode.Open, FileAccess.Read, FileShare.None);   // a program of the pack, running
+
+        var second = BuildZip(Files, version: "0.3.0");
+        var r = await PackInstaller.DownloadAsync(InfoFor(second, version: "0.3.0"), AnyUrl, _root, Serving(second));
+        Assert.False(r.Ok);
+        Assert.Contains("still running", r.Message);
+        Assert.DoesNotContain("process cannot access", r.Message);
+    }
+
+    [Fact]
     public async Task AnUpdateKeepsWhatTheProgramsWroteBesideThemSuchAsTheirSettingsAndLogs()
     {
         var first = BuildZip(Files);
