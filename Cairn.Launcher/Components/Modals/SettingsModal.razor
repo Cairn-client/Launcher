@@ -7,12 +7,45 @@
 @using Cairn.Launcher.Pages
 @using System.Windows.Forms
 @using System.Threading
+@using Cairn.Setup
 
 @* Cairn: one dialog, two scopes. "general" is the menu bar's Settings (what belongs to Cairn itself); a game id is that game's own
    settings, opened from the button next to Host and Join on its page. The values are the same keys of settings.json either way. *@
 @if (IsVisible || Inline)
 {
     var game = Scope == GeneralScope ? null : GameProfileRegistry.Get(Scope);
+    RenderFragment savesList = @<div class="cairn-input-group">
+        <label class="cairn-label">Saved games</label>
+        @if (!SavesKnown)
+        {
+            <div class="cairn-hint">@(SavesLoading ? "Reading the game's saves..." : "The game's saves are listed here once its mod is installed.")</div>
+        }
+        else if (Saves.Count == 0)
+        {
+            <div class="cairn-hint">No saves yet.</div>
+        }
+        else
+        {
+            <div class="save-list">
+                @foreach (var slot in Saves.Take(ShowAllSaves ? Saves.Count : SavesShown))
+                {
+                    <div class="save-row">
+                        <div class="save-main"><span class="save-name">@slot.Name</span><span class="save-detail">@slot.Detail</span></div>
+                        <span class="save-when">@(slot.When is { } w ? w.ToLocalTime().ToString("d MMM HH:mm") : "")</span>
+                        <button class="cairn-btn save-delete @(DeleteSaveAsked == slot.Id ? "danger" : "")" @onclick="() => OnDeleteSave.InvokeAsync(slot.Id)">@(DeleteSaveAsked == slot.Id ? "SURE? DELETE" : "DELETE")</button>
+                    </div>
+                }
+            </div>
+            @if (Saves.Count > SavesShown)
+            {
+                <button class="link-btn save-more" @onclick="OnToggleShowAllSaves">@(ShowAllSaves ? "Show fewer" : $"Show all {Saves.Count}")</button>
+            }
+            @if (GameRunning)
+            {
+                <div class="cairn-hint">The game is running: a save written in the last ten minutes is kept, since the game may be using it.</div>
+            }
+        }
+    </div>;
     RenderFragment body = @<div class="modal-content" style="text-align: left;">
                 @if (game is null)
                 {
@@ -177,6 +210,8 @@
                         }
                     </div>
 
+                    @savesList
+
                     @* Release channel: stable or beta versions of the mod *@
                     @if (game.ModRepo.Length > 0)
                     {
@@ -228,6 +263,12 @@
                             <strong>@game.DisplayName</strong> has no settings yet. They appear here once multiplayer for this game is available.
                         </div>
                     }
+                }
+
+                @if (game is not null && game.Id != GameProfileRegistry.Kcd2Id && SavesKnown && Saves.Count > 0)
+                {
+                    <div class="settings-section">Saves</div>
+                    @savesList
                 }
 
                 @* the toggles the game's own mod offers (game.json "options"): saved with this window, done by the pack's program *@
@@ -295,6 +336,15 @@
     [Parameter] public bool Dlss5Busy { get; set; }
     /// <summary>What the pack's program said about each of the game's options on this PC (id to status); empty until it has answered.</summary>
     [Parameter] public IReadOnlyDictionary<string, Cairn.Setup.OptionStatus> OptionStatuses { get; set; } = new Dictionary<string, Cairn.Setup.OptionStatus>();
+    /// <summary>The game's saves (its bridge while it runs, its program otherwise) and what the window is doing with them.</summary>
+    [Parameter] public IReadOnlyList<BridgeSaveSlot> Saves { get; set; } = Array.Empty<BridgeSaveSlot>();
+    [Parameter] public bool SavesKnown { get; set; }
+    [Parameter] public bool SavesLoading { get; set; }
+    [Parameter] public string? DeleteSaveAsked { get; set; }
+    [Parameter] public bool ShowAllSaves { get; set; }
+    [Parameter] public EventCallback<string> OnDeleteSave { get; set; }
+    [Parameter] public EventCallback OnToggleShowAllSaves { get; set; }
+    private const int SavesShown = 6;   // the list can be long (Kingdom Come II rotates its autosaves): the newest few, the rest on a click
     [Parameter] public bool OptionsBusy { get; set; }
 
     private bool IsOptionOn(string gameId, string optionId) => Settings.GameOptions.TryGetValue(gameId, out var o) && o.TryGetValue(optionId, out var on) && on;

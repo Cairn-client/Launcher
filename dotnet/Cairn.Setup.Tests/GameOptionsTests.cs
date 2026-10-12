@@ -154,3 +154,63 @@ public class BetaCatalogTests : IDisposable
         Assert.DoesNotContain(handler.Asked, u => u.StartsWith("https://api.github.com/"));
     }
 }
+
+public class SavesRunnerTests : IDisposable
+{
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), "cairn-sav-" + Guid.NewGuid().ToString("N")[..8]);
+    public SavesRunnerTests() => Directory.CreateDirectory(_dir);
+    public void Dispose() { try { Directory.Delete(_dir, true); } catch { } }
+
+    private string Script(string body) { var p = Path.Combine(_dir, "prog" + Guid.NewGuid().ToString("N")[..4] + ".cmd"); File.WriteAllText(p, "@echo off\r\n" + body + "\r\n"); return p; }
+
+    private const string Saves = "{\"t\":\"saves\",\"slots\":[{\"id\":\"w-1\",\"name\":\"Exit save\",\"detail\":\"Playline 0\",\"kind\":\"world\",\"when\":\"2026-10-12T16:12:00Z\"}]}";
+
+    [Fact]
+    public async Task TheProgramsListIsRead()
+    {
+        var slots = await SavesRunner.ListAsync(Script("echo " + Saves));
+        Assert.Equal("Exit save", Assert.Single(slots!).Name);
+    }
+
+    [Fact]
+    public async Task AListTheProgramDoesNotGiveIsNull()
+    {
+        Assert.Null(await SavesRunner.ListAsync(Script("echo nothing")));
+        Assert.Null(await SavesRunner.ListAsync(Path.Combine(_dir, "missing.cmd")));
+    }
+
+    [Fact]
+    public async Task ADeleteGivesTheMessageAndTheSavesThatAreLeft()
+    {
+        var (ok, message, slots) = await SavesRunner.DeleteAsync(Script("echo {\"t\":\"toast\",\"text\":\"Deleted Exit save.\",\"error\":false}\r\necho " + Saves), "w-1");
+        Assert.True(ok); Assert.Equal("Deleted Exit save.", message); Assert.Single(slots!);
+    }
+
+    [Fact]
+    public async Task ARefusalIsSaidAsTheProgramSaidIt()
+    {
+        var (ok, message, _) = await SavesRunner.DeleteAsync(Script("echo {\"t\":\"toast\",\"text\":\"The game may be using it.\",\"error\":true}"), "w-1");
+        Assert.False(ok); Assert.Equal("The game may be using it.", message);
+    }
+
+    [Theory]
+    [InlineData("../../x")]
+    [InlineData("a b")]
+    [InlineData("")]
+    public async Task AnIdThatIsNotPlainNeverReachesTheProgram(string id)
+    {
+        var marker = Path.Combine(_dir, "ran.txt");
+        var (ok, _, _) = await SavesRunner.DeleteAsync(Script($"echo ran> \"{marker}\""), id);
+        Assert.False(ok);
+        Assert.False(File.Exists(marker));
+    }
+
+    [Fact]
+    public async Task ArgumentsAreExactlyTheWordsOfTheContract()
+    {
+        var said = new List<string>();
+        var s = Script("echo {\"t\":\"toast\",\"text\":\"args: %~1 %~2 %~3\",\"error\":false}");
+        var (_, message, _) = await SavesRunner.DeleteAsync(s, "w-abc123");
+        Assert.Equal("args: saves delete w-abc123", message);
+    }
+}
