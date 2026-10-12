@@ -1,4 +1,4 @@
-﻿@* Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+@* Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
    GPLv3 section 7 additional terms: AUTHORS.md. This project's own code only; Kingdom Come: Deliverance II and its
    content belong to Warhorse Studios and PLAION. Unofficial, free, not affiliated with or endorsed by them. *@
 @inherits ModalBase
@@ -61,7 +61,7 @@
                                     <div><dt>How friends join</dt><dd>They find you in their JOIN GAME list. The code is the backup if you are not listed.</dd></div>
                                     <div><dt>Connection</dt><dd>Through Steam@(ShowAddress ? "" : "; your address stays hidden")</dd></div>
                                     <div><dt>Game</dt><dd>@(GameRunning ? "Running" : "Not started yet")</dd></div>
-                                    <div><dt>Cairn</dt><dd>@Cairn.Launcher.Components.Shared.Globals.CairnVersion (your friend needs the same version)</dd></div>
+                                    <div><dt>Mod</dt><dd>@Cairn.Launcher.Models.ModLua.Handshake() (your friend needs the same version of the mod)</dd></div>
                                 </dl>
                             </div>
                         }

@@ -31,16 +31,13 @@ namespace Cairn.Launcher.Components.Shared
     /// </summary>
     public static class InstallIntegrity
     {
-        // The stamped .NET assemblies that ship beside the launcher. The
-        // native CairnNative.dll carries no InformationalVersion and is deliberately
-        // not listed. MasterServer ships in its own subfolder with its own
+        // The stamped .NET assemblies that ship beside the launcher (a game's
+        // mod brings its own programs, in the pack store, and is checked by its pack manifest). MasterServer ships in its own subfolder with its own
         // copies; checked via its relative path.
         private static readonly string[] SiblingAssemblies =
         [
-            "CairnClient.dll",
-            "CairnServer.dll",
             "Cairn.Protocol.dll",
-            "Cairn.Farkle.dll",
+            "Cairn.Setup.dll",
         ];
 
         /// <summary>
@@ -77,7 +74,7 @@ namespace Cairn.Launcher.Components.Shared
 
             return $"This install is a mix of two builds -- the launcher is {Globals.Version} but " +
                    string.Join(", ", wrong) + ". " +
-                   "That usually means an installer ran while the launcher, agent, relay or game was still open, " +
+                   "That usually means an installer ran while the launcher or the game was still open, " +
                    "and the files in use silently kept their old version. " +
                    "Close everything and re-run the installer, then check install-verify.txt says PASS.";
         }

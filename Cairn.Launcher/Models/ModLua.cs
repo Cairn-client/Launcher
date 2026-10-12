@@ -48,6 +48,16 @@ namespace Cairn.Launcher.Models
         /// <summary>The in-game mod menu's request function (the launcher draws the menu; the mod answers).</summary>
         public static string MenuRequest => Name("menuRequest", "KCD2MP_MenuRequest");
 
+        /// <summary>
+        /// The version two players must share, as the relay and the agents compare it: the downloaded mod's MAJOR.MINOR.0 (the mod has
+        /// its own version, apart from the launcher's); the launcher's own when no mod is downloaded.
+        /// </summary>
+        public static string Handshake()
+        {
+            var v = PackStore.Read(PackStore.DefaultRoot, ModInstall.PackId)?.Version;
+            return Version.TryParse(v, out var p) ? $"{p.Major}.{p.Minor}.0" : Components.Shared.Globals.Version;
+        }
+
         /// <summary>A guarded call: nothing happens in a game whose mod does not have the function.</summary>
         public static string Call(string function, string args = "") => $"if {function} then {function}({args}) end";
     }

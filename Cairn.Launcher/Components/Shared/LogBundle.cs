@@ -108,6 +108,7 @@ namespace Cairn.Launcher.Components.Shared
             {
                 string kcdDir = Path.GetDirectoryName(kcdLog) ?? "";
                 AddIfPresent(Path.Combine(kcdDir, "cairn-native.mirror.log"), "cairn-native.mirror.log");
+                AddIfPresent(Path.Combine(kcdDir, "kcdmp-native.mirror.log"), "kcdmp-native.mirror.log");   // the native plugin's own name in the Kingdom Come: Together based mod
                 try
                 {
                     var backups = new DirectoryInfo(Path.Combine(kcdDir, "logbackups"))
@@ -128,6 +129,7 @@ namespace Cairn.Launcher.Components.Shared
                 // The primary native log sits beside the DLL, which ships in
                 // the same directory as the agent.
                 AddIfPresent(Path.Combine(agentDirectory, "cairn-native.log"), "cairn-native.log");
+                AddIfPresent(Path.Combine(agentDirectory, "kcdmp-native.log"), "kcdmp-native.log");
                 // the mod menu's remembered choices, filtered (Models/ModSettingsReport.cs): its own
                 // keys with on/off or joint/individual only -- nothing typed by hand reaches the zip.
                 try

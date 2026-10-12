@@ -308,7 +308,7 @@ namespace Cairn.Launcher.Pages
         {
             var holders = await Task.Run(() => RelayReuse.Holders(relayPath, settings.HostPort, settings.ServerInfoPort));
             RelayAnswer? answer = holders.Count > 0 && holders.All(h => h.Ours) ? await AskRelayAsync() : null;
-            return RelayReuse.Decide(holders, settings.HostPort, answer, Globals.Version, settings.HostAllowSteam, settings.SteamAppId);
+            return RelayReuse.Decide(holders, settings.HostPort, answer, ModLua.Handshake(), settings.HostAllowSteam, settings.SteamAppId);
         }
 
         private async Task<RelayAnswer?> AskRelayAsync()
@@ -389,7 +389,7 @@ namespace Cairn.Launcher.Pages
         private string RelayExitedMessage(string relayPath)
         {
             var holders = RelayReuse.Holders(relayPath, settings.HostPort, settings.ServerInfoPort);
-            var d = RelayReuse.Decide(holders, settings.HostPort, null, Globals.Version, settings.HostAllowSteam, settings.SteamAppId);
+            var d = RelayReuse.Decide(holders, settings.HostPort, null, ModLua.Handshake(), settings.HostAllowSteam, settings.SteamAppId);
             if (d.Plan == RelayPlan.Refuse)
             {
                 Log.Warning(d.LogLine);

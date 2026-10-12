@@ -3,6 +3,7 @@
    of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md). *@
 @using Cairn.Launcher.Models
 @using Cairn.Launcher.Components.Shared
+@using Cairn.Setup
 
 @* This version, the check for updates, and the changelog of every release. *@
 <div class="view">
@@ -14,8 +15,8 @@
     <section class="card now">
         <div class="facts">
             <div><span class="k">Cairn Client</span><span class="v">@Globals.CairnVersion</span></div>
-            <div><span class="k">Network protocol</span><span class="v">@Globals.Version</span></div>
-            <div class="note"><span class="k">Compatibility</span><span class="v">Players need the same first two numbers (for example 0.3.x with 0.3.x).</span></div>
+            <div><span class="k">Kingdom Come: Deliverance II mod</span><span class="v">@ModText</span></div>
+            <div class="note"><span class="k">Compatibility</span><span class="v">Players need the same first two numbers of the mod (for example 0.3.x with 0.3.x). The launcher can be any version.</span></div>
         </div>
         <div class="now-actions">
             <button class="cairn-btn primary" @onclick="OnCheckUpdates" disabled="@CheckingUpdates">@(CheckingUpdates ? "CHECKING..." : "CHECK FOR UPDATES")</button>
@@ -65,6 +66,11 @@
 </div>
 
 @code {
+    private static string ModText =>
+        PackStore.Read(PackStore.DefaultRoot, ModInstall.PackId) is { } p
+            ? p.Version + (string.IsNullOrEmpty(p.Contract?.Upstream) ? "" : $" (based on Kingdom Come: Together {p.Contract!.Upstream})")
+            : "not downloaded";
+
     [Parameter] public IReadOnlyList<ReleaseNote>? Releases { get; set; }
     [Parameter] public bool CheckingUpdates { get; set; }
     [Parameter] public EventCallback OnCheckUpdates { get; set; }

@@ -705,15 +705,16 @@ namespace Cairn.Launcher.Pages
                 var peer = status?.Peers.FirstOrDefault();
                 if (peer is null) continue; // agent not up yet, or no peer connected yet -- keep waiting
 
-                var comparison = ReleaseVersionCompare.Compare(Globals.Version, peer.ReleaseVersion);
+                string mine = ModLua.Handshake();
+                var comparison = ReleaseVersionCompare.Compare(mine, peer.ReleaseVersion);
                 if (comparison == ReleaseVersionComparison.Equal) return; // nothing to say
 
                 versionMismatchMessage = comparison switch
                 {
                     ReleaseVersionComparison.LocalIsOlder =>
-                        $"You're on {Globals.Version}, your host is on {peer.ReleaseVersion} -- you'll need to update.",
+                        $"Your mod is {mine}, your host's is {peer.ReleaseVersion} -- update your mod (the game page offers it).",
                     ReleaseVersionComparison.LocalIsNewer =>
-                        $"You're on {Globals.Version}, your host is on {peer.ReleaseVersion} -- they'll need to update.",
+                        $"Your mod is {mine}, your host's is {peer.ReleaseVersion} -- they'll need to update theirs.",
                     _ => "Versions don't match -- make sure everyone's on the latest release.",
                 };
                 showVersionMismatch = true;
