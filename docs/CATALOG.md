@@ -82,3 +82,6 @@ release is never offered. Both players should use the same mod version (the same
 The UI and the engine: the pack store, the queue and footer, the in-game menu drawer, the setup checklist. KCD2's Modding Tools setup
 (finding the tools, linking the game's files) is still KCD2 code, and the setup checklist still names KCD2's Steam ids; making setup
 steps data too is the next step when a second game needs them.
+
+`ownSession: true` in a `game.json` says the game's mod runs the session itself (docs/PACKS.md, external mods): the page shows **Play** instead of
+Host and Join even before any mod is downloaded.
