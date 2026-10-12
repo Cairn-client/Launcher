@@ -53,11 +53,15 @@ namespace Cairn.Launcher.Pages
             if (gameRunning) { SetPackMessage($"{game.DisplayName} is already running.", error: false); return; }
             if (GameFolderOf(game) is not { } folder) { SetPackMessage($"{game.DisplayName} was not found on this PC.", error: true); return; }
 
-            if (ExternalInstall.CompanionPath(PacksRoot, game.Id) is { } companion && !IsRunning(companion))
+            var companion = ExternalInstall.CompanionPath(PacksRoot, game.Id);
+            if (companion is not null) externalBridge ??= new BridgeServer();   // the companion is the mod's bridge: it connects to this pipe
+            if (companion is not null && !IsRunning(companion))
             {
                 try
                 {
-                    Process.Start(new ProcessStartInfo(companion) { WorkingDirectory = Path.GetDirectoryName(companion)!, UseShellExecute = false })?.Dispose();
+                    var psi = new ProcessStartInfo(companion) { WorkingDirectory = Path.GetDirectoryName(companion)!, UseShellExecute = false };
+                    psi.Environment[BridgeProtocol.PipeEnvironmentVariable] = externalBridge!.PipeName;
+                    Process.Start(psi)?.Dispose();
                     Log.Information("games: {Game} companion started: {File}", game.Id, Path.GetFileName(companion));
                 }
                 catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
@@ -78,6 +82,7 @@ namespace Cairn.Launcher.Pages
                 }
                 Log.Information("games: {Game} started", game.Id);
                 SetPackMessage("", error: false);
+                if (companion is not null) _ = ShowExternalMenuWhenUpAsync(game, folder);   // the launcher's menu over the game, once the game's window is there
             }
             catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
             {
@@ -85,6 +90,34 @@ namespace Cairn.Launcher.Pages
                 SetPackMessage($"{game.DisplayName} did not start ({ex.Message}).", error: true);
             }
             await InvokeAsync(StateHasChanged);
+        }
+
+        // The bridge the launcher listens on for external games whose mod has a companion; one per launcher run, given to the companion when it starts.
+        private BridgeServer? externalBridge;
+
+        /// <summary>Waits for the game's process (the game starts through Steam, so there is no process to hold), then draws the mod's menu over it from the bridge.</summary>
+        private async Task ShowExternalMenuWhenUpAsync(GameProfile game, string folder)
+        {
+            if (externalBridge is not { } bridge) return;
+            string name = Path.GetFileNameWithoutExtension(game.DefaultExeName);
+            Process? proc = null;
+            for (int i = 0; i < 240 && proc is null; i++)
+            {
+                await Task.Delay(1000);
+                try { proc = Process.GetProcessesByName(name).FirstOrDefault(p => !p.HasExited); }
+                catch (InvalidOperationException) { }
+            }
+            if (proc is null) { Log.Information("games: {Game} did not show up, so no menu", game.Id); return; }
+            try
+            {
+                inGameMenu?.Stop();
+                string key = Cairn.Launcher.Services.InGameMenuDriver.ReadMenuKey(SettingsFileName);
+                var driver = new Cairn.Launcher.Services.InGameMenuDriver(proc, DateTime.Now, folder, key, bridge: bridge);
+                inGameMenu = driver;
+                _ = Task.Run(driver.RunAsync);
+                Log.Information("games: {Game} menu started on its bridge", game.Id);
+            }
+            catch (Exception ex) { Log.Warning(ex, "games: the menu of {Game} could not start", game.Id); }
         }
 
         private static bool IsRunning(string exePath)
