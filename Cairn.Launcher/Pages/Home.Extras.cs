@@ -165,7 +165,7 @@ namespace Cairn.Launcher.Pages
             }
             if (bridgeProcess is null) return false;
 
-            var driver = new Cairn.Launcher.Services.InGameMenuDriver(game, gameStartLocal, root, key, dlss5: Dlss5Active, bridge: bridge, launcherRows: true);
+            var driver = new Cairn.Launcher.Services.InGameMenuDriver(game, gameStartLocal, root, key, dlss5: Dlss5Active, bridge: bridge, launcherRows: GameProfileRegistry.Get(GameProfileRegistry.Kcd2Id) is { Options.Count: 0 });
             inGameMenu = driver;
             _ = Task.Run(driver.RunAsync);
             Log.Information("in-game menu: the mod's bridge started ({File})", Path.GetFileName(companion));

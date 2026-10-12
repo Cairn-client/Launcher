@@ -44,13 +44,15 @@ namespace Cairn.Launcher.Pages
             var taken = settingsStore.Refresh(settings);
             if (taken.Count > 0) Log.Information("settings: changed outside the launcher since it read them: {Keys}", string.Join(", ", taken));
             showGameSettings = true;
+            if (SelectedProfile is { } og) _ = LoadOptionStatusesAsync(og);
         }
 
         private void SaveGameSettings()
         {
             WriteSettings("the game settings window");
             showGameSettings = false;
-            _ = ApplyDlss5Async();   // DLSS 5 in or out of the game's folder, to match the tick
+            if (SelectedProfile is { } sg && sg.Options.Count > 0) _ = ApplyGameOptionsAsync(sg);
+            else _ = ApplyDlss5Async();   // DLSS 5 in or out of the game's folder, to match the tick (a game whose pack offers it as an option: its program does it)
         }
 
         /// <summary>Closed without SAVE: the unsaved edits go back, as for the general Settings.</summary>

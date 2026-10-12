@@ -190,7 +190,10 @@
                         </div>
                     }
 
-                    @* DLSS 5 through DLSS 5 Autopilot (MIT): put in the game's folder when this is saved, taken out when it is cleared *@
+                    @* DLSS 5 through DLSS 5 Autopilot (MIT): put in the game's folder when this is saved, taken out when it is cleared.
+                       Until the game's pack offers it as an option of its own (below), this is the launcher's own. *@
+                    @if (game.Options.Count == 0)
+                    {
                     <div class="settings-section">Graphics</div>
                     <div class="cairn-input-group">
                         <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: @(Dlss5Gpu == GpuClass.None || Dlss5Busy || GameRunning ? "not-allowed" : "pointer");">
@@ -204,6 +207,7 @@
                         <div class="cairn-hint">@Dlss5GpuText</div>
                         <div class="cairn-hint">When you save, Cairn downloads DLSS 5 Autopilot (once, checked against its published checksum) and it puts DLSS 5 into the game's folder through OptiScaler; clearing the tick takes it all out again. While it is in, the game's menu has a row that opens its overlay.</div>
                     </div>
+                    }
                 }
                 else
                 {
@@ -222,6 +226,30 @@
                     {
                         <div class="settings-empty">
                             <strong>@game.DisplayName</strong> has no settings yet. They appear here once multiplayer for this game is available.
+                        </div>
+                    }
+                }
+
+                @* the toggles the game's own mod offers (game.json "options"): saved with this window, done by the pack's program *@
+                @if (game is not null && game.Options.Count > 0)
+                {
+                    <div class="settings-section">Options</div>
+                    @foreach (var option in game.Options)
+                    {
+                        var status = OptionStatuses.TryGetValue(option.Id, out var st) ? st : null;
+                        bool unavailable = status is { Available: false } || (option.Requires == "nvidia-rtx" && status is null);
+                        bool locked = unavailable || OptionsBusy || GameRunning;
+                        <div class="cairn-input-group">
+                            <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: @(locked ? "not-allowed" : "pointer");">
+                                <input type="checkbox" checked="@IsOptionOn(game.Id, option.Id)" disabled="@locked" @onchange="e => SetOptionOn(game.Id, option.Id, e.Value is true)" />
+                                @option.Title
+                            </label>
+                            @if (GameRunning)
+                            {
+                                <div class="cairn-hint" style="color: var(--cairn-warn);">Close the game first: this can only be changed while it is not running.</div>
+                            }
+                            @if (status is not null && status.Note.Length > 0) { <div class="cairn-hint">@status.Note</div> }
+                            @if (option.Hint.Length > 0) { <div class="cairn-hint">@option.Hint</div> }
                         </div>
                     }
                 }
@@ -265,6 +293,16 @@
     [Parameter] public GpuClass Dlss5Gpu { get; set; } = GpuClass.None;
     [Parameter] public string Dlss5GpuText { get; set; } = "";
     [Parameter] public bool Dlss5Busy { get; set; }
+    /// <summary>What the pack's program said about each of the game's options on this PC (id to status); empty until it has answered.</summary>
+    [Parameter] public IReadOnlyDictionary<string, Cairn.Setup.OptionStatus> OptionStatuses { get; set; } = new Dictionary<string, Cairn.Setup.OptionStatus>();
+    [Parameter] public bool OptionsBusy { get; set; }
+
+    private bool IsOptionOn(string gameId, string optionId) => Settings.GameOptions.TryGetValue(gameId, out var o) && o.TryGetValue(optionId, out var on) && on;
+    private void SetOptionOn(string gameId, string optionId, bool on)
+    {
+        if (!Settings.GameOptions.TryGetValue(gameId, out var o)) Settings.GameOptions[gameId] = o = new Dictionary<string, bool>();
+        o[optionId] = on;
+    }
     [Parameter] public EventCallback<string> OnToggleChannel { get; set; }
     [Parameter] public bool GameRunning { get; set; }
     public const string GeneralScope = "general";

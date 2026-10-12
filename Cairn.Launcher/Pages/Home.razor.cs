@@ -497,7 +497,7 @@ namespace Cairn.Launcher.Pages
                 return;
 
             // DLSS 5 unticked but OptiScaler still in the game's folder: it comes out before the game starts
-            if (Dlss5LeftOver())
+            if (GameProfileRegistry.Get(GameProfileRegistry.Kcd2Id) is { Options.Count: 0 } && Dlss5LeftOver())
             {
                 Log.Information("dlss5: OptiScaler is in the game's folder while DLSS 5 is off: taking it out before the launch");
                 await ApplyDlss5Async();

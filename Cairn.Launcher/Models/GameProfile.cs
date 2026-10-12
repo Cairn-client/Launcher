@@ -71,6 +71,9 @@ namespace Cairn.Launcher.Models
         /// <summary>The checks of the game's Ready check when its mod runs its own session (from game.json); empty means the defaults (Cairn.Setup/GameSetup.cs).</summary>
         public System.Collections.Generic.List<Cairn.Setup.SetupRule> Setup { get; set; } = new();
 
+        /// <summary>The toggles the game's mod offers on its settings page (from game.json).</summary>
+        public System.Collections.Generic.List<Cairn.Setup.GameOption> Options { get; set; } = new();
+
         /// <summary>The ids of the content packs (start saves) the game offers; their repositories are in the catalog.</summary>
         public System.Collections.Generic.List<string> ContentPacks { get; set; } = new();
     }

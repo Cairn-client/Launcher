@@ -231,6 +231,9 @@ namespace Cairn.Launcher.Models
         // (the newest release, pre-releases included). Set from the mod row on the game's page.
         public Dictionary<string, string> ModChannels { get; set; } = new();
 
+        /// <summary>The toggles a game's mod offers (game.json "options"): game id, option id, on or off. What a tick means is the pack's program's business (Cairn.Setup/GameOptions.cs).</summary>
+        public Dictionary<string, Dictionary<string, bool>> GameOptions { get; set; } = new();
+
         // Host finds the relay's ports taken by this install's own relay (a
         // launcher closed with the window's X leaves it running): the same release with
         // the same settings is used again, any other is stopped and replaced; another
