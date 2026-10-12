@@ -144,6 +144,7 @@
     overflow-y: auto;
     flex: 1;
     min-height: 0;
+    padding-right: 8px;   /* the scrollbar keeps a gap from the games */
 }
 
 .game-item {
