@@ -437,7 +437,7 @@
 .toasts {
     position: fixed;
     right: 20px;
-    bottom: 20px;
+    bottom: 56px;   /* above the download footer */
     z-index: 400;
     display: grid;
     gap: 8px;

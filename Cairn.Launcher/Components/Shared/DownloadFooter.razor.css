@@ -1,0 +1,551 @@
+/* The download footer, after Steam's: a slim strip on every page; opened, the download page with the speed graph and the lists. */
+.dl-footer {
+    --dl-net: #1a9fff;
+    --dl-net-fill: rgba(26, 159, 255, 0.22);
+    --dl-disk: #8fc23a;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    position: relative;
+    z-index: 70;
+    background: #0f1216;
+    border-top: 1px solid var(--cairn-oak);
+}
+
+/* ---- the strip: label on the left, what is downloading in the middle, the speed on the right; the progress runs along its top edge ---- */
+.dl-bar {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 1fr);
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    height: 40px;
+    padding: 0 18px;
+    border: 0;
+    background: transparent;
+    color: var(--cairn-parchment);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+    .dl-bar:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .dl-bar:focus-visible {
+        outline: 2px solid var(--cairn-gold);
+        outline-offset: -2px;
+    }
+
+.dl-bar-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -1px;
+    height: 3px;
+    background: var(--cairn-track);
+}
+
+    .dl-bar-line span {
+        display: block;
+        height: 100%;
+        background: var(--dl-net);
+        transition: width 0.15s linear;
+    }
+
+.dl-bar-left, .dl-bar-mid, .dl-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.dl-bar-left {
+    color: var(--cairn-parchment-dim);
+    font-weight: 600;
+}
+
+.dl-bar-mid {
+    justify-content: center;
+}
+
+    .dl-bar-mid strong {
+        font-weight: 600;
+    }
+
+        .dl-bar-mid strong.warn {
+            color: var(--cairn-gold);
+        }
+
+.dl-bar-right {
+    justify-content: flex-end;
+}
+
+.dl-ico {
+    width: 16px;
+    height: 16px;
+    flex: none;
+}
+
+.dl-bar.busy .dl-ico {
+    color: var(--dl-net);
+}
+
+.dl-chev {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    color: var(--cairn-muted);
+}
+
+.dim {
+    color: var(--cairn-muted);
+    font-weight: 400;
+}
+
+/* ---- the download page, above the strip ---- */
+.dl-panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: min(470px, 72vh);
+    display: flex;
+    flex-direction: column;
+    background: #14171c;
+    border-top: 1px solid var(--cairn-oak-lit);
+    box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.45);
+}
+
+.dl-top {
+    flex: none;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 46%);
+    gap: 22px;
+    padding: 18px 22px 14px;
+    background: linear-gradient(180deg, #1a1e25, #14171c);
+    border-bottom: 1px solid var(--cairn-oak);
+}
+
+.dl-now {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    min-width: 0;
+}
+
+.dl-now-text {
+    flex: 1;
+    min-width: 0;
+}
+
+    .dl-now-text.idle {
+        padding-left: 0;
+    }
+
+.dl-now-state {
+    font-size: 11.5px;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--dl-net);
+    font-weight: 600;
+}
+
+.dl-now-text.idle .dl-now-state {
+    color: var(--cairn-parchment-dim);
+}
+
+.dl-now-name {
+    margin-top: 3px;
+    font-size: 20px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dl-now-ver {
+    margin-top: 2px;
+    font-size: 12.5px;
+    color: var(--cairn-muted);
+}
+
+.dl-now-amount {
+    margin-top: 6px;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
+.dl-now-actions {
+    margin-top: 8px;
+}
+
+.dl-prog {
+    height: 6px;
+    margin-top: 6px;
+    border-radius: 3px;
+    background: var(--cairn-track);
+    overflow: hidden;
+}
+
+    .dl-prog span {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, #1a6fd0, var(--dl-net));
+        transition: width 0.15s linear;
+    }
+
+    .dl-prog.big {
+        height: 8px;
+        margin-top: 10px;
+    }
+
+/* the graph card: current / peak / total over a network (blue, filled) and disk (green) graph */
+.dl-graphcard {
+    min-width: 0;
+    border: 1px solid var(--cairn-oak);
+    border-radius: 4px;
+    background: #0f1216;
+}
+
+.dl-gstats {
+    display: flex;
+    align-items: baseline;
+    gap: 22px;
+    padding: 8px 12px 0;
+}
+
+    .dl-gstats > div {
+        display: flex;
+        flex-direction: column;
+    }
+
+        .dl-gstats > div.end {
+            margin-left: auto;
+            align-self: flex-start;
+        }
+
+    .dl-gstats .k {
+        font-size: 10.5px;
+        letter-spacing: 1.1px;
+        text-transform: uppercase;
+        color: var(--cairn-muted);
+    }
+
+    .dl-gstats .v {
+        font-size: 15px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+    }
+
+.dl-graph svg {
+    display: block;
+    width: 100%;
+    height: 92px;
+}
+
+.g-net {
+    fill: none;
+    stroke: var(--dl-net);
+    stroke-width: 1.6;
+    vector-effect: non-scaling-stroke;
+}
+
+.g-net-fill {
+    fill: var(--dl-net-fill);
+}
+
+.g-disk {
+    fill: none;
+    stroke: var(--dl-disk);
+    stroke-width: 1.4;
+    vector-effect: non-scaling-stroke;
+}
+
+.dl-glegend {
+    display: flex;
+    gap: 22px;
+    padding: 5px 12px 7px;
+    border-top: 1px solid var(--cairn-oak);
+    font-size: 12px;
+    color: var(--cairn-parchment-dim);
+}
+
+    .dl-glegend strong {
+        margin-left: 4px;
+        color: var(--cairn-parchment);
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+    }
+
+.lg::before {
+    content: "";
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    margin-right: 6px;
+    background: currentColor;
+}
+
+.lg.net::before {
+    background: var(--dl-net);
+}
+
+.lg.disk::before {
+    background: var(--dl-disk);
+}
+
+/* ---- the lists ---- */
+.dl-lists {
+    flex: 1;
+    min-height: 0;
+    padding: 6px 22px 16px;
+    overflow-y: auto;
+}
+
+.dl-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 14px 0 6px;
+    font-size: 12px;
+    letter-spacing: 1.1px;
+    text-transform: uppercase;
+    color: var(--cairn-parchment-dim);
+}
+
+    .dl-section .n {
+        margin-left: 6px;
+        color: var(--cairn-muted);
+    }
+
+.dl-link {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--dl-net);
+    font: inherit;
+    font-size: 12px;
+    letter-spacing: 0;
+    text-transform: none;
+    cursor: pointer;
+}
+
+    .dl-link:hover {
+        text-decoration: underline;
+    }
+
+.dl-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 10px;
+    margin-bottom: 2px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+    .dl-row:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .dl-row.done {
+        opacity: 0.8;
+    }
+
+.dl-logo {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 92px;
+    height: 43px;
+    border-radius: 3px;
+    background: var(--cairn-track);
+    font-size: 11px;
+    color: var(--cairn-muted);
+    overflow: hidden;
+}
+
+    .dl-logo.big {
+        width: 150px;
+        height: 70px;
+    }
+
+    .dl-logo img {
+        max-width: 88%;
+        max-height: 88%;
+        object-fit: contain;
+    }
+
+.dl-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.dl-name {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dl-ver {
+    margin-left: 6px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--cairn-muted);
+}
+
+.dl-sub {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--cairn-muted);
+}
+
+    .dl-sub.err {
+        color: var(--cairn-danger-bright);
+    }
+
+.dl-ctl {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* ---- buttons ---- */
+.dl-btn {
+    padding: 5px 14px;
+    border: 1px solid var(--cairn-oak-lit);
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--cairn-parchment);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+    .dl-btn:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.09);
+    }
+
+    .dl-btn.strong {
+        border-color: transparent;
+        background: linear-gradient(180deg, #2a97e8, #1a6fd0);
+        color: #fff;
+        font-weight: 600;
+    }
+
+        .dl-btn.strong:hover:not(:disabled) {
+            background: linear-gradient(180deg, #3aa6f5, #2380e0);
+        }
+
+    .dl-btn:disabled, .dl-icon-btn:disabled {
+        opacity: 0.4;
+        cursor: default;
+    }
+
+.dl-icon-btn {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--cairn-muted);
+    cursor: pointer;
+}
+
+    .dl-icon-btn svg {
+        width: 15px;
+        height: 15px;
+    }
+
+    .dl-icon-btn:hover:not(:disabled) {
+        border-color: var(--cairn-oak-lit);
+        color: var(--cairn-parchment);
+    }
+
+    .dl-icon-btn.danger:hover:not(:disabled) {
+        color: var(--cairn-danger-bright);
+    }
+
+@media (max-width: 900px) {
+    .dl-top {
+        grid-template-columns: 1fr;
+    }
+
+    .dl-bar {
+        grid-template-columns: auto 1fr auto;
+    }
+}
+
+/* ---- nothing downloading ---- */
+.dl-bar-idle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 12px 3px 9px;
+    border-radius: 999px;
+    background: rgba(111, 207, 138, 0.1);
+    color: var(--cairn-online);
+    font-size: 12.5px;
+}
+
+    .dl-bar-idle svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .dl-bar-idle.warn {
+        background: rgba(217, 148, 78, 0.12);
+        color: var(--cairn-warn);
+        padding-left: 12px;
+    }
+
+.dl-idle-icon {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+}
+
+    .dl-idle-icon svg {
+        width: 30px;
+        height: 30px;
+    }
+
+    .dl-idle-icon.ok {
+        color: var(--cairn-online);
+        background: rgba(111, 207, 138, 0.08);
+    }
+
+    .dl-idle-icon.gold {
+        color: var(--dl-net);
+        background: rgba(26, 159, 255, 0.08);
+    }
+
+    .dl-idle-icon.warn {
+        color: var(--cairn-warn);
+        background: rgba(217, 148, 78, 0.08);
+    }
+
+.dl-idle-title {
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.dl-idle-sub {
+    margin-top: 3px;
+    font-size: 12.5px;
+    color: var(--cairn-muted);
+}

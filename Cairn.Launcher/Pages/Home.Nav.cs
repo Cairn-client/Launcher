@@ -186,8 +186,12 @@ namespace Cairn.Launcher.Pages
 
         private IReadOnlyList<HomeModRow> HomeModRows() =>
             GameProfileRegistry.All().Where(g => g.IsSupported)
-                .Select(g => new HomeModRow(g, HomeLogic.ModStateOf(CatalogPackOf(g)?.Version, InstalledPackOf(g)?.Version, IsModInstalled(g)),
-                                            InstalledPackOf(g)?.Version ?? CatalogPackOf(g)?.Version))
+                .Select(g =>
+                {
+                    var state = HomeLogic.ModStateOf(CatalogPackOf(g)?.Version, InstalledPackOf(g)?.Version, IsModInstalled(g));
+                    // an update is shown by the version it offers, anything else by the one on this PC
+                    return new HomeModRow(g, state, state == ModState.UpdateAvailable ? CatalogPackOf(g)?.Version : InstalledPackOf(g)?.Version ?? CatalogPackOf(g)?.Version);
+                })
                 .Where(r => r.State != ModState.NotAvailable).ToList();
 
         /// <summary>The release to announce on Home: the update check's answer, or else a newer release the changelog shows.</summary>

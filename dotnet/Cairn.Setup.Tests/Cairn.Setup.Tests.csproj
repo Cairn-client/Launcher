@@ -22,6 +22,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- the launcher's download queue has no UI in it: its source is compiled here to be tested -->
+    <Compile Include="..\..\Cairn.Launcher\Models\DownloadManager.cs" Link="DownloadManager.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Cairn.Setup\Cairn.Setup.csproj" />
     <!-- Built alongside, copied beside the tests: the fake WorkspaceSetup.exe the runner drives. -->
     <ProjectReference Include="..\Cairn.Setup.FakeTool\Cairn.Setup.FakeTool.csproj" ReferenceOutputAssembly="false" />

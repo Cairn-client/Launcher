@@ -4,7 +4,7 @@
     inset: 0;
     display: grid;
     grid-template-columns: 280px minmax(0, 1fr);
-    grid-template-rows: 52px minmax(0, 1fr);
+    grid-template-rows: 52px minmax(0, 1fr) auto;
     z-index: 1;
     background: var(--cairn-shadow);
 }

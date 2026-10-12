@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Cairn.Launcher.Components.Shared;
 using Cairn.Launcher.Models;
@@ -33,13 +34,15 @@ namespace Cairn.Launcher.Pages
         private PackIndex? packIndex;
         private bool packIndexLoading;
         private bool packIndexTried;
+        private DateTime? packIndexCheckedUtc;   // when the catalog was last read (for the footer)
 
-        // A download in flight: which game, how far, and the last outcome to tell the player.
-        private string? packBusyId;
-        private double packProgressValue;
+        // The downloads: one queue, shown in the footer; the game's page and Home read what is running from it.
+        private DownloadManager? downloadsInstance;
+        private DownloadManager Downloads => downloadsInstance ??= new DownloadManager(RunPackDownloadAsync);
+        private string? packBusyId => Downloads.Active?.GameId;
+        private double packProgressValue => Downloads.Active?.Progress ?? 0;
         private string packMessage = "";
         private bool packMessageIsError;
-
         // Reading a pack's manifest per game per render is wasteful: asked once, until a download or removal changes it.
         private readonly Dictionary<string, InstalledPack?> installedPackCache = new(StringComparer.OrdinalIgnoreCase);
 
@@ -101,6 +104,7 @@ namespace Cairn.Launcher.Pages
                     if (await PackCatalog.FetchAsync(PackHttp, g.ModRepo) is { } index) found.AddRange(index.Packs);
                 }
                 packIndex = anyRepo && found.Count > 0 ? new PackIndex(PackIndex.CurrentSchema, found) : null;
+                if (packIndex is not null) packIndexCheckedUtc = DateTime.UtcNow;
                 Log.Information("packs: catalog {Result}", packIndex is null ? "not available" : $"{packIndex.Packs.Count} pack(s)");
             }
             finally
@@ -111,10 +115,11 @@ namespace Cairn.Launcher.Pages
             }
         }
 
+        /// <summary>Queues a mod's download (a first one or an update) and returns when it is done: true when it was downloaded.</summary>
         private async Task DownloadPackAsync(string gameId)
         {
-            if (packBusyId is not null) return;
             if (GameProfileRegistry.Get(gameId) is not { } game) return;
+            if (Downloads.ItemOf(gameId) is { } queued) { await queued.Finished; return; }
             if (!packIndexTried || packIndex is null) await LoadPackIndexAsync();
             var info = CatalogPackOf(game);
             var url = info is null ? null : PackCatalog.PackUrl(game.ModRepo, info);
@@ -129,37 +134,64 @@ namespace Cairn.Launcher.Pages
                 return;
             }
 
-            packBusyId = gameId;
-            packProgressValue = 0;
             SetPackMessage("", error: false);
+            await Downloads.Enqueue(new DownloadItem(gameId, game.DisplayName, InstalledPackOf(game)?.Version, info, url)).Finished;
+        }
+
+        /// <summary>The queue's turn for one mod: download it, then (for the setup mod) put it in the game. Runs off the UI thread.</summary>
+        private async Task<(bool Ok, string Message)> RunPackDownloadAsync(DownloadItem item, IProgress<double> progress, CancellationToken ct)
+        {
+            string gameId = item.GameId;
+            var game = GameProfileRegistry.Get(gameId)!;
             bool isSetupMod = gameId == ModInstall.PackId;
-            if (isSetupMod) SetActivity(setupActivity with { DownloadingPack = true, PackProgress = 0, PackFailure = null });
+            if (isSetupMod) await InvokeAsync(() => SetActivity(setupActivity with { DownloadingPack = true, PackProgress = 0, PackFailure = null }));
             await InvokeAsync(StateHasChanged);
 
             var sw = Stopwatch.StartNew();
             long lastTick = 0;
-            var progress = new Progress<double>(p =>
+            var relay = new Progress<double>(p =>
             {
-                packProgressValue = p;
-                if (sw.ElapsedMilliseconds - lastTick < 150 && p < 1) return;   // repaint a few times a second, not per chunk
+                progress.Report(p);
+                if (!isSetupMod || (sw.ElapsedMilliseconds - lastTick < 150 && p < 1)) return;   // the checklist repaints a few times a second, not per chunk
                 lastTick = sw.ElapsedMilliseconds;
-                if (isSetupMod) SetActivity(setupActivity with { PackProgress = p });
-                _ = InvokeAsync(StateHasChanged);
+                _ = InvokeAsync(() => SetActivity(setupActivity with { PackProgress = p }));
             });
 
-            var result = await PackInstaller.DownloadAsync(info, url, PacksRoot, PackHttp, progress);
-            Log.Information("packs: {Game} {Version} {Outcome}: {Message}", gameId, info.Version, result.Ok ? "downloaded" : "FAILED", result.Message);
+            PackResult result;
+            try
+            {
+                result = await PackInstaller.DownloadAsync(item.Info, item.Url, PacksRoot, PackHttp, relay, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Information("packs: {Game} {Version} cancelled", gameId, item.Info.Version);
+                await InvokeAsync(() =>
+                {
+                    if (isSetupMod) SetActivity(setupActivity with { DownloadingPack = false, PackProgress = null, PackFailure = null });
+                    SetPackMessage($"{game.DisplayName} download cancelled.", error: false);
+                    StateHasChanged();
+                });
+                throw;
+            }
+            Log.Information("packs: {Game} {Version} {Outcome}: {Message}", gameId, item.Info.Version, result.Ok ? "downloaded" : "FAILED", result.Message);
 
-            installedPackCache.Remove(gameId);
-            ModLua.Reload();
-            packBusyId = null;
-            if (isSetupMod)
-                SetActivity(setupActivity with { DownloadingPack = false, PackProgress = null, PackFailure = result.Ok ? null : $"The mod could not be downloaded ({result.Message})." });
-            SetPackMessage(result.Ok ? $"{game.DisplayName} mod downloaded." : $"Could not download the mod: {result.Message}.", error: !result.Ok);
-            await InvokeAsync(StateHasChanged);
-            if (result.Ok && isSetupMod) await InstallModAsync(gameId);   // downloading installs it too: placed in the game right away (the Install button stays as the fallback if that fails)
+            await InvokeAsync(() =>
+            {
+                installedPackCache.Remove(gameId);
+                ModLua.Reload();
+                if (isSetupMod)
+                    SetActivity(setupActivity with { DownloadingPack = false, PackProgress = null, PackFailure = result.Ok ? null : $"The mod could not be downloaded ({result.Message})." });
+                SetPackMessage(result.Ok ? $"{game.DisplayName} mod downloaded." : $"Could not download the mod: {result.Message}.", error: !result.Ok);
+                StateHasChanged();
+            });
+            if (result.Ok && isSetupMod)
+            {
+                // downloading installs it too: placed in the game right away (the Install button stays as the fallback if that fails)
+                Downloads.MarkInstalling(item);
+                await InvokeAsync(() => InstallModAsync(gameId));
+            }
+            return (result.Ok, result.Message);
         }
-
         private async Task RemovePackAsync(string gameId)
         {
             if (packBusyId is not null || GameProfileRegistry.Get(gameId) is not { } game) return;
