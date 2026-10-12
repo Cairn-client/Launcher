@@ -31,6 +31,9 @@ public sealed record BridgeSaves(IReadOnlyList<BridgeSaveSlot> Slots) : BridgeIn
 /// <summary>A spoken line to show for a few seconds.</summary>
 public sealed record BridgeSubtitle(double Seconds, string Text) : BridgeIn;
 
+/// <summary>A short message for the player (a refused delete, a deleted save), shown as a toast in the launcher.</summary>
+public sealed record BridgeToast(string Text, bool Error) : BridgeIn;
+
 /// <summary>
 /// The conversation between the launcher and a game's bridge: a program that ships in the game's pack (its <c>companion</c>) and knows
 /// how to talk to that one game. The launcher is the same for every game; a game that needs something new changes its bridge and its pack,
@@ -41,6 +44,7 @@ public sealed record BridgeSubtitle(double Seconds, string Text) : BridgeIn;
 ///                      {"t":"menu","title":"Mod menu","blocked":"","note":"","items":[{"id":"x","group":"g","kind":"onoff","on":true,"label":"..","help":".."}]}
 ///                      {"t":"notice","text":"Ann joined^^Press Insert"}  /  {"t":"notice_hide"}
 ///                      {"t":"subtitle","seconds":4,"text":".."}
+///                      {"t":"toast","text":"Deleted x.","error":false}   a short message for the player
 /// launcher to bridge   {"t":"welcome","protocol":1}                               the answer to a hello this launcher speaks
 ///                      {"t":"attach"}   the launcher draws the menu now          {"t":"state"}   send the menu again
 ///                      {"t":"do","id":"x","verb":"enter"}   (verb: enter or nudge)   {"t":"bye","reason":".."}
@@ -110,6 +114,11 @@ public static class BridgeProtocol
                         slots.Add(new BridgeSaveSlot(id, name, S(e, "detail", 120), kind, when));
                     }
                     return new BridgeSaves(slots);
+                }
+                case "toast":
+                {
+                    string text = S(r, "text", 200);
+                    return text.Length == 0 ? null : new BridgeToast(text, r.TryGetProperty("error", out var er) && er.ValueKind == JsonValueKind.True);
                 }
                 case "subtitle":
                 {
