@@ -165,7 +165,7 @@ public sealed record GameManifest(
     string Id, string Name, string Developer, string Franchise, bool Supported, uint SteamAppId, uint StoreAppId, string Exe,
     string Description, string Accent, GameImages Images, IReadOnlyList<string> Requires, IReadOnlyList<Component> InlineRequires,
     IReadOnlyList<FeatureGroup> Features, IReadOnlyList<string> Content,
-    IReadOnlyList<string>? HostSteps = null, IReadOnlyList<string>? JoinSteps = null, bool OwnSession = false)
+    IReadOnlyList<string>? HostSteps = null, IReadOnlyList<string>? JoinSteps = null, bool OwnSession = false, IReadOnlyList<SetupRule>? Setup = null)
 {
     public const string FileName = "game.json";
     public const int CurrentSchema = 1;
@@ -242,11 +242,14 @@ public sealed record GameManifest(
             var joinSteps = Steps("joinSteps");
             if (hostSteps is null || joinSteps is null || hostSteps.Count > 8 || joinSteps.Count > 8) return null;
 
+            var setup = GameSetup.Parse(r);
+            if (setup is null) return null;
+
             uint U(string n) => r.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetUInt32(out var u) ? u : 0;
             return new GameManifest(id, name, CatalogLimits.Text(GameList.Str(r, "developer"), 80), CatalogLimits.Text(GameList.Str(r, "franchise"), 80),
                 !r.TryGetProperty("supported", out var sup) || sup.ValueKind != JsonValueKind.False, U("steamAppId"), U("storeAppId"), exe,
                 CatalogLimits.Text(GameList.Str(r, "description"), 400), accent, images, requires, inline, groups, content, hostSteps, joinSteps,
-                r.TryGetProperty("ownSession", out var own) && own.ValueKind == JsonValueKind.True);
+                r.TryGetProperty("ownSession", out var own) && own.ValueKind == JsonValueKind.True, setup);
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or FormatException) { return null; }
     }

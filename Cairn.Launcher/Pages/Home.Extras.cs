@@ -230,6 +230,14 @@ namespace Cairn.Launcher.Pages
         private async Task UpdatePreflightStatusAsync(bool showModal = false)
         {
             if (SelectedProfile is not { } g) return;
+            if (IsExternalMod(g))
+            {
+                // a game whose mod runs its own session: the checks are the game's own list (its game.json), not Kingdom Come II's host port and setup
+                portOwner = null;
+                preflightItems = await ExternalPreflightAsync(g);
+            }
+            else
+            {
             int port = settings.HostPort;
             bool steam = false, portFree = true;
             await Task.Run(() =>
@@ -241,7 +249,8 @@ namespace Cairn.Launcher.Pages
             var upd = HomeUpdate();
             preflightItems = Preflight.Build(new PreflightInput(
                 g.IsSupported, IsGameFound(g), IsModInstalled(g), SetupAllGood, steam, portFree, gameRunning, upd.Tag, BlockedReasonOfInstalled(g)));
-            
+            }
+
             if (preflightItems.Any(x => x.Status == CheckStatus.Fail))
                 readyCheckStatus = CheckStatus.Fail;
             else if (preflightItems.Any(x => x.Status == CheckStatus.Warn))
@@ -251,6 +260,46 @@ namespace Cairn.Launcher.Pages
 
             if (showModal) showPreflight = true;
             await InvokeAsync(StateHasChanged);
+        }
+
+        /// <summary>The game's Ready check from its own setup list (game.json), or the defaults: the answers are taken here, the evaluation is Cairn.Setup/GameSetup.cs.</summary>
+        private async Task<IReadOnlyList<PreflightItem>> ExternalPreflightAsync(GameProfile g)
+        {
+            var rules = g.Setup.Count > 0 ? g.Setup : GameSetup.Defaults;
+            bool found = IsGameFound(g), mod = IsModInstalled(g);
+            string? folder = GameFolderOf(g);
+            var apps = new HashSet<uint>();
+            bool steam = false;
+            long? disk = null;
+            await Task.Run(() =>
+            {
+                steam = Process.GetProcessesByName("steam").Length > 0;
+                try
+                {
+                    var wanted = rules.Where(r => r.Kind == SetupKinds.SteamApp).Select(r => r.AppId).Distinct().ToList();
+                    if (wanted.Count > 0)
+                    {
+                        var s = SteamInstall.Locate(RealSetupHost.Instance, null);
+                        foreach (var id in wanted) if (s.Manifest(id) is { FullyInstalled: true }) apps.Add(id);
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException) { /* no Steam, or an unreadable library: not installed */ }
+                try { if (folder is not null) disk = new DriveInfo(Path.GetPathRoot(folder)!).AvailableFreeSpace / (1024 * 1024); }
+                catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException) { }
+            });
+            var host = new ExternalSetupHost(steam, found, mod, apps, rel => folder is not null && File.Exists(Path.Combine(folder, rel.Replace('/', Path.DirectorySeparatorChar))), disk);
+            return GameSetup.Evaluate(rules, host).Select(r => new PreflightItem(r.Title,
+                r.State switch { SetupState.Ok => CheckStatus.Ok, SetupState.Warn => CheckStatus.Warn, _ => CheckStatus.Fail }, r.Detail)).ToList();
+        }
+
+        private sealed class ExternalSetupHost(bool steam, bool game, bool mod, HashSet<uint> apps, Func<string, bool> file, long? disk) : IGameSetupHost
+        {
+            public bool SteamRunning() => steam;
+            public bool GameFound() => game;
+            public bool ModInstalled() => mod;
+            public bool SteamAppInstalled(uint appId) => apps.Contains(appId);
+            public bool GameFileExists(string relativePath) => file(relativePath);
+            public long? FreeDiskMb() => disk;
         }
 
         private async Task<bool> PreflightHasIssuesAsync(string mode)

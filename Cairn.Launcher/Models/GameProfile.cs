@@ -68,6 +68,9 @@ namespace Cairn.Launcher.Models
         /// <summary>The game's mod runs the session itself (its own window or menu): the page shows Play, not Host and Join. Known before any mod is downloaded.</summary>
         public bool OwnSession { get; set; }
 
+        /// <summary>The checks of the game's Ready check when its mod runs its own session (from game.json); empty means the defaults (Cairn.Setup/GameSetup.cs).</summary>
+        public System.Collections.Generic.List<Cairn.Setup.SetupRule> Setup { get; set; } = new();
+
         /// <summary>The ids of the content packs (start saves) the game offers; their repositories are in the catalog.</summary>
         public System.Collections.Generic.List<string> ContentPacks { get; set; } = new();
     }
