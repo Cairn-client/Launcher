@@ -110,6 +110,8 @@ namespace Cairn.Launcher.Pages
         // The saves the connected game's bridge lists, shown on the game's page; and the one whose Delete was pressed once (a second press confirms).
         private IReadOnlyList<BridgeSaveSlot> externalSaves = Array.Empty<BridgeSaveSlot>();
         private string? deleteSaveAsked;
+        private bool showAllSaves;
+        private const int SavesShown = 6;   // the list can be long (Kingdom Come II rotates its autosaves): the newest few, the rest on a click
         private bool externalBridgeConnected;
 
         /// <summary>The bridge of this game is connected (the game runs and its mod has a bridge): its saves are listed on the page.</summary>

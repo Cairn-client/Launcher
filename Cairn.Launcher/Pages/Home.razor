@@ -285,7 +285,7 @@
                                     else
                                     {
                                         <ul class="req-list">
-                                            @foreach (var slot in externalSaves)
+                                            @foreach (var slot in externalSaves.Take(showAllSaves ? externalSaves.Count : SavesShown))
                                             {
                                                 <li class="req-item">
                                                     <span class="req-name">@slot.Name@(slot.Detail.Length > 0 ? " · " + slot.Detail : "")@(slot.When is { } w ? " · " + w.ToLocalTime().ToString("d MMM HH:mm") : "")</span>
@@ -293,6 +293,10 @@
                                                 </li>
                                             }
                                         </ul>
+                                        @if (externalSaves.Count > SavesShown)
+                                        {
+                                            <button class="link-btn" @onclick="() => showAllSaves = !showAllSaves">@(showAllSaves ? "Show fewer" : $"Show all {externalSaves.Count}")</button>
+                                        }
                                     }
                                 </dd>
                             </div>

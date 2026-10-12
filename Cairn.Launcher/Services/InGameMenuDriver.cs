@@ -257,7 +257,8 @@ namespace Cairn.Launcher.Services
                                 }
                                 else if (_nav.Request(key) is { } req)
                                 {
-                                    if (req.Id == Dlss5.MenuItemId) { if (req.Verb == "enter") EnterDlssSubmenu(); }
+                                    // the DLSS 5 row is the launcher's own unless the game's program draws it (a bridge without launcher rows): then it is sent like any other row
+                                    if (req.Id == Dlss5.MenuItemId && (_bridge is null || _launcherRows)) { if (req.Verb == "enter") EnterDlssSubmenu(); }
                                     else SendDo(req.Id, req.Verb, req.Dir);
                                 }
                                 break;
