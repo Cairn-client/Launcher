@@ -1,0 +1,62 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cairn Client</title>
+    <base href="/" />
+
+
+    <link href="css/site.css" rel="stylesheet" />
+    <link href="css/modals.css" rel="stylesheet" />
+    <link href="css/views.css" rel="stylesheet" />
+    <link href="css/home.css" rel="stylesheet" />
+    <link href="Cairn.Launcher.styles.css" rel="stylesheet" />
+</head>
+<body>
+    <div id="app">Loading...</div>
+
+    <script src="_framework/blazor.webview.js"></script>
+    <script src="js/home.js"></script>
+    <script>
+        // pushes the current StyleProfile's colours over site.css's
+        // :root defaults, so the profile -- not the stylesheet -- is the
+        // live theme. See StyleProfile.ToCssVariables and Home.razor.cs.
+        window.applyCairnTheme = (vars) => {
+            const root = document.documentElement.style;
+            for (const key in vars) {
+                root.setProperty(key, vars[key]);
+            }
+        };
+
+        window.registerGlobalKeys = (dotNetHelper) => {
+            window.addEventListener('keydown', (e) => {
+                console.log("Key pressed:", e.key);
+
+                // ESC -> Exit
+                if (e.key === "Escape") {
+                    dotNetHelper.invokeMethodAsync('ExitApp');
+                }
+
+                // Ctrl+K -> quick search for a game (Tab is left alone so the keyboard can move through the page)
+                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+                    e.preventDefault();
+                    dotNetHelper.invokeMethodAsync('ToggleQuickSearchJS');
+                }
+
+                // F5 -> Refresh
+                if (e.key === "F5") {
+                    e.preventDefault();
+                    dotNetHelper.invokeMethodAsync('RefreshApp');
+                }
+
+                // F10 -> Settings
+                if (e.key === "F10") {
+                    e.preventDefault();
+                    dotNetHelper.invokeMethodAsync('ToggleSettingsJS');
+                }
+            });
+        };
+    </script>
+</body>
+</html>

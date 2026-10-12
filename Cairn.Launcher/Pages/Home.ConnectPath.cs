@@ -1,0 +1,361 @@
+﻿// Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+// GPLv3 section 7 additional terms: AUTHORS.md. This project's own code only; Kingdom Come: Deliverance II and its
+// content belong to Warhorse Studios and PLAION. Unofficial, free, not affiliated with or endorsed by them.
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Cairn.Launcher.Components.Shared;
+using Cairn.Launcher.Models;
+using Cairn.Wire;
+using Serilog;
+
+namespace Cairn.Launcher.Pages
+{
+    /// <summary>
+    /// Steam as a connection path, plain connection errors, Test
+    /// connection. The network work runs in the agent (CairnClient.exe), as a
+    /// one-shot helper here (AgentHelper) or as the session agent; this file
+    /// only shows what it says. Nothing identifying is logged: no Steam code,
+    /// no persona names.
+    /// </summary>
+    public partial class Home
+    {
+        #region connection path state
+        // Host
+        private string hostSteamState = "off";
+        private string hostSteamMessage = "";
+        private string? hostSteamCode;
+        private string hostRefusedNotice = "";
+        private string? lastRefusedShownKey;
+        private CancellationTokenSource? hostPollCts;
+
+        // Join through Steam
+        private bool showJoinSteam;
+        private string steamCodeInput = "";
+        private List<SteamFriendData>? steamFriends;
+        private string steamFriendsNote = "";
+        private string steamResultMessage = "";
+        private bool steamResultOk;
+        private bool steamBusy;
+        private string steamBusyText = "";
+
+        // Message modal (test results, Steam fallback)
+        private bool showMessage;
+        private string messageTitle = "";
+        private string messageText = "";
+        private string messageNext = "";
+        private bool messageAddressFallback;
+        private bool messageReportBug;
+        private string fallbackAddress = "";
+
+        // The agent's connection, in plain words
+        private string connStatusLine = "";
+        private bool connStatusBad;
+        private bool steamFallbackShown;
+        #endregion
+
+        private static string SteamAppNameOf(uint app) => app switch
+        {
+            2429020 => "KCD2 Modding Tools (2429020)",
+            480 => "Spacewar (480)",
+            1771300 => "KCD2 retail (1771300)",
+            _ => $"app {app}",
+        };
+
+        private string SteamGameArg =>
+            string.IsNullOrWhiteSpace(settings.GamePath) ? "" : $" --steam-game \"{settings.GamePath}\"";
+
+        // ------------------------------------------------------------ host
+
+        /// <summary>The relay's command line: the TCP port as before, plus Steam when allowed.</summary>
+        private string RelayArguments() =>
+            $"--port {settings.HostPort}" +
+            (settings.HostAllowSteam ? $" --steam true --steam-app {settings.SteamAppId}{SteamGameArg}" : "");
+
+        /// <summary>While this launcher hosts: the relay's Steam state and code, and refused joiner versions.</summary>
+        private void StartHostStatusPoll()
+        {
+            hostPollCts?.Cancel();
+            var cts = hostPollCts = new CancellationTokenSource();
+            _ = Task.Run(async () =>
+            {
+                while (!cts.IsCancellationRequested)
+                {
+                    bool running = hostedRelayProcess != null && !hostedRelayProcess.HasExited;
+                    if (!running) { await Task.Delay(1000); if (hostedRelayProcess == null) break; continue; }
+                    var st = await NetService.GetRelayLocalStatusAsync(settings.ServerInfoPort);
+                    if (st is not null) await ApplyHostStatusAsync(st);
+                    await Task.Delay(1500);
+                }
+            });
+        }
+
+        private async Task ApplyHostStatusAsync(RelayLocalStatusData st)
+        {
+            bool changed = st.Steam.State != hostSteamState || st.Steam.Message != hostSteamMessage || st.Steam.Code != hostSteamCode;
+            hostSteamState = st.Steam.State;
+            hostSteamMessage = settings.HostAllowSteam ? st.Steam.Message : "";
+            hostSteamCode = st.Steam.Code;
+
+            // The mixed-build check on the host's side (the joiner sees its own message).
+            string notice = "";
+            if (st.RefusedRelease is { Length: > 0 } rel && st.RefusedSecondsAgo is >= 0 and < 600)
+            {
+                notice = $"A player tried to join with version {rel}; you run {st.Release}. Both players need the same version: whoever is older opens Cairn Client and updates (the update is offered at start, or under Versions & updates, Check for updates).";
+                string key = rel + "@" + (DateTime.UtcNow.AddSeconds(-st.RefusedSecondsAgo)).ToString("HHmm");
+                if (key != lastRefusedShownKey && !showHostInfo)
+                {
+                    lastRefusedShownKey = key;
+                    ShowMessage("VERSION MISMATCH", notice, "");
+                    changed = true;
+                }
+                lastRefusedShownKey ??= key;
+            }
+            if (notice != hostRefusedNotice) { hostRefusedNotice = notice; changed = true; }
+            if (changed) await InvokeAsync(StateHasChanged);
+        }
+
+        // ------------------------------------------------------------ join through Steam
+
+        private async Task OpenJoinSteam()
+        {
+            if (await OfferUpdateBeforeAsync("join")) return;   // Cairn: a newer version is offered once
+            if (!await EnsureSetupReadyAsync()) return;   // Host and Join unlock at Ready!
+            showJoinSteam = true;
+            steamCodeInput = settings.LastSteamCode ?? "";
+            steamResultMessage = "";
+            steamFriendsNote = "";
+            steamFriends = null;
+            StateHasChanged();
+            _ = WatchSteamFriendsAsync();   // Cairn: the friends who host are looked for at once, then every 15 s while the window is open
+        }
+
+        private async Task WatchSteamFriendsAsync()
+        {
+            try
+            {
+                while (showJoinSteam)
+                {
+                    if (!steamBusy) await FindSteamFriendsAsync();
+                    for (int i = 0; i < 15 && showJoinSteam; i++) await Task.Delay(1000);
+                }
+            }
+            catch (Exception ex) { Log.Warning(ex, "Steam friends watch stopped"); }
+        }
+
+        private string? AgentPathOrError()
+        {
+            string agentPath = ResolveAgainstLauncher(settings.AgentPath);
+            if (File.Exists(agentPath)) return agentPath;
+            UiService.ShowError("The multiplayer agent (CairnClient.exe) is missing. Reinstall, or check the Agent Path in Settings.");
+            return null;
+        }
+
+        private async Task FindSteamFriendsAsync()
+        {
+            if (AgentPathOrError() is not { } agent) return;
+            steamBusy = true; steamBusyText = "Asking Steam which friends are hosting..."; steamFriendsNote = ""; StateHasChanged();
+            var (r, blocked) = await RunHelperAsync<SteamFriendsData>(agent, $"--steam-friends --steam-app {settings.SteamAppId}{SteamGameArg}", "STEAM-FRIENDS", TimeSpan.FromSeconds(25));
+            steamBusy = false;
+            if (blocked) { StateHasChanged(); return; }   // told in plain words
+            if (r is null) steamFriendsNote = "Steam didn't answer. Type the host's code instead.";
+            else if (r.State != "ok") steamFriendsNote = $"{r.Message} {r.Next}".Trim();
+            else
+            {
+                steamFriends = r.Friends;
+                steamFriendsNote = r.Friends.Count == 0
+                    ? "No friends playing"
+                    : "Click a friend to use their code.";
+            }
+            Log.Information("Steam friends lookup: state={State} hosting={Count}", r?.State ?? "no-answer", r?.Friends.Count ?? 0);
+            StateHasChanged();
+        }
+
+        private async Task JoinThroughSteamAsync()
+        {
+            string code = steamCodeInput.Trim();
+            if (code.Length == 0) return;
+            // the agent reads a pasted code forgivingly (text, odd dashes around it); a quote or a line
+            // break would cut its command-line argument, so those go here.
+            code = new string(code.Where(c => c is not ('"' or '\r' or '\n')).ToArray()).Trim();
+            if (code.Length == 0) return;
+            // This run only: LastSteamCode is never written (AppModels.cs). the whole-object
+            // save that used to follow wrote nothing of it and rewrote every other setting.
+            settings.LastSteamCode = code;
+            showJoinSteam = false;
+            Log.Information("Join through Steam (app {App})", settings.SteamAppId);
+            await LaunchGame(new ServerInfo { Name = "(Steam)", Ip = "", Port = 0, Ping = 0, SteamCode = code });
+        }
+
+        // ------------------------------------------------------------ Test connection (address)
+
+        private async Task ShowConnectionTestAsync(ServerInfo server, bool launching)
+        {
+            if (AgentPathOrError() is not { } agent) return;
+            ShowMessage("TESTING...", server.SteamCode is null ? "Reaching the host..." : "Reaching the host through Steam (up to 20 seconds)...", "");
+            var (r, blocked) = await RunHelperAsync<TestConnectionData>(agent, server.SteamCode is null
+                    ? $"--test-connection --host {server.Ip} --port {server.Port}"
+                    : $"--test-connection --steam \"{server.SteamCode}\" --steam-app {settings.SteamAppId}{SteamGameArg}",
+                "TEST-CONNECTION", TimeSpan.FromSeconds(45));
+            if (blocked) return;   // the blocked-file message replaced "TESTING..."
+            var (msg, ok) = DescribeTest(r);
+            ShowMessage(ok ? "CONNECTION OK" : launching ? "CAN'T REACH THE HOST" : "CONNECTION TEST", msg, "");
+        }
+
+        /// <summary>The one line the tester reads; the detail goes to the log only.</summary>
+        private static (string Message, bool Ok) DescribeTest(TestConnectionData? r)
+        {
+            if (r is null)
+            {
+                Log.Warning("Connection test: no answer from the agent helper");
+                return ("The test didn't finish. Try again; if it keeps failing, send the logs with Report a bug.", false);
+            }
+            Log.Information("Connection test via={Via} kind={Kind} reachable={Reachable} rttMs={Rtt} connectMs={Connect} hostRelease={Rel} hostConnected={Host} steamPingMs={Ping} relayed={Relayed} detail={Detail}",
+                r.Via, r.Kind, r.Reachable, r.RttMs, r.ConnectMs, r.HostRelease, r.HostConnected, r.SteamPingMs, r.Relayed, r.Detail);
+            bool ok = r.Kind == "None";
+            string msg = ok && r.SteamPingMs > 0 ? $"{r.Message} Steam ping {r.SteamPingMs} ms{(r.Relayed == true ? " (through Steam's relays)" : "")}." : r.Message;
+            return ((msg + " " + r.Next).Trim(), ok);
+        }
+
+        private void ShowMessage(string title, string text, string next, bool addressFallback = false, bool reportBug = false, bool launchAnyway = false)
+        {
+            messageTitle = title; messageText = text; messageNext = next; messageAddressFallback = addressFallback;
+            messageReportBug = reportBug;   // the blocked-file message offers Report a bug
+            launchAnywayAvailable = launchAnyway;   // and, for the mod's own files, LAUNCH ANYWAY
+            showMessage = true;
+            _ = InvokeAsync(StateHasChanged);
+        }
+
+        // ------------------------------------------------------------ the session agent
+
+        /// <summary>Starts the session agent for <paramref name="server"/> (address or Steam code), replacing any running one.</summary>
+        private void StartAgent(ServerInfo server)
+        {
+            string agentPath = ResolveAgainstLauncher(settings.AgentPath);
+            // --hosting is also connection path's host claim (the relay makes this agent
+            // the authority whatever order people connect in).
+            bool isHosting = hostedRelayProcess != null && !hostedRelayProcess.HasExited;
+            string target = server.SteamCode is { } code
+                ? $"--steam \"{code}\" --steam-app {settings.SteamAppId}{SteamGameArg}"
+                : $"--host {server.Ip} --port {server.Port}";
+            // the file is read again first: the agent (through a previous session) may have changed settings meanwhile.
+            var taken = settingsStore.Refresh(settings);
+            if (taken.Count > 0) Log.Information("settings: changed outside the launcher since it read them: {Keys}", string.Join(", ", taken));
+            var agentArgs = target +
+                (isHosting ? " --hosting" : "");
+
+            var agentStartInfo = new ProcessStartInfo
+            {
+                FileName = agentPath,
+                Arguments = agentArgs,
+                UseShellExecute = false,
+                CreateNoWindow = true,   // Cairn: the launcher is a window app now; the agent must not open a console of its own
+                WorkingDirectory = Path.GetDirectoryName(agentPath)
+            };
+
+            StopExistingAgent();
+            agentProcess = StartChecked(agentStartInfo);   // Windows refusing it is told plainly by the caller
+            Log.Information("Agent started via {Via}", server.SteamCode is null ? "address" : "Steam");
+            pendingServer = server;
+            steamFallbackShown = false;
+            versionPollCts?.Cancel();
+            versionPollCts = new CancellationTokenSource();
+            _ = PollVersionMismatchAsync(versionPollCts.Token);
+            // the agent's status has the agent's lifetime, not the
+            // version poll's (which a closed launch panel cancels).
+            agentPollCts?.Cancel();
+            agentPollCts = new CancellationTokenSource();
+            agentBanner.Start(server.SteamCode is not null, agentClock.Elapsed.TotalSeconds);
+            SyncAgentBanner();
+            _ = PollAgentStatusAsync(agentProcess, agentPollCts.Token);
+        }
+
+        // the connection line and the join banner, from the agent's two
+        // endpoints (AgentStatusBanner has the rules). One loop per agent
+        // process; an iteration that throws is logged and the loop goes on --
+        // the first session's launchers showed a frozen "Connecting..." and
+        // never the join buttons, with nothing in either launcher log.
+        private readonly AgentStatusBanner agentBanner = new();
+        private readonly Stopwatch agentClock = Stopwatch.StartNew();
+        private CancellationTokenSource? agentPollCts;
+        private bool agentPollErrorLogged;
+
+        private void SyncAgentBanner()
+        {
+            connStatusLine = agentBanner.ConnLine;
+            connStatusBad = agentBanner.ConnBad;
+            joinStatusMessage = agentBanner.JoinMessage;
+            joinStatusState = agentBanner.JoinState;
+            joinCanFresh = agentBanner.ShowFreshJoin;   // "Join with a new character"
+        }
+
+        private async Task PollAgentStatusAsync(Process? agent, CancellationToken ct)
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                try { await Task.Delay(1000, ct); } catch (OperationCanceledException) { break; }
+                bool alive;
+                try { alive = agent is not null && !agent.HasExited; } catch { alive = false; }
+                try
+                {
+                    var cs = alive ? await NetService.GetConnectionStatusAsync(settings.VersionIpcPort) : null;
+                    var js = alive ? await NetService.GetJoinStatusAsync(settings.VersionIpcPort) : null;
+                    // Steam failed: offer the address right here, in this same launch.
+                    if (cs is { State: "failed", Via: "steam" } && !steamFallbackShown && cs.Kind != "Lost")
+                    {
+                        steamFallbackShown = true;
+                        ShowMessage("STEAM CONNECTION FAILED", cs.Message, "", addressFallback: true);
+                    }
+                    string? change = agentBanner.Apply(cs, js, alive, agentClock.Elapsed.TotalSeconds);
+                    if (change is not null)
+                    {
+                        Log.Information(change);
+                        SyncAgentBanner();
+                        await InvokeAsync(StateHasChanged);
+                    }
+                    // a joiner connected from his own save -- a modal once, besides the in-game line
+                    if (agentBanner.OwnWorld && !ownWorldModalShown)
+                    {
+                        ownWorldModalShown = true;
+                        Log.Information("Agent status: this game is in its own world, not the host's -- the own-world modal shown");
+                        ShowMessage("YOU LOADED YOUR OWN SAVE", agentBanner.JoinMessage, "");
+                    }
+                    else if (!agentBanner.OwnWorld) ownWorldModalShown = false;
+                }
+                catch (Exception ex)
+                {
+                    if (!agentPollErrorLogged) { agentPollErrorLogged = true; Log.Warning(ex, "Agent status poll: an iteration failed (the loop goes on)"); }
+                }
+                if (!alive) break;
+            }
+        }
+
+        /// <summary>After a Steam failure: the same game, the agent restarted with the host's address.</summary>
+        private async Task ConnectByAddressAfterSteamAsync()
+        {
+            string text = fallbackAddress.Trim();
+            string host = text; int port = settings.HostPort;
+            int colon = text.LastIndexOf(':');
+            if (colon > 0 && text.IndexOf(':') == colon && int.TryParse(text[(colon + 1)..], out int p)) { host = text[..colon]; port = p; }
+            if (!NetService.ValidateServerAddress(host, showError: false) || port is <= 0 or > 65535)
+            {
+                ShowMessage("STEAM CONNECTION FAILED", "That address doesn't look right. Type it like 203.0.113.7:7778 or myhost.example.net:7778.", "", addressFallback: true);
+                return;
+            }
+            showMessage = false;
+            var server = new ServerInfo { Name = "(Address)", Ip = host, Port = port };
+            bool gameUp = agentProcess != null && launchStage == LaunchStage.Connected;
+            try
+            {
+                if (gameUp) StartAgent(server);
+                else await LaunchGame(server);
+            }
+            catch (LaunchBlockedException lb) { ShowBlocked(lb.Block); }   // beta hardening
+            StateHasChanged();
+        }
+    }
+}

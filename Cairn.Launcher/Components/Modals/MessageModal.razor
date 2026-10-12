@@ -1,0 +1,69 @@
+﻿@* Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+   GPLv3 section 7 additional terms: AUTHORS.md. This project's own code only; Kingdom Come: Deliverance II and its
+   content belong to Warhorse Studios and PLAION. Unofficial, free, not affiliated with or endorsed by them. *@
+@inherits ModalBase
+
+@* a plain title + message (Test connection results, connection problems). *@
+@if (IsVisible)
+{
+    <div class="modal-overlay @(isClosing ? "closing" : "")">
+        <div class="modal-box" @onclick:stopPropagation="true">
+
+            <div class="modal-frame-top modal-frame-bg"></div>
+
+            <div class="modal-content" style="text-align: center;">
+                <div class="modal-title">@Title</div>
+
+                <p>@Message</p>
+                @if (!string.IsNullOrEmpty(NextStep))
+                {
+                    <p style="opacity: 0.85;">@NextStep</p>
+                }
+
+                @if (ShowAddressFallback)
+                {
+                    @* Steam failed -- the direct path still works in this same launch. *@
+                    <div class="cairn-input-group" style="text-align: left;">
+                        <label class="cairn-label">The host's address (IP or name, and port)</label>
+                        <input class="cairn-input" placeholder="203.0.113.7:7778" value="@Address"
+                               @oninput="e => AddressChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty)" />
+                    </div>
+                }
+
+                <div class="modal-actions">
+                    @if (ShowAddressFallback)
+                    {
+                        <button class="cairn-btn primary" disabled="@string.IsNullOrWhiteSpace(Address)" @onclick="OnUseAddress">CONNECT BY ADDRESS</button>
+                    }
+                    @if (ShowLaunchAnyway)
+                    {
+                        @* a mod file the check could not find is never a dead end *@
+                        <button class="cairn-btn" @onclick="OnLaunchAnyway">LAUNCH ANYWAY</button>
+                    }
+                    @if (ShowReportBug)
+                    {
+                        @* Windows blocked a file -- the log bundle is one click away *@
+                        <button class="cairn-btn" @onclick="OnReportBug">REPORT A BUG</button>
+                    }
+                    <button class="cairn-btn" @onclick="CloseModalAsync">CLOSE</button>
+                </div>
+            </div>
+
+            <div class="modal-frame-bottom modal-frame-bg"></div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Message { get; set; } = "";
+    [Parameter] public string NextStep { get; set; } = "";
+    [Parameter] public bool ShowAddressFallback { get; set; }
+    [Parameter] public string Address { get; set; } = "";
+    [Parameter] public EventCallback<string> AddressChanged { get; set; }
+    [Parameter] public EventCallback OnUseAddress { get; set; }
+    [Parameter] public bool ShowReportBug { get; set; }   // beta hardening
+    [Parameter] public EventCallback OnReportBug { get; set; }
+    [Parameter] public bool ShowLaunchAnyway { get; set; }   // beta patch
+    [Parameter] public EventCallback OnLaunchAnyway { get; set; }
+}

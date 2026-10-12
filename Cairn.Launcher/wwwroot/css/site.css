@@ -1,0 +1,155 @@
+/*
+ * Cairn palette: night-slate surfaces, stone greys, moon gold. These are the DEFAULTS; StyleProfile.cs carries the same
+ * values and pushes them over these at startup (Home.razor.cs's ApplyStyleProfile), so a profile, not this file, is the live theme.
+ * The variable names keep their old --cairn-* spelling (gold = the accent, parchment = the text, oak = lines and borders).
+ */
+:root {
+    --cairn-gold: #E8C872;
+    --cairn-gold-bright: #F3DB9B;
+    --cairn-parchment: #ECECEE;
+    --cairn-parchment-dim: #B6B8BE;
+    --cairn-oak: #26282D;
+    --cairn-oak-lit: #3A3D44;
+    --cairn-iron: #8A8E97;
+    --cairn-ink: #15161A;
+    --cairn-shadow: #0B0C0E;
+    --cairn-shadow-rgb: 11, 12, 14;
+    --cairn-blood: #C24D43;
+    --cairn-danger-bright: #E5695E;
+    --cairn-warn: #D9944E;
+    --cairn-dim: #4A4D55;
+    --cairn-muted: #8A8E97;
+    --cairn-muted-dim: #5C6068;
+    --cairn-online: #6FCF8A;
+    --cairn-track: #101113;
+
+    --cairn-font-family: 'Segoe UI', system-ui, sans-serif;
+    --cairn-font-special: 'Segoe UI Semibold', 'Segoe UI', system-ui, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    background: #0B0C0E;
+    background-color: #0E151C;
+    margin: 0;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    font-family: var(--cairn-font-family);
+    user-select: none;
+    color: var(--cairn-parchment);
+}
+
+.cairn-hint {
+    color: var(--cairn-muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--cairn-track);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--cairn-oak-lit);
+    border-radius: 4px;
+}
+
+.cairn-label {
+    display: block;
+    font-size: 12px;
+    color: var(--cairn-muted);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.cairn-input-group {
+    margin-bottom: 20px;
+}
+
+.cairn-input {
+    width: 100%;
+    background: rgba(var(--cairn-shadow-rgb), 0.5);
+    border: 1px solid var(--cairn-oak);
+    border-radius: 6px;
+    color: var(--cairn-parchment);
+    padding: 8px 10px;
+    font-family: var(--cairn-font-family);
+    font-size: 14px;
+    outline: none;
+    transition: border 0.2s;
+}
+
+    .cairn-input:focus {
+        border-color: var(--cairn-gold);
+    }
+
+input::-ms-reveal,
+input::-ms-clear {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    pointer-events: none !important;
+}
+
+.cairn-btn {
+    background: rgba(var(--cairn-shadow-rgb), 0.4);
+    border: 1px solid var(--cairn-oak-lit);
+    border-radius: 6px;
+    color: var(--cairn-parchment);
+    padding: 9px 24px;
+    font-family: var(--cairn-font-special);
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+}
+
+    .cairn-btn:hover {
+        border-color: var(--cairn-gold);
+        color: var(--cairn-gold-bright);
+        background: rgba(232, 200, 114, 0.1);
+    }
+
+    .cairn-btn:disabled {
+        opacity: 0.4;
+        cursor: default;
+    }
+
+    .cairn-btn:focus-visible {
+        outline: 2px solid var(--cairn-gold-bright);
+        outline-offset: 2px;
+    }
+
+    .cairn-btn.primary {
+        background: var(--cairn-gold);
+        border-color: var(--cairn-gold);
+        color: #1a1405;
+        font-weight: 700;
+    }
+
+        .cairn-btn.primary:hover {
+            background: var(--cairn-gold-bright);
+            color: #1a1405;
+        }
+
+        .cairn-btn.primary:disabled:hover {
+            background: var(--cairn-gold);
+        }
+
+    .cairn-btn.danger {
+        border-color: var(--cairn-blood);
+        color: var(--cairn-danger-bright);
+    }
+
+        .cairn-btn.danger:hover {
+            background: rgba(184, 71, 60, 0.15);
+        }

@@ -1,0 +1,45 @@
+
+
+/* ---- the General settings: a search box and tabs ---- */
+.settings-search {
+    margin: 4px 0 14px;
+}
+
+.settings-tabs {
+    display: flex;
+    gap: 4px;
+    margin: 0 0 18px;
+    border-bottom: 1px solid var(--cairn-oak);
+}
+
+.settings-tab {
+    position: relative;
+    padding: 9px 16px;
+    border: none;
+    background: transparent;
+    color: var(--cairn-muted);
+    font-family: var(--cairn-font-family);
+    font-size: 13.5px;
+    cursor: pointer;
+    transition: color 0.12s, background 0.12s;
+}
+
+    .settings-tab:hover {
+        color: var(--cairn-parchment);
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .settings-tab.on {
+        color: var(--cairn-parchment);
+    }
+
+        .settings-tab.on::after {
+            content: "";
+            position: absolute;
+            left: 10px;
+            right: 10px;
+            bottom: -1px;
+            height: 2px;
+            border-radius: 2px 2px 0 0;
+            background: var(--cairn-gold);
+        }

@@ -1,0 +1,12 @@
+.modal-title {
+    color: var(--cairn-gold);
+}
+
+.modal-content {
+    text-align: center;
+}
+
+p {
+    color: var(--cairn-parchment-dim);
+    margin-bottom: 25px;
+}

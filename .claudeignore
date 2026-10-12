@@ -1,0 +1,41 @@
+# Files Claude Code does not need to read: build output, binaries and generated data.
+
+# build and release output
+**/bin/
+**/obj/
+release/
+native/build/
+**/scratch/
+TestResults/
+
+# binaries and archives
+*.dll
+*.exe
+*.pdb
+*.pak
+*.zip
+*.dds
+
+# images (the launcher's game artwork and icons)
+*.png
+*.jpg
+*.jpeg
+*.ico
+Cairn.Launcher/wwwroot/img/
+
+# lock files and generated packages
+*.nuget.g.props
+*.nuget.g.targets
+project.assets.json
+
+# the player's own files and local state
+settings.json
+cairn-client.json
+*.log
+.vs/
+.idea/
+
+# large captured data and reverse-engineering dumps
+tools/perf/
+native/ghidra_scripts/
+tools/*.csv

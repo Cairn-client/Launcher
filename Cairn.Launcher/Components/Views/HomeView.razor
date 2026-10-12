@@ -1,0 +1,318 @@
+@* Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+   GPLv3 section 7 additional terms: AUTHORS.md. Unofficial, free, not affiliated with or endorsed by the studios or publishers
+   of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md). *@
+@implements IDisposable
+@inject IJSRuntime JS
+@using Microsoft.JSInterop
+@using Cairn.Launcher.Models
+@using Cairn.Launcher.Components.Shared
+
+@* The landing page, like a game launcher's: an update notice when there is one, a slideshow of the games Cairn covers, then where you
+   left off, who is hosting, your mods, and shelves of posters. Opening a game goes to its page in the Library. *@
+<div class="home">
+
+    @if (UpdateTag is not null)
+    {
+        <div class="update-banner" role="status">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 11 12 16 17 11"/><path d="M5 21h14"/></svg>
+            <div class="update-text">
+                <strong>Cairn Client @UpdateTag is available.</strong>
+                @if (UpdateNotes.Count > 0) { <span>@UpdateNotes[0]@(UpdateNotes.Count > 1 ? $" and {UpdateNotes.Count - 1} more" : "")</span> }
+                <span class="muted">Both players need the same version to play together.</span>
+            </div>
+            <button class="update-btn" disabled="@UpdateBusy" @onclick="OnUpdate">@(UpdateBusy ? "Updating..." : "Update now")</button>
+        </div>
+    }
+
+    @if (ModUpdates.Count > 0)
+    {
+        <div class="update-banner mod-update" role="status">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 11 12 16 17 11"/><path d="M5 21h14"/></svg>
+            <div class="update-text">
+                <strong>@(ModUpdates.Count == 1 ? "A new version of the mod is ready" : $"New versions of {ModUpdates.Count} mods are ready").</strong>
+                <span>@string.Join(", ", ModUpdates.Select(m => $"{m.Game.DisplayName} {m.Version}"))</span>
+                <span class="muted">Updating downloads it and puts it in the game.</span>
+            </div>
+            <button class="update-btn" disabled="@(ModBusyId is not null)" @onclick="OnUpdateMods">@(ModBusyId is not null ? $"Updating... {(int)(ModProgress * 100)}%" : "Update mods")</button>
+        </div>
+    }
+
+    @if (Slides.Count > 0)
+    {
+        var current = Slides[Math.Min(index, Slides.Count - 1)];
+        <section class="showcase" style="--accent: @(string.IsNullOrEmpty(current.Accent) ? "#E8C872" : current.Accent)" tabindex="0"
+                 @onmouseenter="() => paused = true" @onmouseleave="() => paused = false" @onkeydown="OnShowcaseKey"
+                 aria-roledescription="carousel" aria-label="Games (use the left and right arrow keys)">
+            @for (int i = 0; i < Slides.Count; i++)
+            {
+                var g = Slides[i];
+                bool active = i == index;
+                <article class="slide @(active ? "active" : "")" aria-hidden="@(active ? "false" : "true")">
+                    <div class="slide-art" style="background-image: url('@ArtFor(g, active)');"></div>
+                    <div class="slide-shade"></div>
+                    <div class="slide-body">
+                        <span class="state @(g.IsSupported ? "live" : "soon")">@(g.IsSupported ? "Playable now" : "Coming soon")</span>
+                        @if (g.LogoImage.Length > 0)
+                        {
+                            <img class="slide-logo" src="@g.LogoImage" alt="@g.DisplayName" />
+                        }
+                        else
+                        {
+                            <h1 class="slide-title">@g.DisplayName</h1>
+                        }
+                        <p class="slide-desc">@g.Description</p>
+                        <div class="slide-meta">
+                            @if (g.Developer.Length > 0) { <span>@g.Developer</span> }
+                            @if (g.Franchise.Length > 0 && g.Franchise != g.DisplayName) { <span>@g.Franchise</span> }
+                            @if (IsOnPc(g)) { <span class="on-pc">On this PC</span> }
+                        </div>
+                        <button class="slide-cta" tabindex="@(active ? 0 : -1)" @onclick="() => OnOpenGame.InvokeAsync(g.Id)">View game</button>
+                    </div>
+                </article>
+            }
+
+            <button class="arrow left" aria-label="Previous game" @onclick="Previous">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg>
+            </button>
+            <button class="arrow right" aria-label="Next game" @onclick="Next">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+            </button>
+
+            <div class="dots" role="tablist">
+                @for (int i = 0; i < Slides.Count; i++)
+                {
+                    int target = i;
+                    <button class="dot @(i == index ? "on" : "")" role="tab" aria-label="@Slides[i].DisplayName" aria-selected="@(i == index ? "true" : "false")" @onclick="() => GoTo(target)"></button>
+                }
+            </div>
+        </section>
+    }
+
+    <div class="home-body">
+
+        <div class="dash">
+            @* Continue: where you left off *@
+            <section class="tile">
+                <h2>Continue</h2>
+                @if (RecentGame is { } rg && Last is { } last)
+                {
+                    <button class="continue" @onclick="() => OnOpenGame.InvokeAsync(rg.Id)">
+                        <span class="continue-art" style="background-image: url('@(rg.PosterImage.Length > 0 ? rg.PosterImage : rg.BackgroundImage)');"></span>
+                        <span class="continue-text">
+                            <strong>@rg.DisplayName</strong>
+                            <span>@(last.Role == "host" ? "You hosted" : "You joined") · @HomeLogic.Ago(last.LastUtc, DateTime.UtcNow)</span>
+                            <span class="muted">@(last.Sessions == 1 ? "1 session" : $"{last.Sessions} sessions") so far</span>
+                        </span>
+                    </button>
+                    @if (History.Count > 0)
+                    {
+                        <ul class="history" aria-label="Earlier sessions">
+                            @foreach (var h in History)
+                            {
+                                <li>
+                                    <button class="history-row" @onclick="() => OnOpenGame.InvokeAsync(h.Game.Id)">
+                                        <span class="friend-name">@h.Game.DisplayName</span>
+                                        <span class="mod-state">@(h.Session.Role == "host" ? "Hosted" : "Joined") @HomeLogic.Ago(h.Session.LastUtc, DateTime.UtcNow)</span>
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    }
+                }
+                else
+                {
+                    <p class="muted">Nothing played yet. Pick a game from the slideshow or the shelves below, download its mod, and start a session.</p>
+                    <button class="link" @onclick="OnOpenLibrary">Browse the Library</button>
+                }
+            </section>
+
+            @* Friends: who is hosting *@
+            <section class="tile">
+                <h2>Available friends</h2>
+                @switch (FriendsState)
+                {
+                    case "ok" when Friends is { Count: > 0 }:
+                        <ul class="friends">
+                            @foreach (var f in Friends.Take(4))
+                            {
+                                <li>
+                                    <span class="dot-live"></span><span class="friend-name">@f.Name</span>
+                                    <button class="mini" @onclick="() => OnJoinFriend.InvokeAsync(f)">Join</button>
+                                </li>
+                            }
+                        </ul>
+                        @if (Friends.Count > 4) { <p class="muted more">and @(Friends.Count - 4) more in the Join list</p> }
+                        break;
+                    case "ok":
+                        <p class="muted">No friends available</p>
+                        break;
+                    case "checking":
+                        <p class="muted">Asking Steam...</p>
+                        break;
+                    case "unavailable":
+                        <p class="muted">Steam friends are not available right now. Finish the setup, and make sure Steam is running.</p>
+                        break;
+                    default:
+                        <p class="muted">Checking...</p>
+                        break;
+                }
+            </section>
+
+            @* Library: how much of it is ready *@
+            <section class="tile">
+                <h2>Your library</h2>
+                <ul class="stats">
+                    <li><span class="stat-n">@GamesOnPc</span><span>@(GamesOnPc == 1 ? "game" : "games") on this PC</span></li>
+                    <li><span class="stat-n">@ModsInstalled</span><span>@(ModsInstalled == 1 ? "mod" : "mods") installed</span></li>
+                    <li><span class="stat-n">@FavoriteGames.Count</span><span>@(FavoriteGames.Count == 1 ? "favourite" : "favourites")</span></li>
+                </ul>
+                <div class="tile-actions">
+                    <button class="mini" @onclick="OnOpenLibrary">Open the Library</button>
+                    <button class="mini" @onclick="OnOpenSetup">@(SetupReady == true ? "Setup is ready" : SetupReady == false ? "Finish setup" : "Checking setup...")</button>
+                </div>
+            </section>
+        </div>
+
+        @if (FavoriteGames.Count > 0)
+        {
+            <section class="shelf">
+                <h2>Favourites</h2>
+                <div class="shelf-row">
+                    @foreach (var g in FavoriteGames) { @Poster(g) }
+                </div>
+            </section>
+        }
+
+        @if (Playable.Count > 0)
+        {
+            <section class="shelf">
+                <h2>Playable now</h2>
+                <div class="shelf-row">
+                    @foreach (var g in Playable) { @Poster(g) }
+                </div>
+            </section>
+        }
+
+        @if (Upcoming.Count > 0)
+        {
+            <section class="shelf">
+                <h2>Coming soon <span class="count">@Upcoming.Count</span></h2>
+                <div class="shelf-row">
+                    @foreach (var g in Upcoming) { @Poster(g) }
+                </div>
+            </section>
+        }
+    </div>
+</div>
+
+@code {
+    private RenderFragment Poster(GameProfile g) => @<div class="poster-wrap">
+        <button class="poster" @onclick="() => OnOpenGame.InvokeAsync(g.Id)" title="@g.DisplayName">
+            <span class="poster-art" style="background-image: url('@(g.PosterImage.Length > 0 ? g.PosterImage : g.BackgroundImage)');"></span>
+            <span class="poster-shade"></span>
+            @if (IsOnPc(g)) { <span class="poster-flag">On this PC</span> }
+            <span class="poster-name">@g.DisplayName</span>
+            <span class="poster-sub">@(g.Developer.Length > 0 ? g.Developer : (g.IsSupported ? "Playable now" : "Coming soon"))</span>
+        </button>
+        <button class="heart @(Favorites.Contains(g.Id) ? "on" : "")" aria-label="@(Favorites.Contains(g.Id) ? "Remove from favourites" : "Add to favourites")" aria-pressed="@(Favorites.Contains(g.Id) ? "true" : "false")"
+                title="@(Favorites.Contains(g.Id) ? "Remove from favourites" : "Add to favourites")" @onclick="() => OnToggleFavorite.InvokeAsync(g.Id)">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+        </button>
+    </div>;
+
+    [Parameter] public IReadOnlyList<GameProfile> Games { get; set; } = Array.Empty<GameProfile>();
+    [Parameter] public Func<GameProfile, bool>? OnPc { get; set; }
+    [Parameter] public int GamesOnPc { get; set; }
+    [Parameter] public int ModsInstalled { get; set; }
+    [Parameter] public ReleaseNote? Latest { get; set; }
+    /// <summary>The setup checklist's verdict; null while it is still being checked.</summary>
+    [Parameter] public bool? SetupReady { get; set; }
+
+    [Parameter] public string? UpdateTag { get; set; }
+    [Parameter] public IReadOnlyList<string> UpdateNotes { get; set; } = Array.Empty<string>();
+    [Parameter] public bool UpdateBusy { get; set; }
+    [Parameter] public EventCallback OnUpdate { get; set; }
+
+    [Parameter] public RecentSession? Last { get; set; }
+    [Parameter] public string FriendsState { get; set; } = "idle";
+    [Parameter] public IReadOnlyList<SteamFriendData>? Friends { get; set; }
+    [Parameter] public EventCallback<SteamFriendData> OnJoinFriend { get; set; }
+    [Parameter] public string? ModBusyId { get; set; }
+    [Parameter] public double ModProgress { get; set; }
+    /// <summary>The sessions before the last one, newest first.</summary>
+    [Parameter] public IReadOnlyList<(GameProfile Game, RecentSession Session)> History { get; set; } = Array.Empty<(GameProfile, RecentSession)>();
+    [Parameter] public IReadOnlyList<HomeModRow> ModUpdates { get; set; } = Array.Empty<HomeModRow>();
+    [Parameter] public EventCallback OnUpdateMods { get; set; }
+    [Parameter] public ISet<string> Favorites { get; set; } = new HashSet<string>();
+    [Parameter] public EventCallback<string> OnToggleFavorite { get; set; }
+
+    [Parameter] public EventCallback<string> OnOpenGame { get; set; }
+    [Parameter] public EventCallback OnOpenLibrary { get; set; }
+    [Parameter] public EventCallback OnOpenVersions { get; set; }
+    [Parameter] public EventCallback OnOpenHelp { get; set; }
+    [Parameter] public EventCallback OnOpenSetup { get; set; }
+
+    private int index;
+    private bool paused;
+    private CancellationTokenSource? cts;
+
+    private string SetupText => SetupReady switch { true => "ready", false => "needs attention", _ => "checking" };
+    private bool IsOnPc(GameProfile g) => OnPc?.Invoke(g) ?? false;
+    private GameProfile? RecentGame => Last is null ? null : Games.FirstOrDefault(g => string.Equals(g.Id, Last.GameId, StringComparison.OrdinalIgnoreCase));
+
+    // the playable games lead the slideshow, then the rest; only games with artwork can be shown
+    private IReadOnlyList<GameProfile> Slides => Games.Where(g => g.BackgroundImage.Length > 0)
+        .OrderByDescending(g => g.IsSupported).ThenBy(g => g.DisplayName, StringComparer.OrdinalIgnoreCase).Take(8).ToList();
+    private IReadOnlyList<GameProfile> Playable => Games.Where(g => g.IsSupported && g.BackgroundImage.Length > 0)
+        .OrderBy(g => g.DisplayName, StringComparer.OrdinalIgnoreCase).ToList();
+    private IReadOnlyList<GameProfile> Upcoming => Games.Where(g => !g.IsSupported && g.BackgroundImage.Length > 0)
+        .OrderBy(g => g.DisplayName, StringComparer.OrdinalIgnoreCase).ToList();
+    private IReadOnlyList<GameProfile> FavoriteGames => Games.Where(g => Favorites.Contains(g.Id) && g.BackgroundImage.Length > 0)
+        .OrderBy(g => g.DisplayName, StringComparer.OrdinalIgnoreCase).ToList();
+
+    private string ArtFor(GameProfile g, bool active) =>
+        g.HeroImage.Length > 0 ? g.HeroImage : g.BackgroundImage;
+
+    private void GoTo(int i) { index = i; }
+    private void Next() { index = (index + 1) % Math.Max(1, Slides.Count); }
+    private void Previous() { index = (index - 1 + Slides.Count) % Math.Max(1, Slides.Count); }
+
+    private void OnShowcaseKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "ArrowRight") Next();
+        else if (e.Key == "ArrowLeft") Previous();
+    }
+
+    protected override void OnInitialized()
+    {
+        // one slide every seven seconds; hovering the slideshow holds it
+        cts = new CancellationTokenSource();
+        var token = cts.Token;
+        _ = Task.Run(async () =>
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(7));
+            try
+            {
+                while (await timer.WaitForNextTickAsync(token))
+                {
+                    if (paused || Slides.Count < 2) continue;
+                    await InvokeAsync(() => { Next(); StateHasChanged(); });
+                }
+            }
+            catch (OperationCanceledException) { }
+        });
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try { await JS.InvokeVoidAsync("cairnDragScroll"); }   // the poster rows can be dragged with the mouse
+        catch (Exception) { /* a missing script only costs the dragging */ }
+    }
+
+    public void Dispose()
+    {
+        cts?.Cancel();
+        cts?.Dispose();
+    }
+}

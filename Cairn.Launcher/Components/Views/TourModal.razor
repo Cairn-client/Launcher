@@ -1,0 +1,58 @@
+@* Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+   GPLv3 section 7 additional terms: AUTHORS.md. Unofficial, free, not affiliated with or endorsed by the studios or publishers
+   of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md). *@
+@* The welcome tour, shown once on first launch and again from Help: four short steps over the Home page. *@
+@if (IsVisible)
+{
+    var s = Steps[step];
+    <div class="tour-overlay" role="dialog" aria-modal="true" aria-label="Welcome to Cairn">
+        <div class="tour-card">
+            <div class="tour-step">Step @(step + 1) of @Steps.Length</div>
+            <h2>@s.Title</h2>
+            <p>@s.Body</p>
+            <div class="tour-dots">
+                @for (int i = 0; i < Steps.Length; i++)
+                {
+                    <span class="tour-dot @(i == step ? "on" : "")"></span>
+                }
+            </div>
+            <div class="tour-actions">
+                <button class="cairn-btn" @onclick="Skip">@(step == Steps.Length - 1 ? "CLOSE" : "SKIP")</button>
+                <span class="tour-spacer"></span>
+                @if (step > 0) { <button class="cairn-btn" @onclick="() => step--">BACK</button> }
+                <button class="cairn-btn primary" @onclick="Advance">@(step == Steps.Length - 1 ? "GET STARTED" : "NEXT")</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private int step;
+
+    private sealed record TourStep(string Title, string Body);
+
+    private static readonly TourStep[] Steps =
+    {
+        new("Welcome to Cairn", "Cairn turns single-player games into shared ones. One of you hosts, a friend joins, and you play in the same world."),
+        new("Pick a game and get its mod", "Open the Library, choose a game and click Download mod on its page. The mod is a small download that installs itself, once per game."),
+        new("Host or join", "Press Host a game and share your game through Steam, or open Join a game and pick the friend who is hosting. Both of you need the same version of Cairn."),
+        new("Everything else is in the top bar", "Settings holds your options, Versions shows what changed in each release, and Help has answers and a way to report a problem."),
+    };
+
+    private async Task Advance()
+    {
+        if (step < Steps.Length - 1) { step++; return; }
+        await Finish();
+    }
+
+    private Task Skip() => Finish();
+
+    private async Task Finish()
+    {
+        step = 0;
+        await OnClose.InvokeAsync();
+    }
+}

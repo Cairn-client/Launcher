@@ -1,0 +1,289 @@
+@* Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+   GPLv3 section 7 additional terms: AUTHORS.md. This project's own code only; Kingdom Come: Deliverance II and its
+   content belong to Warhorse Studios and PLAION. Unofficial, free, not affiliated with or endorsed by them.
+   Portions from the original project, marczukmichal/kcd2-multiplayer; its author keeps their copyright (AUTHORS.md). *@
+@inherits ModalBase
+@using Cairn.Launcher.Models
+@using Cairn.Launcher.Pages
+@using System.Windows.Forms
+@using System.Threading
+
+@* Cairn: one dialog, two scopes. "general" is the menu bar's Settings (what belongs to Cairn itself); a game id is that game's own
+   settings, opened from the button next to Host and Join on its page. The values are the same keys of settings.json either way. *@
+@if (IsVisible || Inline)
+{
+    var game = Scope == GeneralScope ? null : GameProfileRegistry.Get(Scope);
+    RenderFragment body = @<div class="modal-content" style="text-align: left;">
+                @if (game is null)
+                {
+                    <div class="modal-title" style="text-align: center;">SETTINGS</div>
+                }
+                else
+                {
+                    <div class="modal-title" style="text-align: center;">@game.DisplayName.ToUpperInvariant()</div>
+                    <div class="settings-scope">Game settings</div>
+                }
+
+                @if (game is null)
+                {
+                    @* Cairn: the paths of the mod's own programs, the master server and the info port are not the player's to set (the installer puts them); they keep their saved values. *@
+                    <input class="cairn-input settings-search" type="search" placeholder="Search settings" aria-label="Search settings" @bind="query" @bind:event="oninput" />
+
+                    @if (!Searching)
+                    {
+                        <div class="settings-tabs" role="tablist" aria-label="Settings">
+                            @foreach (var t in Tabs)
+                            {
+                                var tabId = t.Id;
+                                <button class="settings-tab @(tab == tabId ? "on" : "")" role="tab" aria-selected="@(tab == tabId ? "true" : "false")" @onclick="() => tab = tabId">@t.Title</button>
+                            }
+                        </div>
+                    }
+                    else if (!AnyMatch)
+                    {
+                        <div class="settings-empty">No setting matches "@query".</div>
+                    }
+
+                    @if (Show("port"))
+                    {
+                    <div class="cairn-input-group">
+                        <label class="cairn-label">Host Port</label>
+                        <input class="cairn-input" type="number" @bind="Settings.HostPort" />
+                    </div>
+                    }
+
+                    @if (Show("addr"))
+                    {
+                    <div class="cairn-input-group">
+                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" @bind="Settings.ShowHostAddress" />
+                            Show my IP address in the Host window (hidden by default)
+                        </label>
+                        <div class="cairn-hint">Only for friends who join by address instead of Steam. Keep it hidden when you stream or share your screen.</div>
+                    </div>
+                    }
+
+                    @if (Show("steamjoin"))
+                    {
+                    <div class="cairn-input-group">
+                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" @bind="Settings.HostAllowSteam" />
+                            Let friends join me through Steam (when I host)
+                        </label>
+                    </div>
+                    }
+
+                    @if (Show("friends"))
+                    {
+                    <div class="cairn-input-group">
+                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" @bind="Settings.PresenceEnabled" />
+                            Let my Steam friends who use Cairn see when I am online and invite me
+                        </label>
+                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" @bind="Settings.NotifyFriends" />
+                            Tell me when a friend comes online, starts playing or invites me
+                        </label>
+                        <div class="cairn-hint">Your Steam name and friend ids go to the Cairn server while the launcher is open, and nowhere else. A friend is shown only when you both list each other. Takes effect the next time the launcher starts.</div>
+                    </div>
+                    }
+
+                    @if (Show("steamapp"))
+                    {
+                    @* advanced. Both players must pick the same one. *@
+                    <div class="cairn-input-group">
+                        <label class="cairn-label">Advanced: Steam app for Steam connections</label>
+                        <select class="cairn-input" value="@Settings.SteamAppId" @onchange="e => Settings.SteamAppId = uint.TryParse(e.Value?.ToString(), out var a) ? a : 2429020u">
+                            <option value="2429020">KCD2 Modding Tools (2429020) - default</option>
+                            <option value="480">Spacewar (480) - Valve's test app</option>
+                            <option value="1771300">KCD2 retail (1771300)</option>
+                        </select>
+                        <div class="cairn-hint">Both players must use the same one. Leave it unless the tester page says otherwise.</div>
+                    </div>
+                    }
+
+                    @if (Show("startsave"))
+                    {
+                    @* Cairn: a start save from the player's own Modding Tools game, checked and put where a joiner's new character is taken from *@
+                    <div class="cairn-input-group">
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="cairn-btn" @onclick="OnAddStartSave">ADD A START SAVE...</button>
+                            <button class="cairn-btn" @onclick="OnOpenStartSave">OPEN ITS FOLDER</button>
+                        </div>
+                        <div class="cairn-hint">Needed once, to <i>Join with a new character</i> or start a <i>New adventure</i>. Pick a save of your own Modding Tools game, played past the prologue; the launcher checks it and puts it in place.</div>
+                    </div>
+                    }
+
+                    @if (Show("logs"))
+                    {
+                    @* Cairn: the logs of this PC (the game's, the agent's, the launcher's) in one zip on the Desktop, to send with a bug report *@
+                    <div class="cairn-input-group">
+                        <button class="cairn-btn" @onclick="OnCollectLogs">SAVE THE LOGS</button>
+                        <div class="cairn-hint">One zip with the game's, the agent's and the launcher's logs. Best saved after you close the game.</div>
+                    </div>
+                    }
+
+                    @if (Show("uninstall"))
+                    {
+                    @* Cairn: remove the mod and the launcher; the game's saves and the mod's own data (characters, chests, start save) stay *@
+                    <div class="cairn-input-group">
+                        @if (!confirmUninstall)
+                        {
+                            <button class="cairn-btn" @onclick="() => confirmUninstall = true">UNINSTALL CAIRN</button>
+                            <div class="cairn-hint">Removes the mod from your games and this launcher. Your game saves stay, and so do the mod's own data (your characters, chests and start save, copied to Documents\Cairn-kept).</div>
+                        }
+                        else
+                        {
+                            <div class="cairn-hint" style="color: var(--cairn-warn);">Remove Cairn now? The launcher closes and the uninstaller removes it. Your saves are kept.</div>
+                            <div style="display: flex; gap: 10px; margin-top: 8px;">
+                                <button class="cairn-btn primary" @onclick="DoUninstall">YES, UNINSTALL</button>
+                                <button class="cairn-btn" @onclick="() => confirmUninstall = false">KEEP IT</button>
+                            </div>
+                        }
+                    </div>
+                    }
+                }
+                else if (game.Id == GameProfileRegistry.Kcd2Id)
+                {
+                    <div class="settings-section">Game</div>
+
+                    <div class="cairn-input-group">
+                        <label class="cairn-label">Game Executable Path (Modding Tools build)</label>
+
+                        <div style="display: flex; gap: 10px;">
+                            <input class="cairn-input" @bind="Settings.GamePath" style="flex-grow: 1;" />
+
+                            <button class="cairn-btn" @onclick="BrowseGamePath" style="padding: 8px 15px; font-size: 12px;">
+                                BROWSE
+                            </button>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(Settings.GamePath) && !Home.IsModdingToolsBuild(Settings.GamePath))
+                        {
+                            <div class="cairn-hint" style="color: var(--cairn-warn);">
+                                This does not look like the Modding Tools build. Multiplayer needs
+                                KCD2Mod\Bin\Win64ReleaseSteamLTO_DLL\KingdomCome.exe — the retail
+                                executable has no debug API and no module DLLs to hook.
+                            </div>
+                        }
+                    </div>
+
+                    @* DLSS 5 through DLSS 5 Autopilot (MIT): put in the game's folder when this is saved, taken out when it is cleared *@
+                    <div class="settings-section">Graphics</div>
+                    <div class="cairn-input-group">
+                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: @(Dlss5Gpu == GpuClass.None || Dlss5Busy || GameRunning ? "not-allowed" : "pointer");">
+                            <input type="checkbox" @bind="Settings.Dlss5Enabled" disabled="@(Dlss5Gpu == GpuClass.None || Dlss5Busy || GameRunning)" />
+                            DLSS 5 (neural rendering)
+                        </label>
+                        @if (GameRunning)
+                        {
+                            <div class="cairn-hint" style="color: var(--cairn-warn);">Close the game first: DLSS 5 (OptiScaler) can only be installed or uninstalled while the game is not running.</div>
+                        }
+                        <div class="cairn-hint">@Dlss5GpuText</div>
+                        <div class="cairn-hint">When you save, Cairn downloads DLSS 5 Autopilot (once, checked against its published checksum) and it puts DLSS 5 into the game's folder through OptiScaler; clearing the tick takes it all out again. While it is in, the game's menu has a row that opens its overlay. Community software: it can crash the game, and the game must be closed to change it.</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="settings-empty">
+                        <strong>@game.DisplayName</strong> has no settings yet. They appear here once multiplayer for this game is available.
+                    </div>
+                }
+
+                <div class="modal-actions">
+                    <button class="cairn-btn primary" @onclick="OnSave">SAVE & CLOSE</button>
+                    <button class="cairn-btn" @onclick="CloseModalAsync">CANCEL</button>
+                </div>
+            </div>;
+
+    @if (Inline)
+    {
+        <div class="settings-page-wrap">@body</div>
+    }
+    else
+    {
+        <div class="modal-overlay @(isClosing ? "closing" : "" )">
+            <div class="modal-box" @onclick:stopPropagation="true">
+                <div class="modal-frame-top modal-frame-bg"></div>
+                @body
+                <div class="modal-frame-bottom modal-frame-bg"></div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    /// <summary>Shown as a page of the launcher (the Settings view) instead of a popup.</summary>
+    [Parameter] public bool Inline { get; set; }
+    [Parameter] public AppSettings Settings { get; set; } = new();
+    /// <summary>"general" (the menu bar's Settings) or a game profile id (that game's settings).</summary>
+    [Parameter] public string Scope { get; set; } = GeneralScope;
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnUninstall { get; set; }
+    [Parameter] public EventCallback OnCollectLogs { get; set; }
+    [Parameter] public EventCallback OnAddStartSave { get; set; }
+    [Parameter] public EventCallback OnOpenStartSave { get; set; }
+    [Parameter] public GpuClass Dlss5Gpu { get; set; } = GpuClass.None;
+    [Parameter] public string Dlss5GpuText { get; set; } = "";
+    [Parameter] public bool Dlss5Busy { get; set; }
+    [Parameter] public bool GameRunning { get; set; }
+    public const string GeneralScope = "general";
+    private bool confirmUninstall;
+
+    // ---- the General settings are tabs; the search box looks across all of them ----
+    private string tab = "hosting";
+    private string query = "";
+
+    private static readonly (string Id, string Title)[] Tabs =
+    {
+        ("hosting", "Hosting"), ("steam", "Steam"), ("saves", "Saves"), ("support", "Support"),
+    };
+
+    // every setting: its tab, and the words it can be found by
+    private static readonly Dictionary<string, (string Tab, string Words)> Index = new()
+    {
+        ["port"] = ("hosting", "host port network tcp address 7778 listen"),
+        ["addr"] = ("hosting", "show ip address host window hidden stream share screen"),
+        ["steamjoin"] = ("steam", "let friends join through steam when i host"),
+        ["friends"] = ("steam", "friends online notifications invite presence"),
+        ["steamapp"] = ("steam", "advanced steam app connections modding tools spacewar retail kcd2"),
+        ["startsave"] = ("saves", "start save new character new adventure join with a new character folder"),
+        ["logs"] = ("support", "save the logs zip bug report desktop game agent launcher"),
+        ["uninstall"] = ("support", "maintenance uninstall cairn remove launcher mod"),
+    };
+
+    private bool Searching => !string.IsNullOrWhiteSpace(query);
+
+    private bool Matches(string id)
+    {
+        string text = (Index[id].Words + " " + Index[id].Tab).ToLowerInvariant();
+        return query.ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries).All(w => text.Contains(w));
+    }
+
+    private bool Show(string id) => Searching ? Matches(id) : Index[id].Tab == tab;
+
+    private bool AnyMatch => Index.Keys.Any(Matches);
+    private async Task DoUninstall() { confirmUninstall = false; await OnUninstall.InvokeAsync(); }
+
+    private void BrowseGamePath()
+    {
+        var thread = new Thread(() =>
+        {
+            var dialog = new OpenFileDialog();
+            dialog.Filter = "KingdomCome.exe|KingdomCome.exe|Executables (*.exe)|*.exe|All Files (*.*)|*.*";
+            // Both builds use this filename, so the title has to say which one.
+            dialog.Title = "Select KingdomCome.exe from the Modding Tools build (KCD2Mod\\Bin\\Win64ReleaseSteamLTO_DLL)";
+
+            if (dialog.ShowDialog() == DialogResult.OK)
+            {
+                Settings.GamePath = dialog.FileName;
+
+                InvokeAsync(StateHasChanged);
+            }
+        });
+
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
+}

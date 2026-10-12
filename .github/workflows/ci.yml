@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  version-policy:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Versioning policy
+        shell: pwsh
+        run: ./tools/Test-VersionPolicy.ps1
+
+  dotnet:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 8.0.x }
+      - name: Build solution
+        run: dotnet build Cairn.sln -c Release --nologo -v q
+      - name: Unit tests
+        shell: pwsh
+        run: |
+          foreach ($p in 'Setup.Tests', 'MasterServer.Tests') {
+            dotnet test "dotnet/Cairn.$p/Cairn.$p.csproj" -c Release --nologo -v q
+            if ($LASTEXITCODE -ne 0) { throw "$p failed" }
+          }

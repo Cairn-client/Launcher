@@ -1,0 +1,75 @@
+﻿@* Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+   GPLv3 section 7 additional terms: AUTHORS.md. This project's own code only; Kingdom Come: Deliverance II and its
+   content belong to Warhorse Studios and PLAION. Unofficial, free, not affiliated with or endorsed by them. *@
+@inherits ModalBase
+
+@* Cairn: the update in the launcher's own frame -- what is new, then the download's progress, then (if it fails) why. *@
+@if (IsVisible)
+{
+    <div class="modal-overlay @(isClosing ? "closing" : "")">
+        <div class="modal-box" @onclick:stopPropagation="true">
+
+            <div class="modal-frame-top modal-frame-bg"></div>
+
+            <div class="modal-content" style="text-align: center;">
+                <div class="modal-title">@(Stage switch { "busy" => "UPDATING", "error" => "UPDATE FAILED", "current" => "UP TO DATE", "unreachable" => "CAN'T CHECK", _ => Tag + " IS OUT" })</div>
+
+                @if (Stage == "current" || Stage == "unreachable")
+                {
+                    <p>@(Stage == "current" ? "You have the newest version of Cairn." : "GitHub could not be reached. Check your connection and try again.")</p>
+                    <div class="modal-actions">
+                        <button class="cairn-btn primary" @onclick="CloseModalAsync">CLOSE</button>
+                    </div>
+                }
+                else if (Stage == "offer")
+                {
+                    @if (!string.IsNullOrEmpty(Reason))
+                    {
+                        <p style="opacity: 0.85;">@Reason</p>
+                    }
+                    @if (!string.IsNullOrEmpty(Notes))
+                    {
+                        <p style="text-align: left; white-space: pre-line; max-height: 240px; overflow-y: auto; font-size: 14px;">@Notes</p>
+                    }
+                    <p style="opacity: 0.85;">The launcher closes, installs it over this copy and opens again. Your saves and settings stay.</p>
+                    <div class="modal-actions">
+                        <button class="cairn-btn primary" @onclick="OnUpdate">UPDATE NOW</button>
+                        <button class="cairn-btn" @onclick="CloseModalAsync">LATER</button>
+                    </div>
+                }
+                else if (Stage == "busy")
+                {
+                    <p>@Text</p>
+                    @if (Progress is double p)
+                    {
+                        <div style="height: 8px; margin: 14px 0; background: var(--cairn-track); border: 1px solid var(--cairn-oak);">
+                            <div style="height: 100%; background: var(--cairn-gold); width: @((Math.Clamp(p, 0, 1) * 100).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%;"></div>
+                        </div>
+                    }
+                    <p style="opacity: 0.7; font-size: 13px;">Please do not close the launcher.</p>
+                }
+                else
+                {
+                    <p>@Text</p>
+                    <div class="modal-actions">
+                        <button class="cairn-btn primary" @onclick="OnOpenPage">OPEN THE RELEASE PAGE</button>
+                        <button class="cairn-btn" @onclick="CloseModalAsync">CLOSE</button>
+                    </div>
+                }
+            </div>
+
+            <div class="modal-frame-bottom modal-frame-bg"></div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string Stage { get; set; } = "offer";   // offer | busy | error
+    [Parameter] public string Tag { get; set; } = "";
+    [Parameter] public string Notes { get; set; } = "";
+    [Parameter] public string Reason { get; set; } = "";
+    [Parameter] public string Text { get; set; } = "";
+    [Parameter] public double? Progress { get; set; }
+    [Parameter] public EventCallback OnUpdate { get; set; }
+    [Parameter] public EventCallback OnOpenPage { get; set; }
+}

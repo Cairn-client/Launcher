@@ -1,0 +1,81 @@
+@* Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+   GPLv3 section 7 additional terms: AUTHORS.md. Unofficial, free, not affiliated with or endorsed by the studios or publishers
+   of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md). *@
+@using Cairn.Launcher.Models
+@using Cairn.Launcher.Components.Shared
+
+@* This version, the check for updates, and the changelog of every release. *@
+<div class="view">
+    <header class="view-head">
+        <h1>Versions</h1>
+        <p class="lead">What you are running, and what changed in each release.</p>
+    </header>
+
+    <section class="card now">
+        <div class="facts">
+            <div><span class="k">Cairn Client</span><span class="v">@Globals.CairnVersion</span></div>
+            <div><span class="k">Network protocol</span><span class="v">@Globals.Version</span></div>
+            <div class="note"><span class="k">Compatibility</span><span class="v">Players need the same first two numbers (for example 0.3.x with 0.3.x).</span></div>
+        </div>
+        <div class="now-actions">
+            <button class="cairn-btn primary" @onclick="OnCheckUpdates" disabled="@CheckingUpdates">@(CheckingUpdates ? "CHECKING..." : "CHECK FOR UPDATES")</button>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-head">
+            <h2>Changelog</h2>
+            <button class="link" @onclick="@(() => UrlLauncher.Open(Changelog.PageUrl))">Open on GitHub</button>
+        </div>
+
+        @if (Releases is null)
+        {
+            <p class="muted">The changelog could not be loaded (no connection, or GitHub did not answer).</p>
+            <button class="cairn-btn" @onclick="OnReload">TRY AGAIN</button>
+        }
+        else
+        {
+            @foreach (var r in Releases)
+            {
+                bool current = IsCurrent(r.Tag);
+                <article class="release @(current ? "current" : "")">
+                    <header>
+                        <span class="rel-tag">@r.Tag</span>
+                        @if (current) { <span class="badge">You are here</span> }
+                        @if (r.Prerelease) { <span class="badge muted">Pre-release</span> }
+                        @if (r.Published is { } when) { <span class="rel-date">@when.ToString("d MMM yyyy")</span> }
+                    </header>
+                    @if (r.Items.Count == 0)
+                    {
+                        <p class="muted">Maintenance and stability improvements.</p>
+                    }
+                    else
+                    {
+                        <ul class="changes">
+                            @foreach (var item in r.Items)
+                            {
+                                <li>@item</li>
+                            }
+                        </ul>
+                    }
+                </article>
+            }
+        }
+    </section>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<ReleaseNote>? Releases { get; set; }
+    [Parameter] public bool CheckingUpdates { get; set; }
+    [Parameter] public EventCallback OnCheckUpdates { get; set; }
+    [Parameter] public EventCallback OnReload { get; set; }
+
+    /// <summary>The release whose tag is the running version ("0.3.0+abc" counts as 0.3.0).</summary>
+    private static bool IsCurrent(string tag)
+    {
+        string v = Globals.CairnVersion ?? "";
+        int cut = v.IndexOfAny(new[] { '+', '-' });
+        if (cut > 0) v = v[..cut];
+        return string.Equals(tag.TrimStart('v', 'V'), v, StringComparison.OrdinalIgnoreCase);
+    }
+}

@@ -1,0 +1,357 @@
+// Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+// GPLv3 section 7 additional terms: AUTHORS.md. This project's own code only; Kingdom Come: Deliverance II and its
+// content belong to Warhorse Studios and PLAION. Unofficial, free, not affiliated with or endorsed by them.
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
+using System.Linq;
+using Microsoft.Win32;
+using System.Text.RegularExpressions;
+
+namespace Cairn.Launcher.Components.Shared
+{
+    /// <summary>
+    /// combat visualisation, item K: the tester diagnostics bundle. horse adoption's real two-player
+    /// test produced logs with ZERO game telemetry in them -- the testers sent
+    /// the launcher's app.log because that was the only file they knew about,
+    /// while everything that mattered (kcd.log, the agent console) was never
+    /// collected. This gathers every diagnostic surface into one zip a tester
+    /// can just hand over.
+    ///
+    /// the first real bundles (2026-08-18) proved two collection bugs.
+    /// kcd.log was missing from BOTH players' zips -- the steam_appid.txt
+    /// walk-up in GameRootOf silently falls back to the exe's own directory,
+    /// where kcd.log is not -- so the bundle now hunts for kcd.log itself
+    /// (walk up from the game root, then scan every Steam library the way the
+    /// agent's KcdLogLocator does). And "config.json" was collected from
+    /// %AppData%\Cairn where the launcher never writes anything; the
+    /// real settings live in settings.json in the launcher's working
+    /// directory. Both are collected now (settings.json as the real one,
+    /// config.json kept in case an old install has it).
+    /// </summary>
+    public static class LogBundle
+    {
+        /// <summary>
+        /// Collects kcd.log, the agent's log files and the launcher's recent
+        /// app logs into a timestamped zip on the user's Desktop. Returns the
+        /// zip path. Files that do not exist are skipped, never fatal -- a
+        /// partial bundle beats no bundle.
+        /// </summary>
+        /// <param name="relayDirectory">
+        /// where the relay executable lives, i.e. where it writes
+        /// relay*.log if it has ever run from here. Empty is fine -- this
+        /// machine may be a joiner with no local relay process, exactly like
+        /// an empty GameRoot/AgentDirectory; the file simply will not exist
+        /// and is skipped like any other missing file. Before this WO the
+        /// relay had no persistent log at all (Console-only Serilog sink), so
+        /// there was nothing here to collect regardless of this parameter --
+        ///
+        /// </param>
+        public static string Collect(string gameRoot, string agentDirectory, string relayDirectory = "", string? zipPath = null)
+        {
+            // Cairn: the player picks where the zip goes (Settings > Save the logs); the Desktop is only the default
+            zipPath ??= Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                $"Cairn-logs-{DateTime.Now:yyyyMMdd-HHmmss}.zip");
+
+            using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
+
+            // Cairn: which build this is, in one small file (the first thing to look at when two players' logs disagree)
+            try
+            {
+                var info = zip.CreateEntry("cairn-info.txt", CompressionLevel.Optimal);
+                using var iw = new StreamWriter(info.Open());
+                iw.WriteLine($"Cairn version : {Globals.CairnVersion}");
+                iw.WriteLine($"Handshake     : {Globals.Version}   (players with the same Major.Minor join each other)");
+                iw.WriteLine($"Saved at      : {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                iw.WriteLine($"Windows       : {Environment.OSVersion.VersionString}");
+                iw.WriteLine($"Game folder   : {(string.IsNullOrWhiteSpace(gameRoot) ? "(not set)" : "set")}");
+                iw.WriteLine("Note          : the game keeps writing kcd.log while it runs; for the whole session, save the logs after closing the game.");
+            }
+            catch { }
+
+            // The game holds kcd.log open while running; the agent holds
+            // agent.log; Serilog holds the current app log. Everything is
+            // therefore read with full sharing rather than ZipArchive's own
+            // exclusive CreateEntryFromFile.
+            void AddIfPresent(string? path, string entryName)
+            {
+                try
+                {
+                    if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return;
+                    using var src = new FileStream(path, FileMode.Open, FileAccess.Read,
+                        FileShare.ReadWrite | FileShare.Delete);
+                    var entry = zip.CreateEntry(entryName, CompressionLevel.Optimal);
+                    using var dst = entry.Open();
+                    src.CopyTo(dst);
+                }
+                catch
+                {
+                    // One unreadable file must not sink the bundle.
+                }
+            }
+
+            string? kcdLog = FindKcdLog(gameRoot);
+            AddIfPresent(kcdLog, "kcd.log");
+
+            // the two files this bundle was missing when it mattered.
+            // The 2026-08-25 host freeze was only diagnosable because the
+            // native mirror log and the engine's own kcd.log backup happened
+            // to survive on disk -- neither was in any exported bundle.
+            // cairn-native.mirror.log lives in the game root (next to
+            // kcd.log, see native/Cairn/log.h), and CryEngine rotates the
+            // PREVIOUS run's kcd.log into logbackups\ -- which is the run a
+            // tester is usually reporting about, since they collect logs
+            // after restarting a crashed game.
+            if (kcdLog is not null)
+            {
+                string kcdDir = Path.GetDirectoryName(kcdLog) ?? "";
+                AddIfPresent(Path.Combine(kcdDir, "cairn-native.mirror.log"), "cairn-native.mirror.log");
+                try
+                {
+                    var backups = new DirectoryInfo(Path.Combine(kcdDir, "logbackups"))
+                        .GetFiles("*.log")
+                        .OrderByDescending(f => f.LastWriteTimeUtc)
+                        .Take(2);
+                    foreach (var b in backups)
+                        AddIfPresent(b.FullName, $"logbackups/{b.Name}");
+                }
+                catch { }
+            }
+
+            if (!string.IsNullOrWhiteSpace(agentDirectory))
+            {
+                AddIfPresent(Path.Combine(agentDirectory, "agent.log"), "agent.log");
+                AddIfPresent(Path.Combine(agentDirectory, "agent.prev.log"), "agent.prev.log");
+                AddIfPresent(Path.Combine(agentDirectory, "agent.prev2.log"), "agent.prev2.log");
+                // The primary native log sits beside the DLL, which ships in
+                // the same directory as the agent.
+                AddIfPresent(Path.Combine(agentDirectory, "cairn-native.log"), "cairn-native.log");
+                // the mod menu's remembered choices, filtered (Models/ModSettingsReport.cs): its own
+                // keys with on/off or joint/individual only -- nothing typed by hand reaches the zip.
+                try
+                {
+                    string ms = Path.Combine(agentDirectory, "mod-settings.json");
+                    if (File.Exists(ms))
+                    {
+                        byte[] raw;
+                        using (var src = new FileStream(ms, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                        using (var mem = new MemoryStream())
+                        {
+                            src.CopyTo(mem);
+                            raw = mem.ToArray();
+                        }
+                        if (Cairn.Launcher.Models.ModSettingsReport.Filter(raw) is string filtered)
+                        {
+                            var entry = zip.CreateEntry("mod-settings.json", CompressionLevel.Optimal);
+                            using var w = new StreamWriter(entry.Open());
+                            w.Write(filtered);
+                        }
+                    }
+                }
+                catch { }
+                // the leash recorder's CSVs (mp_leash_trace), newest first.
+                try
+                {
+                    var leash = new DirectoryInfo(Path.Combine(agentDirectory, "leash"));
+                    if (leash.Exists)
+                        foreach (var f in leash.GetFiles("leash-*.csv").OrderByDescending(f => f.LastWriteTimeUtc).Take(8))
+                            AddIfPresent(f.FullName, $"leash/{f.Name}");
+                }
+                catch { }
+            }
+
+            // Serilog's rolling file names are app<yyyyMMdd>.log; take the two
+            // newest so the bundle covers a session that straddled midnight.
+            try
+            {
+                foreach (var f in new DirectoryInfo(Globals.AppFolder)
+                             .GetFiles("app*.log")
+                             .OrderByDescending(f => f.LastWriteTimeUtc)
+                             .Take(2))
+                    AddIfPresent(f.FullName, f.Name);
+            }
+            catch { }
+
+            // the relay's own Serilog output (relay<yyyyMMdd>.log, same
+            // rolling shape as this launcher's app.log -- see
+            // dotnet/Cairn.Server/appsettings.json), including its
+            // [CLAIM_GATE-REJECT]/[CLAIM]/[CLAIM-CONTESTED] lines. Only exists on
+            // whichever machine hosted; DirectoryInfo on a bad/empty path or
+            // GetFiles finding nothing both no-op through the same try/catch
+            // used above, so a joiner (or a host who never started a relay
+            // this install) collects a bundle with this simply absent, not an
+            // error or a misleading empty entry.
+            if (!string.IsNullOrWhiteSpace(relayDirectory))
+            {
+                try
+                {
+                    foreach (var f in new DirectoryInfo(relayDirectory)
+                                 .GetFiles("relay*.log")
+                                 .OrderByDescending(f => f.LastWriteTimeUtc)
+                                 .Take(2))
+                        AddIfPresent(f.FullName, f.Name);
+                }
+                catch { }
+            }
+
+            // the logs of the launches before this one (KeepHistory), newest first -- a
+            // restart used to overwrite the only copy of a crash's or a black screen's logs.
+            try
+            {
+                var hist = new DirectoryInfo(HistoryFolder);
+                if (hist.Exists)
+                    foreach (var d in hist.GetDirectories("launch-*").OrderByDescending(d => d.Name).Take(HistoryKeep))
+                        foreach (var f in d.GetFiles())
+                            AddIfPresent(f.FullName, $"history/{d.Name}/{f.Name}");
+            }
+            catch { }
+
+            // The launcher's real settings file (written by Home.SaveSettings
+            // as a working-directory-relative "settings.json").
+            AddIfPresent(Path.GetFullPath("settings.json"), "settings.json");
+            AddIfPresent(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json"),
+                "settings.launcher-dir.json");
+            AddIfPresent(Globals.ConfigFilePath, "config.json");
+
+            return zipPath;
+        }
+
+        /// <summary>where KeepHistory puts the logs of earlier launches (one folder per launch).</summary>
+        public static string HistoryFolder => Path.Combine(Globals.AppFolder, "log-history");
+
+        /// <summary>how many earlier launches are kept.</summary>
+        public const int HistoryKeep = 6;
+
+        /// <summary>
+        /// partner set (log retention): called right before the game starts. The game writes a new kcd.log
+        /// at every start and keeps ONE backup; the DLL's logs start over at every injection. A second
+        /// restart after a crash therefore used to overwrite the only copy of the crash's logs. This
+        /// copies the logs as they are now -- the previous launch's -- into log-history\launch-&lt;time&gt;
+        /// and keeps the newest <see cref="HistoryKeep"/> launches. Never fatal.
+        /// </summary>
+        public static void KeepHistory(string gameRoot, string agentDirectory)
+        {
+            try
+            {
+                var files = new List<(string Path, string Name)>();
+                string? kcdLog = FindKcdLog(gameRoot);
+                if (kcdLog is not null)
+                {
+                    string kcdDir = Path.GetDirectoryName(kcdLog) ?? "";
+                    files.Add((kcdLog, "kcd.log"));
+                    files.Add((Path.Combine(kcdDir, "cairn-native.mirror.log"), "cairn-native.mirror.log"));
+                }
+                if (!string.IsNullOrWhiteSpace(agentDirectory))
+                    files.Add((Path.Combine(agentDirectory, "cairn-native.log"), "cairn-native.log"));
+                files = files.Where(f => File.Exists(f.Path)).ToList();
+                if (files.Count == 0) return;
+
+                // named by the time the previous launch's kcd.log was last written (its end)
+                DateTime stamp = files.Max(f => File.GetLastWriteTime(f.Path));
+                string dir = Path.Combine(HistoryFolder, $"launch-{stamp:yyyyMMdd-HHmmss}");
+                if (Directory.Exists(dir)) return;   // this launch's logs are kept already
+                Directory.CreateDirectory(dir);
+                foreach (var (path, name) in files)
+                {
+                    try
+                    {
+                        using var src = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                        using var dst = new FileStream(Path.Combine(dir, name), FileMode.CreateNew, FileAccess.Write);
+                        src.CopyTo(dst);
+                    }
+                    catch { }
+                }
+                foreach (var old in new DirectoryInfo(HistoryFolder).GetDirectories("launch-*")
+                             .OrderByDescending(d => d.Name).Skip(HistoryKeep))
+                {
+                    try { old.Delete(recursive: true); } catch { }
+                }
+            }
+            catch
+            {
+                // log retention must never stop a launch
+            }
+        }
+
+        /// <summary>
+        /// Finds the game's kcd.log the way the agent does, rather than
+        /// trusting one derived directory: try the supplied game root, walk
+        /// up from it a few levels, then scan every KCD-ish folder in every
+        /// Steam library and take the most recently written match.
+        /// </summary>
+        internal static string? FindKcdLog(string gameRoot)   // also the CONNECT gate's (Home.Beta.cs)
+        {
+            try
+            {
+                // 1. The supplied root and its parents.
+                string dir = gameRoot ?? "";
+                for (int i = 0; i < 4 && !string.IsNullOrWhiteSpace(dir); i++)
+                {
+                    string candidate = Path.Combine(dir, "kcd.log");
+                    if (File.Exists(candidate)) return candidate;
+                    dir = Path.GetDirectoryName(dir) ?? "";
+                }
+
+                // 2. Steam library scan (the agent's KcdLogLocator logic).
+                var logs = new List<FileInfo>();
+                foreach (var root in SteamLibraryRoots())
+                {
+                    string common = Path.Combine(root, "steamapps", "common");
+                    if (!Directory.Exists(common)) continue;
+
+                    IEnumerable<string> subdirs;
+                    try { subdirs = Directory.EnumerateDirectories(common); }
+                    catch { continue; }
+
+                    foreach (var d in subdirs)
+                    {
+                        string name = Path.GetFileName(d);
+                        if (!name.Contains("Kingdom", StringComparison.OrdinalIgnoreCase) &&
+                            !name.Contains("KCD", StringComparison.OrdinalIgnoreCase))
+                            continue;
+                        try
+                        {
+                            logs.AddRange(new DirectoryInfo(d)
+                                .EnumerateFiles("kcd.log", SearchOption.TopDirectoryOnly));
+                        }
+                        catch { }
+                    }
+                }
+
+                return logs.Count == 0
+                    ? null
+                    : logs.OrderByDescending(f => f.LastWriteTimeUtc).First().FullName;
+            }
+            catch { return null; }
+        }
+
+        private static IEnumerable<string> SteamLibraryRoots()
+        {
+            string? steam =
+                Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Valve\Steam", "InstallPath", null) as string
+                ?? Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Valve\Steam", "InstallPath", null) as string
+                ?? Registry.GetValue(@"HKEY_CURRENT_USER\SOFTWARE\Valve\Steam", "SteamPath", null) as string;
+
+            if (steam is null) yield break;
+            yield return steam;
+
+            string vdf = Path.Combine(steam, "config", "libraryfolders.vdf");
+            if (!File.Exists(vdf)) yield break;
+
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { steam };
+            IEnumerable<string> lines;
+            try { lines = File.ReadLines(vdf); }
+            catch { yield break; }
+
+            foreach (var line in lines)
+            {
+                var m = Regex.Match(line.Trim(), @"""path""\s+""([^""]+)""", RegexOptions.IgnoreCase);
+                if (!m.Success) continue;
+                string p = m.Groups[1].Value.Replace(@"\\", @"\");
+                if (seen.Add(p)) yield return p;
+            }
+        }
+    }
+}

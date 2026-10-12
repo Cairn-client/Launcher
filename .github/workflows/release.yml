@@ -1,0 +1,50 @@
+name: Release
+
+# A release is a bare X.Y.Z tag on main. The tag must equal VERSION and be a single valid bump of the previous release.
+on:
+  push:
+    tags: ['[0-9]+.[0-9]+.[0-9]+']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Tag must be on main
+        shell: pwsh
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/main
+          if ($LASTEXITCODE -ne 0) { throw "tag $env:GITHUB_REF_NAME is not on main" }
+
+      - name: Versioning policy
+        shell: pwsh
+        run: ./tools/Test-VersionPolicy.ps1 -Tag $env:GITHUB_REF_NAME
+
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 8.0.x }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer (runs every test gate)
+        shell: pwsh
+        run: |
+          ./tools/Build-Installer.ps1
+          if (-not (Test-Path "release/Cairn-Setup-$env:GITHUB_REF_NAME.exe")) { throw "installer missing" }
+
+      - name: Changelog
+        shell: pwsh
+        run: ./tools/New-ReleaseNotes.ps1 -OutFile notes.md -Tag $env:GITHUB_REF_NAME
+
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create $env:GITHUB_REF_NAME "release/Cairn-Setup-$env:GITHUB_REF_NAME.exe" --title $env:GITHUB_REF_NAME --notes-file notes.md --verify-tag

@@ -1,0 +1,708 @@
+@* Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+   GPLv3 section 7 additional terms: AUTHORS.md. This project's own code only; Kingdom Come: Deliverance II and its
+   content belong to Warhorse Studios and PLAION. Unofficial, free, not affiliated with or endorsed by them.
+   Portions from the original project, marczukmichal/kcd2-multiplayer; its author keeps their copyright (AUTHORS.md). *@
+@page "/"
+@using Cairn.Launcher.Components
+@using Cairn.Launcher.Components.Modals
+@using Cairn.Launcher.Components.Views
+@using Cairn.Launcher.Components.Shared
+@using Cairn.Launcher.Models
+@using Microsoft.JSInterop
+@using System.Diagnostics
+@using System.Text.Json
+
+@* Cairn: the top bar is the navbar: Home and Library on the left, Settings, Versions and Help on the right, each a page of the window.
+   About, Report a bug); under it the game list is on the left and the selected game's page (Host / Join) on the right. Nothing in
+   the bar is per game. *@
+<div class="shell">
+
+    <header class="topbar">
+        <div class="brand">
+            <img src="img/logo-128.png" alt="" />
+            <div class="brand-name">CAIRN</div>
+        </div>
+
+        <nav class="nav" aria-label="Pages">
+            <button class="nav-btn @(currentView == AppView.Home ? "active" : "")" aria-current="@(currentView == AppView.Home ? "page" : null)" @onclick="() => NavigateTo(AppView.Home)">Home</button>
+            <button class="nav-btn @(currentView == AppView.Library ? "active" : "")" aria-current="@(currentView == AppView.Library ? "page" : null)" @onclick="() => NavigateTo(AppView.Library)">Library</button>
+        </nav>
+
+        <nav class="nav right" aria-label="Launcher">
+            <button class="nav-btn search-btn" title="Search games (Ctrl+K)" aria-label="Search games" @onclick="() => showQuickSearch = true">Search <kbd>Ctrl K</kbd></button>
+            <button class="nav-btn @(currentView == AppView.Settings ? "active" : "")" aria-current="@(currentView == AppView.Settings ? "page" : null)" title="Settings (F10)" @onclick="() => NavigateTo(AppView.Settings)">Settings</button>
+            <button class="nav-btn @(currentView == AppView.Versions ? "active" : "")" aria-current="@(currentView == AppView.Versions ? "page" : null)" @onclick="() => NavigateTo(AppView.Versions)">Versions</button>
+            <button class="nav-btn @(currentView == AppView.Help ? "active" : "")" aria-current="@(currentView == AppView.Help ? "page" : null)" @onclick="() => NavigateTo(AppView.Help)">Help</button>
+        </nav>
+
+        <button class="topbar-exit" title="Exit (Esc)" aria-label="Exit" @onclick="ExitApp">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+        </button>
+    </header>
+
+    @if (currentView == AppView.Library)
+    {
+
+    <aside class="sidebar">
+        <input class="game-search" type="search" placeholder="Search games" aria-label="Search games"
+               @bind="gameFilter" @bind:event="oninput" />
+
+        <div class="list-controls">
+            <div class="filter-checks" role="group" aria-label="Show only">
+                <label class="check"><input type="checkbox" checked="@gameFilterMode.HasFlag(GameFilter.OnThisPc)" @onchange="() => ToggleGameFilter(GameFilter.OnThisPc)" /><span>On this PC</span></label>
+                <label class="check"><input type="checkbox" checked="@gameFilterMode.HasFlag(GameFilter.ModInstalled)" @onchange="() => ToggleGameFilter(GameFilter.ModInstalled)" /><span>Mod installed</span></label>
+                <label class="check"><input type="checkbox" checked="@gameFilterMode.HasFlag(GameFilter.Favorites)" @onchange="() => ToggleGameFilter(GameFilter.Favorites)" /><span>Favourites</span></label>
+            </div>
+            <div class="list-toolbar">
+                <label class="group-field">
+                    <span class="group-label">Group</span>
+                    <select class="group-select" aria-label="Group games by" value="@gameGrouping" @onchange="OnGroupingChanged">
+                        <option value="@GameGrouping.Title">Title</option>
+                        <option value="@GameGrouping.Developer">Developer</option>
+                        <option value="@GameGrouping.Franchise">Franchise</option>
+                    </select>
+                </label>
+                <div class="folder-tools" role="group" aria-label="Folders">
+                    <button class="tool-btn" title="Open all folders" aria-label="Open all folders" @onclick="OpenAllFolders">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 6 12 11 17 6"/><polyline points="7 13 12 18 17 13"/></svg>
+                    </button>
+                    <button class="tool-btn" title="Close all folders" aria-label="Close all folders" @onclick="CloseAllFolders">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 11 12 6 17 11"/><polyline points="7 18 12 13 17 18"/></svg>
+                    </button>
+                    <button class="tool-btn @(listPrefs.RecentFirst ? "active" : "")" title="@(listPrefs.RecentFirst ? "Recently played first (click for by title)" : "Sort by recently played")" aria-label="Sort by recently played" aria-pressed="@(listPrefs.RecentFirst ? "true" : "false")" @onclick="ToggleRecentFirst">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+                    </button>
+                    <button class="tool-btn @(listDescending ? "active" : "")" title="@(listDescending ? "Order: Z to A (click for A to Z)" : "Order: A to Z (click for Z to A)")" aria-label="Change the order" @onclick="FlipListOrder">
+                        @if (listDescending)
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16"/><path d="M3 16l4 4 4-4"/><path d="M14 5h6l-6 6h6"/><path d="M14 20l3-7 3 7"/><path d="M15 18h4"/></svg>
+                        }
+                        else
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20V4"/><path d="M3 8l4-4 4 4"/><path d="M14 11l3-7 3 7"/><path d="M15 9h4"/><path d="M14 20h6l-6-6h6"/></svg>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-list">
+            @{ var groups = GameGroups(); }
+            @foreach (var group in groups)
+            {
+                bool open = IsFolderOpen(group);
+                <div class="folder @(open ? "open" : "")">
+                    <button class="folder-head" aria-expanded="@(open ? "true" : "false")" @onclick="() => ToggleFolder(group)">
+                        <svg class="folder-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+                        <svg class="folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                        <span class="folder-name">@group.Header</span>
+                        <span class="folder-count">@group.Games.Count</span>
+                    </button>
+                    @if (open)
+                    {
+                        <div class="folder-body">
+                            @foreach (var profile in group.Games)
+                            {
+                                bool found = IsGameFound(profile);
+                                <button class="game-item @(profile.Id == selectedGameId ? "selected" : "")" @onclick="() => SelectGame(profile.Id)" @oncontextmenu="e => OpenGameMenu(profile.Id, e)" @oncontextmenu:preventDefault="true">
+                                    <span class="game-logo">@if (profile.LogoImage.Length > 0) { <img src="@profile.LogoImage" alt="" /> } else { <span>@profile.Id.ToUpperInvariant()</span> }</span>
+                                    <span class="game-item-text">
+                                        <span class="game-item-name">@profile.DisplayName@if (IsFavorite(profile.Id)) { <span class="fav-mark" title="Favourite">&#9829;</span> }</span>
+                                        <span class="game-item-state @(!profile.IsSupported ? "soon" : found && !NeedsMod(profile) ? "ok" : "warn")">@(!profile.IsSupported ? "Coming soon" : !found ? "Not found" : NeedsMod(profile) ? "Mod needed" : "Ready")</span>
+                                    </span>
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            @if (groups.Count == 0)
+            {
+                <div class="game-empty">@EmptyListMessage()</div>
+            }
+        </div>
+    </aside>
+
+    <main class="main">
+        @if (SelectedProfile is { } game)
+        {
+            bool isCurrentGameRunning = gameRunning && (string.IsNullOrEmpty(launchedGameId) || launchedGameId == game.Id);
+            bool gameFound = IsGameFound(game);
+            bool needsMod = NeedsMod(game);   // a supported game is not playable until its mod is downloaded
+            bool hostRunning = isCurrentGameRunning && launchedAs == "host";
+            bool joinRunning = isCurrentGameRunning && launchedAs == "join";
+            <div class="stage" style="@(game.Accent.Length > 0 ? $"--cairn-gold: {game.Accent};" : "")">
+                @if (game.BackgroundImage.Length > 0)
+                {
+                    @* the picture is the top of the page: it scrolls with the content and fades into the dark below it *@
+                    <div class="backdrop" style="background-image: url('@game.BackgroundImage');"></div>
+                }
+                <div class="page">
+
+                    <div class="page-front">
+                    <div class="hero-text">
+                        @if (game.LogoImage.Length > 0)
+                        {
+                            <img class="hero-logo" src="@game.LogoImage" alt="@game.DisplayName" />
+                            <h1 class="sr-only">@game.DisplayName</h1>
+                        }
+                        else
+                        {
+                            <h1>@game.DisplayName</h1>
+                        }
+                        <div class="chips">
+                            <button class="chip chip-btn ready-check @(readyCheckStatus == CheckStatus.Ok ? "ok" : readyCheckStatus == CheckStatus.Warn ? "warn" : "fail")" title="Check the game, the mod, Steam and the port before you play" @onclick="OpenPreflightAsync">
+                                @if (readyCheckStatus == CheckStatus.Ok)
+                                {
+                                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                }
+                                else if (readyCheckStatus == CheckStatus.Warn)
+                                {
+                                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                }
+                                else
+                                {
+                                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                }
+                                <span>Ready check</span>
+                            </button>
+                        </div>
+                        @if (game.Description.Length > 0)
+                        {
+                            <p class="hero-desc">@game.Description</p>
+                        }
+                    </div>
+
+                    <div class="actions">
+                        @if (!(dlss5Busy && game.Id == GameProfileRegistry.Kcd2Id))
+                        {
+                            @if (hostRunning)
+                            {
+                                <div class="split-action">
+                                    <button class="action stop split-main" disabled="@(!game.IsSupported || needsMod)" @onclick="HostClickAsync" title="Stop hosting this game">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><line x1="7" y1="6.5" x2="7.01" y2="6.5"/><line x1="7" y1="17.5" x2="7.01" y2="17.5"/></svg>
+                                        <span>Stop hosting</span>
+                                    </button>
+                                    @if (PresenceOn)
+                                    {
+                                        <button class="action split-copy" @onclick="OpenInvite" title="Invite a friend who uses Cairn">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                                            <span>Invite</span>
+                                        </button>
+                                    }
+                                    <button class="action split-copy @(hostCodeCopied ? "copied" : "")" @onclick="CopyHostCodeAsync" title="@(string.IsNullOrWhiteSpace(hostSteamCode) ? "Open host details (code)" : "Copy host code to clipboard")">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                        <span>@(hostCodeCopied ? "Copied!" : (string.IsNullOrWhiteSpace(hostSteamCode) ? "Host code" : "Copy code"))</span>
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                <button class="action primary" disabled="@(!game.IsSupported || needsMod || gameRunning)" @onclick="HostClickAsync">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><line x1="7" y1="6.5" x2="7.01" y2="6.5"/><line x1="7" y1="17.5" x2="7.01" y2="17.5"/></svg>
+                                    <span>Host a game</span>
+                                </button>
+                            }
+                        }
+                        <button class="action @(joinRunning ? "stop" : "")" disabled="@(!game.IsSupported || needsMod || (gameRunning && !joinRunning) || (dlss5Busy && game.Id == GameProfileRegistry.Kcd2Id))" @onclick="JoinClickAsync">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                            <span>@(joinRunning ? "Leave game" : "Join a game")</span>
+                        </button>
+                        <button class="action ghost fav-btn @(IsFavorite(game.Id) ? "on" : "")" aria-pressed="@(IsFavorite(game.Id) ? "true" : "false")"
+                                title="@(IsFavorite(game.Id) ? "Remove from favourites" : "Add to favourites")" @onclick="() => ToggleFavoriteWithToast(game)">
+                            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="@(IsFavorite(game.Id) ? "currentColor" : "none")"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+                            <span>@(IsFavorite(game.Id) ? "Favourited" : "Favourite")</span>
+                        </button>
+                        <button class="action ghost" title="Settings for this game" disabled="@(!game.IsSupported)" @onclick="OpenGameSettings">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                            <span>Settings</span>
+                        </button>
+                    </div>
+
+                    <dl class="details modbar">
+                            @{ var pack = InstalledPackOf(game); var offered = CatalogPackOf(game); }
+                            <div class="wide mod-row">
+                                <dt>Mod</dt>
+                                <dd>
+                                    @if (packBusyId == game.Id)
+                                    {
+                                        <span class="mod-state">Downloading @((int)(packProgressValue * 100))%</span>
+                                        <span class="mod-bar"><span style="width: @((int)(packProgressValue * 100))%"></span></span>
+                                    }
+                                    else if (pack is not null)
+                                    {
+                                        <span class="mod-state ok">Downloaded (@pack.Version)@(IsModInstalled(game) ? "" : ", not installed")</span>
+                                        @if (!IsModInstalled(game) && game.Id == Cairn.Setup.ModInstall.PackId) { <button class="link-btn strong" disabled="@(gameRunning)" @onclick="() => InstallModAsync(game.Id)">Install</button> }
+                                        @if (offered is not null && offered.Version != pack.Version) { <button class="link-btn" @onclick="() => DownloadPackAsync(game.Id)">Update to @offered.Version</button> }
+                                        <button class="link-btn" title="Remove the downloaded mod" @onclick="() => RemovePackAsync(game.Id)">Remove</button>
+                                    }
+                                    else if (offered is not null)
+                                    {
+                                        <span class="mod-state">Not downloaded</span>
+                                        <button class="link-btn strong" @onclick="() => DownloadPackAsync(game.Id)">Download mod (@(offered.Size / 1024) KB)</button>
+                                    }
+                                    else if (!packIndexTried)
+                                    {
+                                        <span class="mod-state">Checking for the mod...</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="mod-state">@(packIndex is null ? "The mod catalog is not available right now." : "No mod for this game yet.")</span>
+                                        @if (packIndex is null) { <button class="link-btn" @onclick="LoadPackIndexAsync">Retry</button> }
+                                    }
+                                    @if (packMessage.Length > 0) { <span class="mod-note @(packMessageIsError ? "err" : "")">@packMessage</span> }
+                                </dd>
+                            </div>
+                        @if (game.Requirements.Count > 0)
+                        {
+                            <div class="wide mod-row">
+                                <dt>Requires</dt>
+                                <dd>
+                                    @foreach (var req in game.Requirements)
+                                    {
+                                        <span class="req-item">
+                                            <span class="mod-state">@req.Name</span>
+                                            <button class="link-btn" title="Open it in your Steam library" @onclick="() => OpenSteamLibrary(req.AppId)">Steam library</button>
+                                        </span>
+                                    }
+                                </dd>
+                            </div>
+                        }
+                    </dl>
+
+                    @if (!gameFound && game.IsSupported)
+                    {
+                        <div class="notice warn">The game was not found on this PC. Set its path in <strong>Settings</strong>.</div>
+                    }
+
+                    <div class="glass info">
+                        <div class="info-col">
+                        <div class="info-title">How it works</div>
+                        <ol class="steps">
+                            <li><span class="step-n">1</span><span>The host starts the game from Cairn and presses Start Game.</span></li>
+                            <li><span class="step-n">2</span><span>A friend picks the host in the Join list, or types the code.</span></li>
+                            <li><span class="step-n">3</span><span>Both play in the same world.</span></li>
+                        </ol>
+                        </div>
+                        <div class="info-col">
+                        @{ var info = InfoOf(game); }
+                        <div class="info-title">The game</div>
+                        <dl class="details stack">
+                            <div><dt>Developer</dt><dd>@(game.Developer.Length > 0 ? game.Developer : "-")</dd></div>
+                            <div><dt>Franchise</dt><dd>@(game.Franchise.Length > 0 ? game.Franchise : "-")</dd></div>
+                            <div><dt>Released</dt><dd>@(info?.Released ?? "-")</dd></div>
+                            <div><dt>Genres</dt><dd title="@(info is null ? "" : string.Join(", ", info.Genres))">@(info is { Genres.Count: > 0 } ? string.Join(", ", info.Genres) : "-")</dd></div>
+                            <div><dt>Steam app</dt><dd>@game.SteamAppId
+                                <button class="link-btn" title="Open this game in your Steam library" @onclick="() => OpenSteamLibrary(game)">Library</button>
+                                </dd></div>
+                        </dl>
+                        </div>
+                        <div class="info-col">
+                        <div class="info-title">What people think</div>
+                        <dl class="details stack">
+                            <div><dt>Steam reviews</dt><dd class="@ReviewClass(info)">@ReviewText(info)</dd></div>
+                            <div><dt>Metacritic</dt><dd>@if (info?.Metacritic is int mc) { <span class="score @ScoreClass(mc)">@mc</span> } else { <span>-</span> }</dd></div>
+                        </dl>
+                        <div class="info-title sub">On this PC</div>
+                        <dl class="details stack">
+                            <div class="wide"><dt>Install</dt><dd class="path" title="@game.InstallPath">@(gameFound ? game.InstallPath : "Not found")
+                                @if (!gameFound && game.Id != GameProfileRegistry.Kcd2Id) { <button class="link-btn" @onclick="() => LocateGame(game)">Locate game...</button> }
+                            </dd></div>
+                            @if (PlayedOf(game.Id) is { } played)
+                            {
+                                <div><dt>Last played</dt><dd>@(played.Role == "host" ? "Hosted" : "Joined") @HomeLogic.Ago(played.LastUtc, DateTime.UtcNow) (@(played.Sessions == 1 ? "1 session" : $"{played.Sessions} sessions"))</dd></div>
+                            }
+                        </dl>
+                        </div>
+                    </div>
+                    </div>
+
+                    @if (GameFeatures.For(game.Id) is { Count: > 0 } featureGroups)
+                    {
+                        var tab = featureGroups.Any(g => g.Title == featureTab) ? featureTab : featureGroups[0].Title;
+                        <div class="glass features">
+                            <div class="features-head">
+                                <div class="info-title">What the mod does</div>
+                                <div class="feature-legend">
+                                    @foreach (var st in new[] { FeatureStatus.Ready, FeatureStatus.InTest, FeatureStatus.Planned })
+                                    {
+                                        var n = GameFeatures.Count(featureGroups, st);
+                                        if (n > 0) { <span class="feature-pill @StatusClass(st)">@n @GameFeatures.Label(st)</span> }
+                                    }
+                                </div>
+                            </div>
+                            <div class="feature-tabs" role="tablist">
+                                @foreach (var g in featureGroups)
+                                {
+                                    var title = g.Title;
+                                    <button class="feature-tab @(tab == title ? "on" : "")" role="tab" @onclick="() => featureTab = title">@title <span class="n">@g.Items.Count</span></button>
+                                }
+                            </div>
+                            <div class="feature-rows">
+                                @foreach (var g in featureGroups.Where(x => x.Title == tab))
+                                {
+                                    @foreach (var f in g.Items)
+                                    {
+                                        <div class="feature-row">
+                                            <span class="feature-dot @StatusClass(f.Status)"></span>
+                                            <span class="feature-name">@f.Name</span>
+                                            <span class="feature-detail">@f.Detail</span>
+                                            <span class="feature-pill @StatusClass(f.Status)">@GameFeatures.Label(f.Status)</span>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </main>
+    }
+    else
+    {
+        <main class="page-view">
+            @switch (currentView)
+            {
+                case AppView.Home:
+                    var upd = HomeUpdate();
+                    <HomeView Games="@GameProfileRegistry.All()" OnPc="@IsGameFound" GamesOnPc="@HomeGamesOnPc" ModsInstalled="@HomeModsInstalled"
+                              Latest="@(changelog?.FirstOrDefault())" SetupReady="@(setupSnapshot is null ? null : SystemSetupGood)"
+                              UpdateTag="@upd.Tag" UpdateNotes="@upd.Notes" UpdateBusy="@updateBusy" OnUpdate="@HomeUpdateClickAsync"
+                              Last="@HomeLast" FriendsState="@homeFriendsState" Friends="@homeFriends" OnJoinFriend="@JoinFriendFromHomeAsync" History="@HomeHistory()"  ModBusyId="@packBusyId" ModProgress="@packProgressValue" ModUpdates="@ModUpdates()" OnUpdateMods="@UpdateAllModsAsync"
+                              Favorites="@HomeFavorites" OnToggleFavorite="@ToggleFavorite"
+                              OnOpenGame="@OpenGameFromHome" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenVersions="@(() => NavigateTo(AppView.Versions))"
+                              OnOpenHelp="@(() => NavigateTo(AppView.Help))" OnOpenSetup="@OpenSetupChecklist" />
+                    break;
+                case AppView.Versions:
+                    <VersionsView Releases="@changelog" CheckingUpdates="@updateBusy" OnCheckUpdates="@CheckUpdatesAndChangelogAsync" OnReload="@ReloadChangelogAsync" />
+                    break;
+                case AppView.Help:
+                    <HelpView OnReplayTour="@ReplayTour" OnOpenSetup="@OpenSetupChecklist" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenSettings="@(() => NavigateTo(AppView.Settings))" />
+                    break;
+                case AppView.Settings:
+                    <SettingsModal Inline="true" IsVisible="true"
+                                   Settings="@settings"
+                                   GameRunning="@gameRunning"
+                                   OnSave="@SaveSettings"
+                                   OnUninstall="@UninstallApp"
+                                   OnCollectLogs="@CollectMyLogs"
+                                   OnAddStartSave="@AddStartSaveAsync"
+                                   OnOpenStartSave="@OpenStartSaveFolder"
+                                   OnClose="@CancelSettings" />
+                    break;
+            }
+        </main>
+    }
+
+</div>
+
+@* the right-click menu of a game in the Library list *@
+@if (menuGameId is not null && GameProfileRegistry.Get(menuGameId) is { } mg)
+{
+    <div class="ctx-backdrop" @onclick="CloseGameMenu" @oncontextmenu="CloseGameMenu" @oncontextmenu:preventDefault="true"></div>
+    <div class="ctx-menu" style="left: @(menuX)px; top: @(menuY)px;" role="menu">
+        <div class="ctx-title">@mg.DisplayName</div>
+        <button role="menuitem" @onclick="() => MenuAction(() => ToggleFavoriteWithToast(mg))">@(IsFavorite(mg.Id) ? "Remove from favourites" : "Add to favourites")</button>
+        <button role="menuitem" @onclick="() => MenuAction(() => OpenGameFromHome(mg.Id))">Open the game page</button>
+        <button role="menuitem" @onclick="() => MenuAction(() => OpenSteamLibrary(mg))">Open in the Steam library</button>
+        <button role="menuitem" @onclick="() => MenuAction(() => OpenSteamStore(mg))">Open the Steam store page</button>
+        <button role="menuitem" disabled="@(!IsGameFound(mg))" @onclick="() => MenuAction(() => OpenInstallFolder(mg))">Open the install folder</button>
+        @if (IsModDownloaded(mg))
+        {
+            <button role="menuitem" class="danger" @onclick="() => MenuAction(() => RemovePackAsync(mg.Id))">Remove the mod</button>
+        }
+    </div>
+}
+
+@if (showPreflight)
+{
+    <div class="modal-overlay" @onclick="() => showPreflight = false">
+        <div class="modal-box" @onclick:stopPropagation="true">
+            <div class="modal-frame-top modal-frame-bg"></div>
+            <div class="modal-content" style="text-align: left;">
+                <div class="modal-title" style="text-align: center;">READY CHECK</div>
+                <ul class="preflight">
+                    @foreach (var item in preflightItems)
+                    {
+                        <li class="pf-@item.Status.ToString().ToLowerInvariant()">
+                            <span class="pf-mark" aria-hidden="true">@(item.Status == CheckStatus.Ok ? "✓" : item.Status == CheckStatus.Warn ? "!" : "✕")</span>
+                            <span><strong>@item.Title</strong><br /><span class="pf-detail">@item.Detail</span>
+                                @if (item.Title == "Host port" && item.Status != CheckStatus.Ok && portOwner is { } owner)
+                                {
+                                    <span class="pf-owner">Held by <strong>@owner.Name</strong> (process @owner.Pid)
+                                        @if (PortOwnerFinder.IsProtected(owner.Pid)) { <span class="pf-detail"> - it cannot be closed from here.</span> }
+                                        else if (!confirmClosePort) { <button class="cairn-btn pf-close" @onclick="() => confirmClosePort = true">CLOSE IT</button> }
+                                        else { <button class="cairn-btn danger pf-close" @onclick="ClosePortOwnerAsync">YES, FORCE CLOSE @owner.Name.ToUpperInvariant()</button> <button class="cairn-btn pf-close" @onclick="() => confirmClosePort = false">KEEP IT</button> }
+                                    </span>
+                                }
+</span>
+                        </li>
+                    }
+                </ul>
+                <div class="cairn-hint" style="text-align: center;">@(Preflight.CanPlay(preflightItems) ? "Nothing stops you. Warnings are advice." : "Fix the red lines first.")</div>
+                <div class="modal-actions">
+                    <button class="cairn-btn" @onclick="OpenPreflightAsync">CHECK AGAIN</button>
+                    <button class="cairn-btn primary" @onclick="() => showPreflight = false">CLOSE</button>
+                </div>
+            </div>
+            <div class="modal-frame-bottom modal-frame-bg"></div>
+        </div>
+    </div>
+}
+
+@* short notices that fade by themselves *@
+<div class="toasts" aria-live="polite">
+    @foreach (var t in toasts)
+    {
+        <div class="toast @(t.Error ? "err" : "")">
+            <span>@t.Text</span>
+            @if (t.Action is not null)
+            {
+                <button class="toast-action" @onclick="() => ToastActionAsync(t)">@t.Action</button>
+            }
+        </div>
+    }
+</div>
+
+<QuickSearch IsVisible="@showQuickSearch" Games="@GameProfileRegistry.All()" OnPc="@IsGameFound" Favorites="@HomeFavorites"
+             OnPick="@PickFromQuickSearch" OnClose="@(() => showQuickSearch = false)" />
+
+
+@* friends on Cairn: who is online right now, to invite to the game this launcher hosts *@
+@if (showInvite)
+{
+    <div class="modal-overlay" @onclick="() => showInvite = false">
+        <div class="modal-box" @onclick:stopPropagation="true">
+            <div class="modal-frame-top modal-frame-bg"></div>
+            <div class="modal-content" style="text-align: center;">
+                <div class="modal-title">INVITE A FRIEND</div>
+                @if (inviteNote.Length > 0) { <p>@inviteNote</p> }
+                @if (presence is null || presence.OnlineFriends.Count == 0)
+                {
+                    <p>None of your Steam friends are online with Cairn right now. They need to have the launcher open and list you as a Steam friend too.</p>
+                }
+                else
+                {
+                    @foreach (var f in presence.OnlineFriends)
+                    {
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 6px 0;">
+                            <span>@f.Name@(f.Activity != "online" && f.Game.Length > 0 ? $" ({f.Activity} {f.Game})" : "")</span>
+                            <button class="cairn-btn" @onclick="() => InviteFriendAsync(f)">INVITE</button>
+                        </div>
+                    }
+                }
+                <div class="modal-actions"><button class="cairn-btn" @onclick="() => showInvite = false">CLOSE</button></div>
+            </div>
+            <div class="modal-frame-bottom modal-frame-bg"></div>
+        </div>
+    </div>
+}
+
+@* Cairn: Stop hosting / Leave game closes the game, so it is asked first (the game's unsaved progress is lost). *@
+@if (showStopConfirm)
+{
+    <div class="modal-overlay">
+        <div class="modal-box" @onclick:stopPropagation="true">
+            <div class="modal-frame-top modal-frame-bg"></div>
+            <div class="modal-content" style="text-align: center;">
+                <div class="modal-title">@(stopWhat == "host" ? "STOP HOSTING?" : "LEAVE THE GAME?")</div>
+                <p>@(stopWhat == "host"
+                    ? "This closes the game for everyone in your world and ends the session. Anything you have not saved in the game is lost."
+                    : "This closes the game and takes you out of the host's world. Anything you have not saved in the game is lost.")</p>
+                <div class="modal-actions">
+                    <button class="cairn-btn danger" @onclick="ConfirmStopAsync">@(stopWhat == "host" ? "STOP HOSTING" : "LEAVE GAME")</button>
+                    <button class="cairn-btn" @onclick="CancelStop">CANCEL</button>
+                </div>
+            </div>
+            <div class="modal-frame-bottom modal-frame-bg"></div>
+        </div>
+    </div>
+}
+
+<UpdateModal IsVisible="@showUpdate"
+             Stage="@updateStage"
+             Tag="@(updateInfo?.Tag ?? "")"
+             Notes="@(updateInfo?.Notes ?? "")"
+             Reason="@updateReason"
+             Text="@updateStatus"
+             Progress="@updateProgress"
+             OnUpdate="@RunUpdateAsync"
+             OnOpenPage="@OpenUpdatePage"
+             OnClose="@UpdateLater" />
+
+@* the first-run checklist (and "Check setup"); hidden whenever setup is complete *@
+<SetupChecklistModal IsVisible="@showSetup" SystemOnly="@setupSystemOnly"
+                     Steps="@setupSteps"
+                     Lines="@setupLines"
+                     Busy="@setupBusy"
+                     OnAction="@HandleSetupActionAsync"
+                     OnCheckAgain="@CheckSetupAgainAsync"
+                     OnClose="@CloseSetupChecklist" />
+
+@if (launchStage == LaunchStage.WaitingForConnect && startGameTakeover)
+{
+    @* Cairn: under the menu takeover the launcher connects by itself, so waiting is a slim notice, not a window in the way *@
+    <div class="launch-pill" role="status">
+        <span>@launchStatusMessage</span>
+        <button class="link" @onclick="CancelPendingConnect">Cancel</button>
+    </div>
+}
+else if (launchStage != LaunchStage.Idle && launchStage != LaunchStage.Connected)   // Connected is a toast, not a window
+{
+    <div class="modal-overlay">
+        <div class="modal-box" @onclick:stopPropagation="true">
+            <div class="modal-frame-top modal-frame-bg"></div>
+            <div class="modal-content" style="text-align: center;">
+                <div class="modal-title">
+                    @(launchStage switch
+                    {
+                        LaunchStage.WaitingForConnect => "READY TO CONNECT",
+                        LaunchStage.Injecting => "INJECTING...",
+                        LaunchStage.Verifying => "VERIFYING...",
+                        LaunchStage.Connected => "CONNECTED",
+                        LaunchStage.Failed => "CONNECT FAILED",
+                        _ => ""
+                    })
+                </div>
+                <p style="margin: 15px 0;">@launchStatusMessage</p>
+                @if (launchStage == LaunchStage.WaitingForConnect && !ConnectEnabled && !string.IsNullOrEmpty(connectGateReason))
+                {
+                    @* why CONNECT waits, in plain words (Models/ConnectGate.cs) *@
+                    <div class="cairn-hint" style="margin-bottom: 12px;">@connectGateReason</div>
+                }
+
+                <div class="modal-actions">
+                    @if (launchStage == LaunchStage.WaitingForConnect)
+                    {
+                        @* Cairn: the launcher connects by itself under the menu takeover, so the button is shown only when it does not *@
+                        @if (!startGameTakeover)
+                        {
+                            <button class="cairn-btn primary" disabled="@(!ConnectEnabled)" @onclick="ConnectToGame">CONNECT</button>
+                        }
+                        <button class="cairn-btn" @onclick="CancelPendingConnect">CANCEL</button>
+                    }
+                    else if (launchStage == LaunchStage.Connected || launchStage == LaunchStage.Failed)
+                    {
+                        <button class="cairn-btn primary" @onclick="ResetLaunchState">CLOSE</button>
+                    }
+                </div>
+            </div>
+            <div class="modal-frame-bottom modal-frame-bg"></div>
+        </div>
+    </div>
+}
+
+<HostInfoModal  IsVisible="@showHostInfo"
+                Port="@settings.HostPort"
+                Addresses="@hostLanAddresses"
+                ShowAddress="@settings.ShowHostAddress"
+                ErrorMessage="@hostErrorMessage"
+                RelayRunning="@(hostedRelayProcess != null && !hostedRelayProcess.HasExited)"
+                AllowSteam="@settings.HostAllowSteam"
+                SteamState="@hostSteamState"
+                SteamMessage="@hostSteamMessage"
+                SteamCode="@hostSteamCode"
+                RefusedNotice="@hostRefusedNotice"
+                GameRunning="@(gameRunning && launchedAs == "host")"
+                OnLaunchAsHost="@LaunchAsHost"
+                OnClose="@(() => showHostInfo = false)" />
+
+<JoinSteamModal IsVisible="@showJoinSteam"
+                Code="@steamCodeInput"
+                CodeChanged="@(c => steamCodeInput = c)"
+                AppName="@SteamAppNameOf(settings.SteamAppId)"
+                Friends="@steamFriends"
+                FriendsNote="@steamFriendsNote"
+                ResultMessage="@steamResultMessage"
+                ResultOk="@steamResultOk"
+                Busy="@steamBusy"
+                BusyText="@steamBusyText"
+                OnJoin="@JoinThroughSteamAsync"
+                OnRefresh="@FindSteamFriendsAsync"
+                OnClose="@(() => showJoinSteam = false)" />
+
+<MessageModal IsVisible="@showMessage"
+              Title="@messageTitle"
+              Message="@messageText"
+              NextStep="@messageNext"
+              ShowAddressFallback="@messageAddressFallback"
+              Address="@fallbackAddress"
+              AddressChanged="@(a => fallbackAddress = a)"
+              OnUseAddress="@ConnectByAddressAfterSteamAsync"
+              ShowReportBug="@messageReportBug"
+              ShowLaunchAnyway="@launchAnywayAvailable"
+              OnLaunchAnyway="@LaunchAnywayAsync"
+              OnReportBug="@(() => { showMessage = false; Cairn.Launcher.Components.Shared.UrlLauncher.Open("https://github.com/Cairn-client/launcher/issues/new"); })"
+              OnClose="@(() => showMessage = false)" />
+
+<ExitModal  IsVisible="@showExitConfirm"
+            OnConfirm="@ConfirmExit"
+            OnClose="@(() => showExitConfirm = false)" />
+
+@* Cairn: the selected game's own settings, from the button beside Host and Join on its page *@
+<SettingsModal  IsVisible="@showGameSettings"
+                Scope="@selectedGameId"
+                Settings="@settings"
+                GameRunning="@gameRunning"
+                OnSave="@SaveGameSettings"
+                OnUninstall="@UninstallApp"
+                OnCollectLogs="@CollectMyLogs"
+                OnAddStartSave="@AddStartSaveAsync"
+                OnOpenStartSave="@OpenStartSaveFolder"
+                Dlss5Gpu="@Dlss5Gpu"
+                Dlss5GpuText="@Dlss5GpuText"
+                Dlss5Busy="@dlss5Busy"
+                OnClose="@CancelGameSettings" />
+
+<TourModal IsVisible="@showTour" OnClose="@FinishTour" />
+
+<ReportBugModal IsVisible="@showReportBug"
+                GameRoot="@LogBundleGameRoot"
+                AgentDirectory="@LogBundleAgentDirectory"
+                RelayDirectory="@LogBundleRelayDirectory"
+                OnClose="@(() => showReportBug = false)" />
+
+<VersionMismatchModal   IsVisible="@showVersionMismatch"
+                        Message="@versionMismatchMessage"
+                        OnClose="@(() => showVersionMismatch = false)" />
+
+@if (!string.IsNullOrEmpty(joinStatusMessage))
+{
+    @* the joiner's world transfer, from the agent's /join-status *@
+    <div class="join-status-banner" style="position: fixed; left: 50%; bottom: @(string.IsNullOrEmpty(connStatusLine) ? "64px" : "112px"); transform: translateX(-50%); padding: 10px 22px; background: rgba(var(--cairn-shadow-rgb), 0.92); border: 1px solid var(--cairn-oak-lit); color: var(--cairn-parchment); font-size: 16px; z-index: 900;">
+        @joinStatusMessage
+        @if (joinStatusState is "choose" or "choose-bring" or "choose-fresh")
+        {
+            @* a first join to this host world -- the player's choice, before anything is asked of the host.
+               only the choice that has a save of the host's game version is offered. *@
+            <div style="margin-top: 8px; display: flex; gap: 12px; justify-content: center;">
+                @if (joinStatusState != "choose-fresh")
+                {
+                    <button class="btn btn-primary" @onclick='() => SendJoinChoiceAsync("bring")'>Bring my character</button>
+                }
+                @if (joinStatusState != "choose-bring")
+                {
+                    <button class="btn btn-secondary" @onclick='() => SendJoinChoiceAsync("fresh")'>Start fresh</button>
+                }
+            </div>
+        }
+        else if (joinCanFresh)
+        {
+            @* no usable save (the message says why) -- the agent can join with a new character (mp_join_henry fresh) *@
+            <div style="margin-top: 8px; display: flex; gap: 12px; justify-content: center;">
+                <button class="btn btn-primary" @onclick='() => SendJoinChoiceAsync("fresh")'>Join with a new character</button>
+            </div>
+        }
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(connStatusLine))
+{
+    @* the agent's connection in plain words (never raw exception text) *@
+    <div class="conn-status-banner" style="position: fixed; left: 50%; bottom: 64px; transform: translateX(-50%); padding: 8px 20px; background: rgba(var(--cairn-shadow-rgb), 0.92); border: 1px solid @(connStatusBad ? "var(--cairn-blood)" : "var(--cairn-oak-lit)"); color: var(--cairn-parchment); font-size: 15px; z-index: 899; max-width: 80%; text-align: center;">
+        @connStatusLine
+    </div>
+}
+
+<ErrorModal />

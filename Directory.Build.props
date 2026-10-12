@@ -1,0 +1,51 @@
+<Project>
+  <!--
+    strip the build machine's absolute source paths from every
+    managed assembly and PDB this repo ships.
+
+    Without this, Roslyn embeds the full path of each compiled source file in
+    the PDB and the PDB's own path in the DLL's CodeView debug directory, so
+    an unhandled exception on a tester's machine prints the BUILD machine's
+    profile path: 0.22.4 printed
+      "... in C:\Users\<maintainer>\AppData\Local\Temp\...\Program.cs:line 79"
+    (observed, joiner app20260915.log). The concept read end gate built from a clone
+    under the maintainer's temp folder, so the leak carried a real Windows
+    username. PathMap rewrites the repo root to the conventional "/_/" at
+    compile time; stack traces then read "/_/Cairn.Launcher/Program.cs:line 79".
+
+    Sits at the repo root so it covers Cairn.Launcher/ and every dotnet/*
+    project alike (MSBuild walks up from each .csproj and imports the first
+    Directory.Build.props it finds). The native CMake build is unaffected:
+    CairnNative.dll carried no path strings in the 0.22.4 output (checked).
+  -->
+  <PropertyGroup>
+    <RepoRootForPathMap>$(MSBuildThisFileDirectory)</RepoRootForPathMap>
+    <PathMap>$(RepoRootForPathMap)=/_/</PathMap>
+    <Deterministic>true</Deterministic>
+    <!-- The .NET 8 SDK's implicit SourceLink writes a second copy of the
+         repo root into every PDB as a documents map
+         ({"documents":{"C:\Users\<you>\...\*":"https://raw.githubusercontent.com/..."}}),
+         which PathMap does not touch (found by grepping the first instrumentation test
+         build). Nothing consumes SourceLink here (the PDBs ship only so
+         stack traces carry line numbers), so turn it off rather than map it. -->
+    <EnableSourceLink>false</EnableSourceLink>
+    <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
+  </PropertyGroup>
+
+  <!--
+    Fail the build on an invalid VERSION file. The rule is docs/VERSIONING.md:
+    strict SemVer MAJOR.MINOR.PATCH, one line, no "v", no leading zeros, no
+    fourth part, no suffix. Runs for every project under this root.
+    (A value System.Version cannot parse at all, e.g. "0.1.4-beta", already
+    fails earlier while each csproj reads it; this catches the ones it
+    accepts: "0.1", "0.1.4.0", "0.01.4".)
+  -->
+  <Target Name="ValidateCairnVersionFile" BeforeTargets="PrepareForBuild;CoreCompile" Condition="Exists('$(MSBuildThisFileDirectory)VERSION')">
+    <PropertyGroup>
+      <_CairnVersionRaw>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)VERSION').Trim())</_CairnVersionRaw>
+      <_CairnVersionOk>$([System.Text.RegularExpressions.Regex]::IsMatch('$(_CairnVersionRaw)', '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'))</_CairnVersionOk>
+    </PropertyGroup>
+    <Error Condition="'$(_CairnVersionOk)' != 'True'"
+           Text="VERSION must be strict SemVer MAJOR.MINOR.PATCH (e.g. 0.1.4), no 'v' prefix, leading zeros, 4th part or suffix; got '$(_CairnVersionRaw)'. See docs/VERSIONING.md." />
+  </Target>
+</Project>

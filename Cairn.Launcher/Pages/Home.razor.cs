@@ -1,0 +1,1340 @@
+// Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+// GPLv3 section 7 additional terms: AUTHORS.md. This project's own code only; Kingdom Come: Deliverance II and its
+// content belong to Warhorse Studios and PLAION. Unofficial, free, not affiliated with or endorsed by them.
+// Portions from the original project, marczukmichal/kcd2-multiplayer; its author keeps their copyright (AUTHORS.md).
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using Cairn.Launcher.Components;
+using Cairn.Launcher.Components.Shared;
+using Cairn.Launcher.Models;
+using Cairn.Launcher.Services;
+using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
+using Serilog;
+using Cairn.Wire;
+
+
+// TO DO
+// SPLIT THIS MF INTO SEVERAL COMPONENTS, THIS FILE IS GETTING OUT OF HAND
+
+namespace Cairn.Launcher.Pages
+{
+    public partial class Home
+    {
+
+        [Inject] public required IJSRuntime JSRuntime { get; set; }
+        [Inject] public required UiService UiService { get; set; }
+
+        [Inject] public required NetService NetService { get; set; }
+
+        #region Constants
+        private const string SettingsFileName = "settings.json";
+        #endregion
+
+        #region State
+        private bool isLoading = false;
+
+
+
+        // Modals
+        private bool showExitConfirm = false;
+        private bool showHostInfo = false;
+        private bool showReportBug = false;
+        private bool showVersionMismatch = false;
+        private string versionMismatchMessage = "";
+        private CancellationTokenSource? versionPollCts;
+        // the joiner's world transfer ("Receiving the world... 62%"), polled from the agent.
+        private string joinStatusMessage = "";
+        private string joinStatusState = "idle";   // "choose" shows the first-join buttons
+        private bool joinCanFresh;                 // no usable save -- "Join with a new character"
+        // a joiner waits at the main menu and joins the host's world from there.
+        internal const string JoinerReadyText = "Stay at the main menu. Don't load a save. Click CONNECT -- you'll join your host's world automatically.";
+        private bool ownWorldModalShown;           // the "you loaded your own save" modal, once per stretch
+
+        private DotNetObjectReference<Home>? objRef;
+        private AppSettings settings = new AppSettings();
+        #endregion
+
+        #region Host state
+        private Process? hostedRelayProcess = null;
+        private List<string> hostLanAddresses = new List<string>();
+        private string hostErrorMessage = "";
+        #endregion
+
+        #region Master server state
+        private Process? hostedMasterServerProcess = null;
+        #endregion
+
+        #region Launch/connect state
+        // The launcher used to inject the instant WHGame.dll became loadable,
+        // which happens well before the game finishes loading a save -- the
+        // native DLL's own liveness check then finds zero engine ticks and
+        // silently aborts (see docs/VERIFICATION-REPORT.md, "Real finding").
+        // Re-injecting the same DLL path a second time does not help: Windows
+        // does not re-run DllMain for an already-loaded module. So injection
+        // now happens exactly once, gated on the player confirming they are
+        // actually in a loaded world, and the result is verified against the
+        // DLL's own log rather than trusted from the injector's exit code.
+        private enum LaunchStage { Idle, WaitingForConnect, Injecting, Verifying, Connected, Failed }
+        private LaunchStage launchStage = LaunchStage.Idle;
+        private Process? pendingGameProcess = null;
+        private ServerInfo? pendingServer = null;
+        private string? pendingDllPath = null;
+        private string? pendingGameExe = null;   // beta patch
+        private string launchStatusMessage = "";
+        // the agent started by ConnectToGame, tracked so a later Connect
+        // (e.g. after the game was closed and relaunched without restarting the
+        // launcher) can kill the old one first instead of leaving it running
+        // alongside a new one. Two agents both claiming the same local player
+        // identity to the relay was observed live to cause an infinite
+        // reconnect/respawn war -- ~4000 spawn cycles in ~10 minutes -- because
+        // neither side's ghost could ever be cleanly removed while the other
+        // kept reasserting it.
+        private Process? agentProcess = null;
+        #endregion
+
+        #region Filter State
+        private bool isFilterOpen = false;
+        #endregion
+
+        #region Data & Logic
+
+        // Dummy Data
+        private List<ServerInfo> servers = new List<ServerInfo>();
+    //    private List<ServerInfo> servers = new List<ServerInfo>
+    //{
+    //    new ServerInfo { Name = "Official PL Server #1", Ip = "127.0.0.1", Port = 27015, MapName = "skalitz_survival", Players = 12, MaxPlayers = 64, Ping = 25 },
+    //    new ServerInfo { Name = "Roleplay Tavern", Ip = "192.168.1.5", Port = 7777, MapName = "rataje_city", Players = 60, MaxPlayers = 64, Ping = 42 },
+    //    new ServerInfo { Name = "High Ping Test", Ip = "10.0.0.2", Port = 28000, MapName = "debug_map", Players = 1, MaxPlayers = 10, Ping = 150 },
+    //    new ServerInfo { Name = "Laggy Server", Ip = "10.0.0.2", Port = 28000, MapName = "forest", Players = 5, MaxPlayers = 10, Ping = 80 },
+    //    new ServerInfo { Name = "Polish Hussars", Ip = "10.0.0.5", Port = 28000, MapName = "skalitz_survival", Players = 32, MaxPlayers = 64, Ping = 30 },
+    //};
+        private const string CustomServersFileName = "custom_servers.json";
+        private List<ServerInfo> customServers = new List<ServerInfo>();
+
+        public void DisplayError()
+        {
+            UiService.ShowError("This is a test error message!");
+        }
+
+        #endregion
+
+        #region Lifecycle & Methods
+        protected override async Task OnInitializedAsync()
+        {
+            LoadSettings();
+            LoadCustomServers();
+            StartSetupCheck();   // in the background; replaces the old "open Settings when no game path" check
+            _ = LoadPackIndexAsync();   // which game mods this release offers
+            _ = LoadChangelogAsync();   // the Versions page and Home show what changed
+            StartHomeFriendsLoop();        // who is hosting, while Home is showing
+            showTour = !listPrefs.TourSeen;   // the first-run tour
+            CheckInstallIntegrity();
+            Globals.OnStyleChanged += OnStyleChanged;
+            await EnsureLocalMasterServerAsync();
+            StartPresence();   // friends on Cairn: who is online, invitations
+            await RefreshApp();
+        }
+
+        /// <summary>
+        /// NPC sync follow-up: a mixed install (some DLLs from one build, some
+        /// from another -- the half-applied-installer failure) is invisible
+        /// to the wire protocol because the mix is inside one machine, so
+        /// the launcher checks for it the moment it starts. Reuses the
+        /// version-mismatch modal: same shape of problem, same "someone
+        /// needs to update" conversation, just with yourself.
+        /// </summary>
+        private void CheckInstallIntegrity()
+        {
+            var problem = InstallIntegrity.CheckForPartialInstall();
+            if (problem is null) return;
+            Log.Warning("Partial install detected: {Problem}", problem);
+            versionMismatchMessage = problem;
+            showVersionMismatch = true;
+        }
+
+        private void OnStyleChanged() => _ = ApplyStyleProfile();
+
+        /// <summary>
+        /// Pushes the current StyleProfile's palette over site.css's :root
+        /// defaults (see StyleProfile.ToCssVariables). Called once after first
+        /// render -- JS interop is not available before then -- and again on
+        /// every Globals.OnStyleChanged, so switching or editing a profile
+        /// takes effect immediately without a restart.
+        /// </summary>
+        private async Task ApplyStyleProfile()
+        {
+            try { await JSRuntime.InvokeVoidAsync("applyCairnTheme", Globals.CurrentStyleProfile.ToCssVariables()); }
+            catch (Exception ex) { Log.Debug(ex, "Could not apply the style profile"); }
+        }
+
+        //CUSTOM SERVERS LOGIC
+        private void LoadCustomServers()
+        {
+            try
+            {
+                if (File.Exists(CustomServersFileName))
+                {
+                    var json = File.ReadAllText(CustomServersFileName);
+                    var loaded = JsonSerializer.Deserialize<List<ServerInfo>>(json);
+                    if (loaded != null) customServers = loaded;
+                }
+            }
+            catch { }
+            NoteCustomServerKeys();   // each entry's address as the file has it, for an edit
+        }
+
+
+        protected override async Task OnAfterRenderAsync(bool firstRender)
+        {
+            if (firstRender)
+            {
+                objRef = DotNetObjectReference.Create(this);
+                await JSRuntime.InvokeVoidAsync("registerGlobalKeys", objRef);
+                await ApplyStyleProfile();
+                try { await JSRuntime.InvokeVoidAsync("cairnGamepad"); } catch (Exception) { /* controller support is a convenience */ }
+                _ = CheckForUpdateAsync(announce: true);   // Cairn: is a newer version out (the update window opens by itself if so)
+                _ = WatchGameAsync();             // Cairn: is the game running
+
+                await JSRuntime.InvokeVoidAsync("eval", @"
+                document.addEventListener('keydown', (e) => {
+                    if(e.key === 'F10') {
+                        e.preventDefault();
+                        DotNet.invokeMethodAsync('Cairn.Launcher', 'ToggleSettingsStatic');
+                    }
+                })
+            ");
+            }
+        }
+
+        public void Dispose()
+        {
+            Globals.OnStyleChanged -= OnStyleChanged;
+            gameWatchCts.Cancel();
+            StopPresence();
+            objRef?.Dispose();
+        }
+
+        // Cairn: "is the game running?" -- one small line on the menu, looked at every few seconds
+        private readonly CancellationTokenSource gameWatchCts = new();
+        private bool gameRunning;
+        private string launchedAs = "";   // "host" or "join": what this launcher started the running game as
+        private string launchedGameId = "";   // id of the game profile that was launched
+
+        // HOST GAME starts hosting; while this launcher's own hosted game runs the same button shows the Host window again (the code)
+        private async Task OpenHostOrCode()
+        {
+            if (gameRunning && launchedAs == "host" && hostedRelayProcess != null && !hostedRelayProcess.HasExited)
+            {
+                hostErrorMessage = "";
+                hostLanAddresses = NetService.GetLocalIPv4Addresses();
+                showHostInfo = true;
+                return;
+            }
+            await OpenHostModal();
+        }
+
+        private bool hostCodeCopied;
+
+        private async Task CopyHostCodeAsync()
+        {
+            if (string.IsNullOrWhiteSpace(hostSteamCode))
+            {
+                // If Steam code isn't polled yet, show the host info modal so they can see LAN IPs or wait for code
+                await OpenHostOrCode();
+                return;
+            }
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", hostSteamCode);
+                hostCodeCopied = true;
+                ShowToast("Host code copied to clipboard");
+                _ = Task.Delay(2500).ContinueWith(_ =>
+                {
+                    hostCodeCopied = false;
+                    return InvokeAsync(StateHasChanged);
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to copy host code to clipboard");
+                ShowToast("Could not copy host code to clipboard", error: true);
+            }
+        }
+
+        private async Task WatchGameAsync()
+        {
+            try
+            {
+                Log.Information("dlss5: reading the graphics card");
+                await Task.Run(() => { _ = Dlss5Gpu; });   // the card is read once, away from the window (its settings show it)
+                Log.Information("dlss5: card read: {Gpu} ({Name})", dlss5GpuCache, dlss5GpuName);
+                int tick = 0;
+                while (!gameWatchCts.IsCancellationRequested)
+                {
+                    bool now = false;
+                    try { var ps = Process.GetProcessesByName("KingdomCome"); now = ps.Length > 0; foreach (var p in ps) p.Dispose(); } catch { }
+                    if (now != gameRunning)
+                    {
+                        gameRunning = now;
+                        PublishPresenceStatus();   // friends see online / playing / hosting
+                        if (!now)
+                        {
+                            bool wasHost = launchedAs == "host";
+                            launchedAs = "";
+                            launchedGameId = "";
+                            // a relay this launcher started for the hosted game goes with it: left running it holds the host port, and the
+                            // next Host finds the port taken
+                            if (wasHost) StopHostedRelay();
+                            // the Modding Tools' helper programs go with the game, so Steam stops showing the tools as running
+                            _ = Task.Run(CloseModdingTools);
+                            // the game closed on its own (the player quit it, or it crashed): the launch it belonged to is over, so the next
+                            // Host or Join is not refused with "a launch is already in progress"
+                            if (launchStage != LaunchStage.Idle) await InvokeAsync(ResetLaunchState);
+                        }
+                        await InvokeAsync(StateHasChanged);
+                    }
+
+                    // Cairn: the "Ready to play" chip is only as true as the last setup check, so while nothing else is going on the
+                    // check is taken again every 15 seconds (it takes about 60 ms; nothing is shown, nothing is changed).
+                    if (++tick % 5 == 0 && !now && !setupBusy && !showSetup && launchStage == LaunchStage.Idle)
+                    {
+                        try
+                        {
+                            var snap = await Task.Run(TakeSetupSnapshot);
+                            await InvokeAsync(() => { ApplySetupSnapshot(snap); StateHasChanged(); });
+                            await UpdatePreflightStatusAsync(showModal: false);
+                        }
+                        catch (Exception ex) { Log.Debug(ex, "setup: the periodic check failed"); }
+                    }
+                    await Task.Delay(3000, gameWatchCts.Token);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { Log.Warning(ex, "game watch stopped"); }
+        }
+
+        // JS Invokables
+        [JSInvokable("ToggleSettingsStatic")] public static void ToggleSettingsStatic() { }
+
+        [JSInvokable]
+        public void ToggleFiltersJS()
+        {
+            isFilterOpen = !isFilterOpen;
+            StateHasChanged();
+        }
+
+        [JSInvokable]
+        public void ToggleSettingsJS()
+        {
+            // opening re-reads settings.json (a value the mod menu wrote shows as saved);
+            // closing without SAVE puts the unsaved edits back.
+            if (showSettings) CancelSettings();
+            else OpenSettings();
+            StateHasChanged();
+        }
+
+        [JSInvokable]
+        public void ExitApp()
+        {
+            if (showQuickSearch) { showQuickSearch = false; StateHasChanged(); return; }
+            if (menuGameId is not null) { menuGameId = null; StateHasChanged(); return; }
+            if (showSettings) { CancelSettings(); StateHasChanged(); return; }
+            if (showGameSettings) { CancelGameSettings(); StateHasChanged(); return; }
+            if (isFilterOpen) { isFilterOpen = false; StateHasChanged(); return; }
+            showExitConfirm = true;
+            StateHasChanged();
+        }
+
+        [JSInvokable]
+        public async Task RefreshApp()
+        {
+            if (isLoading) return;
+            isLoading = true;
+            StateHasChanged();
+
+            // Independent of the list fetch below: an empty list is what "the
+            // master is fine and nobody is hosting" looks like too, and the
+            // status bar must not show that as "offline".
+            Globals.IsMasterOnline = await NetService.IsMasterServerOnlineAsync(settings.MasterServerUrl);
+
+            var fetchedServers = await NetService.GetServersFromMasterAsync(settings.MasterServerUrl);
+            servers = fetchedServers;
+            StateHasChanged();
+
+            var tasks = servers.Concat(customServers).Select(async server =>
+            {
+                server.Ping = await NetService.SendPingServerAsync(server.Ip);
+
+                // The info endpoint is a different port from the one peers
+                // connect on. The master server now publishes each
+                // relay's real one; fall back to the configured guess only
+                // for a manually-added server, which the master never told
+                // us about.
+                var infoPort = server.InfoPort > 0 ? server.InfoPort : settings.ServerInfoPort;
+                var details = await NetService.GetDedicatedServerInfoAsync(server.Ip, infoPort);
+
+                if (details != null)
+                {
+                    server.MapName = details.MapName;
+                    server.Players = details.Players;
+                    server.MaxPlayers = details.MaxPlayers;
+                    server.IsOnline = true;
+                }
+                else
+                {
+                    // Registered with the master but not answering. Leave the
+                    // registered map name in place and say it is offline rather
+                    // than showing counts we do not have.
+                    server.IsOnline = false;
+                }
+                await InvokeAsync(StateHasChanged);
+            });
+
+            await Task.WhenAll(tasks);
+
+            isLoading = false;
+            StateHasChanged();
+        }
+
+
+        // Actions
+
+        /// <summary>
+        /// Start the game and wait until it is ready to be injected into.
+        ///
+        /// This was written against a design that did not exist yet, and every
+        /// assumption in it has since been settled by the native-plugin work:
+        ///
+        /// - It passed "+map &lt;name&gt;" to boot straight into a level. KCD2
+        ///   loads a save; there is no level to boot into, so the argument and
+        ///   the level-directory check that guarded it are both gone.
+        /// - It injected the instant WHGame.dll became loadable, and started
+        ///   the agent right after. Both happened well before the game's own
+        ///   per-frame update loop was actually ticking, which is what the DLL
+        ///   itself checks for -- see ConnectToGame below.
+        ///
+        /// The game must be the Modding Tools build. That is checked here
+        /// rather than left to fail confusingly later — see AppSettings.GamePath.
+        /// </summary>
+        private async Task LaunchGame(ServerInfo server)
+        {
+            if (!await EnsureSetupReadyAsync()) return;   // Host and Join unlock at Ready!
+            lastLaunchServer = server;   // LAUNCH ANYWAY repeats this launch
+
+            if (launchStage != LaunchStage.Idle && launchStage != LaunchStage.Failed)
+            {
+                UiService.ShowError("A launch is already in progress.");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(settings.GamePath) || !File.Exists(settings.GamePath))
+            {
+                UiService.ShowError("Game Executable not found! Please check Settings.");
+                return;
+            }
+
+            if (!IsModdingToolsBuild(settings.GamePath))
+            {
+                UiService.ShowError(
+                    "That looks like the retail game. KCD2 must be launched from the Modding Tools build " +
+                    "(KCD2Mod), which is the only one with the debug API on port 1403 and the separate " +
+                    "module DLLs the plugin hooks. Check Settings.");
+                return;
+            }
+
+            // a Steam host has no address to probe (the agent dials the code).
+            // An unreachable address says why, in plain words, from the same test
+            // the TEST CONNECTION button runs.
+            if (server.SteamCode is null && !await IsServerReachableAsync(server))
+            {
+                await ShowConnectionTestAsync(server, launching: true);
+                return;
+            }
+
+            string dllFullPath = ResolveAgainstLauncher(settings.DllPath);
+            string agentPath = ResolveAgainstLauncher(settings.AgentPath);
+            // a file the launch needs that is gone or empty -- what an antivirus quarantine
+            // leaves -- is told in plain words, by its name only (the old messages showed full paths).
+            // no injector exe any more (the launcher loads the DLL itself); a mod file the check
+            // finds wrong offers "Launch anyway" instead of a dead end.
+            if (!await PreLaunchFilesOkAsync(GameRootOf(settings.GamePath), dllFullPath, agentPath, Path.ChangeExtension(agentPath, ".dll")))
+                return;
+
+            // the first-run pages (read only), the host's start save staged, the player's worlds listed
+            if (!await StartGameBeforeLaunchAsync(hostedRelayProcess != null && !hostedRelayProcess.HasExited))
+                return;
+
+            try
+            {
+                var gameStartInfo = new ProcessStartInfo
+                {
+                    FileName = settings.GamePath,
+                    UseShellExecute = false,
+                    WorkingDirectory = GameRootOf(settings.GamePath)
+                };
+
+                // the previous launch's logs are kept before the game starts over them
+                LogBundle.KeepHistory(GameRootOf(settings.GamePath), Path.GetDirectoryName(agentPath) ?? "");
+                // the agent's first start of a launch (the keys pak). Windows refusing it stops
+                // the launch here, before a game is started for nothing.
+                // the folder above Bin: a Modding Tools install has no steam_appid.txt, so GameRootOf's walk misses it and the keys pak
+                // (Insert, the dice keys) was never built
+                if (await RefreshKeysPakAsync(agentPath, Cairn.Setup.GameLocator.InstallRootOf(settings.GamePath) ?? GameRootOf(settings.GamePath), IsInstalledFile(agentPath)) is { } keysBlock)
+                {
+                    ShowBlocked(keysBlock);
+                    return;
+                }
+                var gameStartLocal = DateTime.Now;   // the gate reads only this game's kcd.log
+                var gameProcess = StartChecked(gameStartInfo);
+                if (gameProcess == null)
+                {
+                    UiService.ShowError("The game process could not be started.");
+                    return;
+                }
+                TraceServerWindow.HideWhileRunning(gameProcess);   // the Modding Tools open their debug console with the game; Cairn has no use for it
+
+                launchStage = LaunchStage.WaitingForConnect;
+                launchedAs = hostedRelayProcess != null && !hostedRelayProcess.HasExited ? "host" : "join";
+                launchedGameId = selectedGameId;
+                RecordSession(launchedAs);   // the Continue card on Home
+                gameRunning = true;   // the buttons grey out at once, not at the next look
+                PublishPresenceStatus();
+                launchStatusMessage = "Waiting for the game to start...";
+                // CONNECT waits until it can work (the host's world, the joiner's host), with the reason shown.
+                StartConnectGate(hostedRelayProcess != null && !hostedRelayProcess.HasExited, server, gameStartLocal);
+                StartGameStartDriver(gameProcess, hostedRelayProcess != null && !hostedRelayProcess.HasExited, gameStartLocal);   // start-game flow
+                StateHasChanged();
+
+                if (!await WaitForInjectableAsync(gameProcess, settings.InjectDelaySeconds))
+                {
+                    UiService.ShowError(gameProcess.HasExited
+                        ? "Game process exited unexpectedly before injection."
+                        : $"WHGame.dll did not load within {settings.InjectDelaySeconds}s, so the DLL was not injected.");
+                    ResetLaunchState();
+                    return;
+                }
+
+                pendingGameProcess = gameProcess;
+                pendingServer = server;
+                pendingDllPath = dllFullPath;
+                pendingGameExe = settings.GamePath;   // the load checks it is this game
+                // the joiner's flow is the main menu (a joiner who loads his own save plays alone,
+                // in a separate world -- the field trap); only the host loads a save first.
+                bool hostingNow = hostedRelayProcess != null && !hostedRelayProcess.HasExited;
+                launchStatusMessage = hostingNow
+                    ? (startGameTakeover ? "Press Start Game on the game's main menu. The launcher connects by itself once your world has loaded."
+                                    : "Load into your save, then click CONNECT once you can see and move your character.")
+                    : (startGameTakeover ? "Press Join Game on the game's main menu. You join as soon as your host is ready." : JoinerReadyText);
+                StateHasChanged();
+            }
+            catch (LaunchBlockedException lb)
+            {
+                ShowBlocked(lb.Block);   // Windows refused the game's start
+                ResetLaunchState();
+            }
+            catch (Exception ex)
+            {
+                // plain words on screen, the exception in the log.
+                Log.Error(ex, "Launch failed");
+                UiService.ShowError("The game couldn't be started. Check the game path in Settings, then try again.");
+                ResetLaunchState();
+            }
+        }
+
+        /// <summary>
+        /// The second half of launching: inject and start the agent. Split out
+        /// from LaunchGame and gated on the player clicking CONNECT because the
+        /// native DLL only works once the game is actually ticking frames --
+        /// which, per docs/VERIFICATION-REPORT.md, does not happen until well
+        /// past the splash/menu screens and into a loaded save. Injecting the
+        /// moment WHGame.dll is merely loadable (the old behaviour) attaches a
+        /// DLL that immediately finds zero frames and aborts on its own
+        /// liveness check -- silently, since the injector's exit code is still
+        /// 0 (LoadLibrary succeeded; the DLL just gave up after that).
+        ///
+        /// There is no retry if this fires too early: Windows does not re-run
+        /// DllMain for a module that is already loaded at that path, so a
+        /// second injector run against the same game process is a no-op. The
+        /// only way back from a failed verification is a fresh game launch.
+        /// </summary>
+        private async Task ConnectToGame()
+        {
+            if (pendingGameProcess == null || pendingServer == null || pendingDllPath == null)
+            {
+                return;
+            }
+
+            if (pendingGameProcess.HasExited)
+            {
+                UiService.ShowError("The game process has already exited.");
+                ResetLaunchState();
+                return;
+            }
+
+            // the button is disabled while the gate is closed; a click that still arrives is not acted on.
+            if (!ConnectEnabled)
+            {
+                Log.Information("MP-LAUNCH CONNECT not taken: {Reason}", connectGateReason);
+                return;
+            }
+            StopConnectGate();
+
+            string agentPath = ResolveAgainstLauncher(settings.AgentPath);
+            string waitingText = launchStatusMessage;   // back to it when Windows refuses a start
+
+            try
+            {
+                launchStage = LaunchStage.Injecting;
+                launchStatusMessage = "Injecting...";
+                StateHasChanged();
+
+                // the launcher loads the DLL itself (no CairnInjector.exe for Windows to
+                // remove or refuse): the same steps and checks, failing closed with a plain message.
+                var inject = await InjectFromLauncherAsync(pendingGameProcess.Id, pendingDllPath);
+                if (!inject.Ok)
+                {
+                    UiService.ShowError(inject.Message);
+                    ResetLaunchState();
+                    return;
+                }
+
+                launchStage = LaunchStage.Verifying;
+                launchStatusMessage = "Verifying the plugin actually attached...";
+                StateHasChanged();
+
+                var verdict = await VerifyInjectionAsync(pendingDllPath, pendingGameProcess.Id);
+                if (!verdict)
+                {
+                    UiService.ShowError(
+                        "The plugin loaded but never saw the game running -- you likely clicked Connect before " +
+                        "the save had fully loaded. It cannot retry from here: Windows will not reload an " +
+                        "already-loaded DLL into the same game process. Close the game, click Launch again, and " +
+                        "wait until you can move your character before clicking Connect.");
+                    launchStage = LaunchStage.Failed;
+                    launchStatusMessage = "Injection did not take. Restart the game to try again.";
+                    StateHasChanged();
+                    return;
+                }
+
+                // --hosting is purely cosmetic (Discord Rich Presence
+                // text) -- the agent otherwise treats hosting and joining
+                // identically. hostedRelayProcess is set by OpenHostModal
+                // before LaunchAsHost ever reaches here, so its liveness at
+                // this point is a reliable "this session is hosting" signal;
+                // ServerHost/Ip alone is not, since a LAN host address looks
+                // identical to a joiner pointed at the same address.
+                StartAgent(pendingServer);   // also used by the Steam -> address fallback
+
+                launchStage = LaunchStage.Connected;
+                ShowToast("Connected. The game is ready.");
+                launchStatusMessage = "The game is ready. The line at the bottom of this window shows the connection; you can close this.";
+                StateHasChanged();
+            }
+            catch (LaunchBlockedException lb)
+            {
+                // Windows refused the injector or the agent. Nothing reached the game (or the
+                // plugin is in and waits), so once the player has allowed the file, CONNECT works
+                // again in this same game -- no restart needed.
+                ShowBlocked(lb.Block);
+                launchStage = LaunchStage.WaitingForConnect;
+                launchStatusMessage = waitingText;
+                connectGateOpen = true;   // the gate was passed already
+                connectGateReason = "";
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Connect failed");
+                UiService.ShowError("The multiplayer part couldn't be started. Try again; if it keeps failing, send the logs with Report a bug.");
+                ResetLaunchState();
+            }
+        }
+
+        /// <summary>
+        /// the first-join answer ("Bring my character" / "Start fresh"),
+        /// sent to the agent's /join-choice. The agent asks the host only after it.
+        /// </summary>
+        private async Task SendJoinChoiceAsync(string choice)
+        {
+            bool ok = await NetService.PostJoinChoiceAsync(settings.VersionIpcPort, choice);
+            joinStatusMessage = ok ? (choice == "bring" ? "Bringing your character..." : "Starting fresh...") : "The choice did not reach the agent -- try again.";
+            joinStatusState = ok ? "chosen" : joinStatusState;
+            await InvokeAsync(StateHasChanged);
+        }
+
+        /// <summary>
+        ///. Polls the just-started agent's release-version IPC endpoint
+        /// (dotnet/Cairn.Client/VersionIpcServer.cs) for a bounded window,
+        /// looking for the first connected peer whose release version
+        /// differs from this launcher's own (<see cref="Globals.Version"/> --
+        /// launcher and its bundled agent always ship under the same VERSION,
+        /// so there is no need to also ask the agent for "its own" version).
+        ///
+        /// Deliberately does NOT run on every protocol mismatch: that case
+        /// never gets this far, because the relay's hard refusal
+        /// (ProtocolVersionMismatchException on the agent side) already
+        /// prevents a connection, so this endpoint would report no peer at
+        /// all. This only ever fires for a connection that *succeeded* but
+        /// carries a different release version -- exactly the case the WO
+        /// asked for, kept separate from the existing hard refusal rather
+        /// than replacing any part of it.
+        ///
+        /// Stops after showing the notice once, after finding a same-version
+        /// peer (nothing to say), or after the window elapses with no peer
+        /// seen at all (solo session, or the agent never got that far).
+        /// </summary>
+        private async Task PollVersionMismatchAsync(CancellationToken ct)
+        {
+            var deadline = DateTime.UtcNow.AddMinutes(5);
+            while (!ct.IsCancellationRequested && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(3000, ct).ContinueWith(_ => { });
+                if (ct.IsCancellationRequested) return;
+
+                var status = await NetService.GetVersionStatusAsync(settings.VersionIpcPort);
+                var peer = status?.Peers.FirstOrDefault();
+                if (peer is null) continue; // agent not up yet, or no peer connected yet -- keep waiting
+
+                var comparison = ReleaseVersionCompare.Compare(Globals.Version, peer.ReleaseVersion);
+                if (comparison == ReleaseVersionComparison.Equal) return; // nothing to say
+
+                versionMismatchMessage = comparison switch
+                {
+                    ReleaseVersionComparison.LocalIsOlder =>
+                        $"You're on {Globals.Version}, your host is on {peer.ReleaseVersion} -- you'll need to update.",
+                    ReleaseVersionComparison.LocalIsNewer =>
+                        $"You're on {Globals.Version}, your host is on {peer.ReleaseVersion} -- they'll need to update.",
+                    _ => "Versions don't match -- make sure everyone's on the latest release.",
+                };
+                showVersionMismatch = true;
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+        }
+
+        /// <summary>
+        /// Confirms the injection actually took by reading the DLL's own log
+        /// next to it (see native/Cairn/log.h -- it always writes beside the
+        /// loaded module) rather than trusting the injector's exit code, which
+        /// only proves LoadLibrary succeeded, not that the plugin found a live
+        /// game to attach to.
+        ///
+        /// Looks for this run's own "pid=&lt;pid&gt;" attach line and the
+        /// liveness sample that follows it. changed the native DLL from
+        /// a single 1s sample-and-abort to a poll (up to 5 minutes) so an
+        /// early injection retries instead of permanently failing -- see
+        /// dllmain.cpp and That changed the log
+        /// line's wording, so this regex must track it:
+        ///   success: "MAIN: N frames after ~M ms -- tick is live" (N &gt; 0)
+        ///   failure: "MAIN: tick never fired after M ms -- ..."
+        /// This 8s window is unchanged: by the time the player clicks CONNECT
+        /// here (own gate -- they can already see and move their
+        /// character), the tick is essentially always already live, so the
+        /// native side's first 1s sample should log success well inside 8s.
+        /// The native poll's longer ceiling exists for injection paths
+        /// without that human gate (a developer running
+        /// CairnInjector.exe directly, or a future automatic
+        /// injector), not for this UI flow.
+        /// </summary>
+        private static async Task<bool> VerifyInjectionAsync(string dllPath, int pid)
+        {
+            var dir = Path.GetDirectoryName(dllPath) ?? "";
+            var logPath = Path.Combine(dir, "cairn-native.log");
+            var deadline = DateTime.UtcNow.AddSeconds(8);
+            var attachMarker = $"pid={pid}";
+
+            while (DateTime.UtcNow < deadline)
+            {
+                try
+                {
+                    if (File.Exists(logPath))
+                    {
+                        string text;
+                        using (var stream = new FileStream(logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        using (var reader = new StreamReader(stream))
+                        {
+                            text = await reader.ReadToEndAsync();
+                        }
+
+                        var attachIdx = text.LastIndexOf(attachMarker, StringComparison.Ordinal);
+                        if (attachIdx >= 0)
+                        {
+                            var tail = text[attachIdx..];
+                            var match = Regex.Match(tail, @"MAIN: (\d+) frames after ~\d+ ms -- tick is live");
+                            if (match.Success)
+                            {
+                                return int.Parse(match.Groups[1].Value) > 0;
+                            }
+                            if (tail.Contains("tick never fired"))
+                            {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                catch (IOException)
+                {
+                    // The DLL still holds a write handle at the moment we try
+                    // to open it; retry rather than treating this as failure.
+                }
+
+                await Task.Delay(300);
+            }
+
+            // Timed out without conclusive evidence either way -- treat as
+            // failure rather than optimistically starting the agent. The
+            // native side may still be polling past this point (it now has
+            // up to 5 minutes) -- that is fine: gate means the tick
+            // should already be live by the time CONNECT is clicked, so a
+            // timeout here is a real problem (clicked too early, or the save
+            // never actually finished loading), not this fix under-waiting.
+            return false;
+        }
+
+        private void ResetLaunchState()
+        {
+            Log.Information("MP-LAUNCH launch state reset (stage was {Stage})", launchStage);
+            launchStage = LaunchStage.Idle;
+            pendingGameProcess = null;
+            pendingServer = null;
+            pendingDllPath = null;
+            launchStatusMessage = "";
+            versionPollCts?.Cancel();
+            versionPollCts = null;
+            StopConnectGate();   // beta hardening
+            StartGameOnLaunchReset();   // the game's own menu again
+            connectGateOpen = true;
+            connectGateReason = "";
+            StateHasChanged();
+        }
+
+        private void CancelPendingConnect() => ResetLaunchState();
+
+        // kill any agent this launcher already started, plus a
+        // by-name sweep for any other CairnClient.exe still running (e.g.
+        // orphaned by a launcher window that survived a game restart, which
+        // is what actually happened live). Only one agent should ever
+        // represent this local player to a relay at a time -- a second one
+        // fights the first over the same ghost identity forever, since
+        // neither's removal of the other's ghost can ever stick while the
+        // other keeps respawning it. Called right before starting a new
+        // agent, not on every failure path, so a Connect retry that never
+        // got as far as starting an agent does not kill an unrelated one.
+        private void StopExistingAgent()
+        {
+            try
+            {
+                if (agentProcess != null && !agentProcess.HasExited)
+                {
+                    agentProcess.Kill();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to stop the tracked agent process");
+            }
+            agentProcess = null;
+
+            try
+            {
+                foreach (var proc in Process.GetProcessesByName("CairnClient"))
+                {
+                    try { proc.Kill(); }
+                    catch (Exception ex) { Log.Warning(ex, "Failed to stop stray CairnClient.exe (pid {Pid})", proc.Id); }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to enumerate CairnClient.exe processes");
+            }
+        }
+
+        // Host flow: start a local relay, show the address a friend needs to
+        // join it, and launch the game connected to it (127.0.0.1, since the
+        // host's own agent always talks to a relay on this machine regardless
+        // of what address a friend uses to reach it).
+        private async Task OpenHostModal()
+        {
+            if (await OfferUpdateBeforeAsync("host")) return;   // Cairn: a newer version is offered once
+            if (!await EnsureSetupReadyAsync()) return;   // before a relay is started
+
+            hostErrorMessage = "";
+            hostLanAddresses = NetService.GetLocalIPv4Addresses();
+
+            if (hostedRelayProcess == null || hostedRelayProcess.HasExited)
+            {
+                string relayPath = ResolveAgainstLauncher(settings.RelayPath);
+                // gone or empty (a quarantine looks like this) -- one plain message, no path.
+                if (BlockedBeforeLaunch("", relayPath, Path.ChangeExtension(relayPath, ".dll")))
+                    return;
+                // the ports may be held by this install's own relay (a launcher closed with the
+                // window's X leaves it running): used again, or replaced. Another program's: told, untouched.
+                bool startOurs = !settings.RelayReuse || await ApplyRelayDecisionAsync(await DecideRelayAsync(relayPath));
+                if (startOurs && !await StartRelayAsync(relayPath)) return;   // Windows refused it: told
+            }
+
+            showHostInfo = true;
+            StartHostStatusPoll();   // Steam state, the code, refused joiner versions
+            StateHasChanged();
+        }
+
+        /// <summary>Starts this install's relay. False only when Windows refused it (the player has been told).</summary>
+        private async Task<bool> StartRelayAsync(string relayPath)
+        {
+            try
+            {
+                var relayStartInfo = new ProcessStartInfo
+                {
+                    FileName = relayPath,
+                    Arguments = RelayArguments(),   // + Steam when "Also allow Steam" is on
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WorkingDirectory = Path.GetDirectoryName(relayPath)
+                };
+                hostedRelayProcess = StartChecked(relayStartInfo);
+                // Give it a moment to bind before anyone tries to connect.
+                // until it answers, or 8 s -- a relay that failed to bind used to die after the
+                // fixed 500 ms and looked hosted; the host's agent then went without its host claim.
+                if (hostedRelayProcess is not null) await WaitForRelayAsync(hostedRelayProcess);
+                if (hostedRelayProcess == null || hostedRelayProcess.HasExited)
+                {
+                    Log.Warning("The relay exited right after starting (code {Code})", hostedRelayProcess?.ExitCode);
+                    hostErrorMessage = RelayExitedMessage(relayPath);
+                    hostedRelayProcess = null;
+                }
+                return true;
+            }
+            catch (LaunchBlockedException lb)
+            {
+                ShowBlocked(lb.Block);   // Windows refused the relay
+                hostedRelayProcess = null;
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Could not start the relay");
+                hostErrorMessage = "Hosting couldn't start on this computer. Check the relay path in Settings, then try again.";
+                hostedRelayProcess = null;
+                return true;
+            }
+        }
+
+        private Task LaunchAsHost()
+        {
+            showHostInfo = false;
+            var hostServer = new ServerInfo
+            {
+                Name = "(Hosting)",
+                Ip = "127.0.0.1",
+                Port = settings.HostPort,
+                Ping = 0
+            };
+            return LaunchGame(hostServer);
+        }
+
+        private void StopHostedRelay()
+        {
+            try
+            {
+                if (hostedRelayProcess != null && !hostedRelayProcess.HasExited)
+                {
+                    hostedRelayProcess.Kill();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to stop the hosted relay process");
+            }
+            hostedRelayProcess = null;
+        }
+
+        /// <summary>
+        /// Starts the master server locally, alongside the launcher itself,
+        /// so a default install has something answering MasterServerUrl
+        /// instead of showing "Could not connect to Master Server!" on every
+        /// launch. Unlike the relay, this runs unconditionally at
+        /// startup rather than only on Host -- the browser fetches the list
+        /// immediately in OnInitializedAsync, before the player has done
+        /// anything.
+        ///
+        /// Only when the configured URL is loopback: pointing MasterServerUrl
+        /// at a friend's real address means their instance is the one meant
+        /// to answer, and starting a private, empty one of our own here would
+        /// just be a wasted background process that nobody's relay announces
+        /// to.
+        /// </summary>
+        private async Task EnsureLocalMasterServerAsync()
+        {
+            Log.Debug("EnsureLocalMasterServerAsync: MasterServerUrl = \"{Url}\"", settings.MasterServerUrl);
+
+            if (!Uri.TryCreate(settings.MasterServerUrl, UriKind.Absolute, out var uri) || !IsLoopbackHost(uri.Host))
+            {
+                Log.Debug("EnsureLocalMasterServerAsync: not a loopback URL, not starting a local instance.");
+                return;
+            }
+
+            if (await IsMasterServerRespondingAsync(uri))
+            {
+                Log.Debug("EnsureLocalMasterServerAsync: something is already answering on port {Port}.", uri.Port);
+                return;
+            }
+
+            if (hostedMasterServerProcess != null && !hostedMasterServerProcess.HasExited)
+            {
+                return;
+            }
+
+            string masterServerPath = ResolveAgainstLauncher(settings.MasterServerPath);
+            if (!File.Exists(masterServerPath))
+            {
+                Log.Warning("Master server executable not found at: {Path}. The status bar will read \"Master: Offline\" until one is installed or Settings -> Master Server URL points elsewhere.", masterServerPath);
+                return;
+            }
+
+            try
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = masterServerPath,
+                    Arguments = $"--urls http://0.0.0.0:{uri.Port}",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WorkingDirectory = Path.GetDirectoryName(masterServerPath)
+                };
+                hostedMasterServerProcess = Process.Start(startInfo);
+                if (hostedMasterServerProcess is null)
+                {
+                    Log.Warning("Process.Start returned null for the master server; not retrying this launch.");
+                    return;
+                }
+                Log.Information("Starting local master server: {Path} (pid {Pid})", masterServerPath, hostedMasterServerProcess.Id);
+
+                // Polled rather than a single fixed delay: a self-contained
+                // ASP.NET Core app's cold start (JIT, Kestrel bind) can take
+                // longer than any one guessed wait, and a single check right
+                // after Process.Start can race RefreshApp's first fetch --
+                // exactly what this replaces, found live: the process started
+                // and kept running, but RefreshApp's request landed before
+                // Kestrel had actually opened the port.
+                var deadline = DateTime.UtcNow.AddSeconds(8);
+                var up = false;
+                while (DateTime.UtcNow < deadline)
+                {
+                    if (hostedMasterServerProcess.HasExited)
+                    {
+                        // The most common real reason: two launcher instances
+                        // both decided to start one (this check and
+                        // Process.Start above are not atomic together), and
+                        // this one lost the port to the other. That other
+                        // instance's copy is a perfectly good master server,
+                        // so check for it once before giving up rather than
+                        // reporting a failure that is not actually happening.
+                        Log.Information("This launcher's own master server process exited early (code {Code}); checking whether another instance already claimed the port.",
+                            hostedMasterServerProcess.ExitCode);
+                        up = await IsMasterServerRespondingAsync(uri);
+                        break;
+                    }
+
+                    if (await IsMasterServerRespondingAsync(uri))
+                    {
+                        up = true;
+                        break;
+                    }
+
+                    await Task.Delay(200);
+                }
+
+                if (up)
+                {
+                    Log.Information("Master server is up on port {Port}.", uri.Port);
+                }
+                else
+                {
+                    Log.Warning("Local master server did not answer on port {Port} within 8s; giving up for this launch.", uri.Port);
+                    hostedMasterServerProcess = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Could not start the local master server");
+                // classified for the log only -- the master server is optional (the browser list stays empty).
+                if (LaunchBlocks.FromStartFailure(ex, Path.GetFileName(masterServerPath), IsInstalledFile(masterServerPath)) is { } b)
+                    Log.Warning("{Line} (the optional master server; nothing shown)", b.LogLine);
+                hostedMasterServerProcess = null;
+            }
+        }
+
+        /// <summary>Cheap liveness probe: is anything answering the master API at all, ours or someone else's.</summary>
+        private static async Task<bool> IsMasterServerRespondingAsync(Uri baseUri)
+        {
+            try
+            {
+                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(1) };
+                using var response = await http.GetAsync(new Uri(baseUri, MasterApi.StatusPath));
+                return response.IsSuccessStatusCode;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool IsLoopbackHost(string host) =>
+            host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+            (System.Net.IPAddress.TryParse(host, out var ip) && System.Net.IPAddress.IsLoopback(ip));
+
+        private void StopHostedMasterServer()
+        {
+            try
+            {
+                if (hostedMasterServerProcess != null && !hostedMasterServerProcess.HasExited)
+                {
+                    hostedMasterServerProcess.Kill();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to stop the hosted master server process");
+            }
+            hostedMasterServerProcess = null;
+        }
+
+        /// <summary>
+        /// Both builds name their executable KingdomCome.exe, so the filename
+        /// cannot tell them apart, and neither can WHGame.dll — retail ships
+        /// that one too. What actually differs is that the Modding Tools build
+        /// links its engine modules as separate DLLs (45 of them beside the
+        /// executable) while retail is monolithic (6, none of these).
+        ///
+        /// Framework.dll and CrySystem.dll are the two the plugin depends on
+        /// specifically: the IAT hook rewrites WHGame.dll's import of
+        /// Framework.dll's C_ModulesManager::Update, and the reflection ABI is
+        /// exported from CrySystem.dll. So this tests for what is needed rather
+        /// than for an install path.
+        /// </summary>
+        public static bool IsModdingToolsBuild(string gamePath) =>
+            Cairn.Setup.GameLocator.IsModdingToolsBuild(gamePath);   // the one copy, shared with Setup
+
+        /// <summary>
+        /// The install root, two levels above KingdomCome.exe
+        /// (&lt;root&gt;\Bin\&lt;config&gt;\KingdomCome.exe) -- where Warhorse ships
+        /// steam_appid.txt for the Modding Tools build, not beside the exe.
+        ///
+        /// This matters because we start the game with Process.Start rather
+        /// than through Steam itself, so there is no Steam-injected app-id
+        /// context for the process -- SteamAPI_Init() falls back to reading
+        /// steam_appid.txt from the process's *working directory*. Launching
+        /// with WorkingDirectory set to the exe's own folder (the previous
+        /// behavior) means that file is never found, which is consistent with
+        /// what observed: the game runs, but any save referencing DLC
+        /// content is greyed out in the load list, matching a process that
+        /// never established which App ID it should check DLC ownership
+        /// against.
+        ///
+        /// Falls back to the exe's own directory -- the old behavior -- if
+        /// steam_appid.txt cannot be found within a few levels, so an
+        /// unexpected install layout degrades to what shipped before rather
+        /// than breaking outright.
+        /// </summary>
+        public static string GameRootOf(string gamePath)
+        {
+            string dir = Path.GetDirectoryName(gamePath) ?? "";
+            string fallback = dir;
+
+            for (int i = 0; i < 4 && dir.Length > 0; i++)
+            {
+                if (File.Exists(Path.Combine(dir, "steam_appid.txt")))
+                    return dir;
+                dir = Path.GetDirectoryName(dir) ?? "";
+            }
+
+            return fallback;
+        }
+
+        /// <summary>
+        /// combat visualisation, item K: where the log bundle should look for kcd.log --
+        /// derived from the configured game path; empty when unconfigured
+        /// (LogBundle skips what it cannot find).
+        /// </summary>
+        private string LogBundleGameRoot =>
+            string.IsNullOrWhiteSpace(settings.GamePath) ? "" : GameRootOf(settings.GamePath);
+
+        /// <summary>combat visualisation, item K: where the agent writes agent.log.</summary>
+        private string LogBundleAgentDirectory =>
+            Path.GetDirectoryName(ResolveAgainstLauncher(settings.AgentPath)) ?? "";
+
+        /// <summary>
+        /// where the relay writes relay*.log, if it is running (or has
+        /// ever run) from this install -- same resolution rule as
+        /// LogBundleAgentDirectory, and the same "just resolve the path,
+        /// AddIfPresent skips what is not there" handling for a joiner's
+        /// machine, which has no local relay process at all.
+        /// </summary>
+        private string LogBundleRelayDirectory =>
+            Path.GetDirectoryName(ResolveAgainstLauncher(settings.RelayPath)) ?? "";
+
+        /// <summary>
+        /// A relative path in settings means "next to the launcher", which is
+        /// where a packaged build puts the DLL, the injector and the agent.
+        /// </summary>
+        private static string ResolveAgainstLauncher(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return "";
+            if (!Path.IsPathRooted(path))
+                path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
+            return Path.GetFullPath(path);
+        }
+
+        /// <summary>
+        /// True once the DLL's hook target is loadable. The injector only needs
+        /// a live pid, but the DLL's install() looks up WHGame.dll's import of
+        /// Framework.dll's C_ModulesManager::Update and gives up if it is not
+        /// there — injecting before then attaches a DLL that hooks nothing.
+        ///
+        /// Falls back to a plain wait if the module list cannot be read, which
+        /// happens when the launcher and the game differ in bitness or the
+        /// process is still initialising.
+        /// </summary>
+        private static async Task<bool> WaitForInjectableAsync(Process game, int timeoutSeconds)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(Math.Max(5, timeoutSeconds));
+
+            while (DateTime.UtcNow < deadline)
+            {
+                if (game.HasExited) return false;
+
+                try
+                {
+                    game.Refresh();
+                    foreach (ProcessModule module in game.Modules)
+                    {
+                        if (string.Equals(module.ModuleName, "WHGame.dll", StringComparison.OrdinalIgnoreCase))
+                            return true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Debug($"Could not read the game's module list yet: {ex.Message}");
+                }
+
+                await Task.Delay(500);
+            }
+
+            return !game.HasExited;
+        }
+
+        /// <summary>
+        /// a ping time proves reachability, but its absence proves
+        /// nothing -- home routers (exactly where a Dynamic DNS address
+        /// points) commonly drop WAN ICMP while forwarding the relay's TCP
+        /// port fine. So a failed ping falls back to the operation that
+        /// actually matters: opening a TCP connection to the relay port,
+        /// which is what the agent will do moments later anyway.
+        /// </summary>
+        private async Task<bool> IsServerReachableAsync(ServerInfo server)
+        {
+            if (server.Ping >= 0)
+            {
+                return true;
+            }
+            return await NetService.CanConnectTcpAsync(server.Ip, server.Port);
+        }
+
+
+        private void ConfirmExit()
+        {
+            versionPollCts?.Cancel();
+            hostPollCts?.Cancel();
+            setupPollCts?.Cancel();   // first-run setup
+            StopHostedRelay();
+            StopHostedMasterServer();
+            Environment.Exit(0);
+        }
+
+        // Persistence
+
+        /// <summary>
+        /// settings.json is read key by key (LauncherSettingsStore): a value that does not
+        /// read keeps its default instead of resetting every setting, and the values as read are
+        /// the baseline every later save is compared with. The migrations below correct the
+        /// in-memory value only -- the file keeps what the player has until the player changes it.
+        /// </summary>
+        private void LoadSettings()
+        {
+            var problems = new List<string>();
+            settings = settingsStore.Load(problems);
+            foreach (var p in problems) Log.Warning("settings: {Problem}", p);
+        }
+
+        /// <summary>The launcher's own corrections of known stale values (memory only, see LoadSettings).</summary>
+        private static void MigrateStaleSettings(AppSettings s)
+        {
+            MigrateStaleMasterServerUrl(s);
+            RenamedPrograms.Apply(s);   // 0.1.x settings name the programs by their old file names
+            MigrateStaleMasterServerPath(s);
+        }
+
+        /// <summary>
+        /// An existing settings.json predating has the old Flask-shaped
+        /// default baked in ("http://localhost:5000/servers/servers_list") --
+        /// a fresh AppSettings() only supplies the new default
+        /// (EnsureLocalMasterServerAsync's own logic) for a settings.json that
+        /// does not exist yet. Migrated only when it is exactly that known old
+        /// literal, never when it looks like something the player configured
+        /// on purpose.
+        /// </summary>
+        private static readonly string[] KnownStaleMasterServerUrls =
+        [
+            "http://localhost:5000/servers/servers_list", // pre-(Flask)
+            "http://localhost:5100",                      // first pass -- see AppModels.cs
+        ];
+
+        /// <summary>
+        /// Same idea as <see cref="MigrateStaleMasterServerUrl"/>: a
+        /// settings.json saved before the master server got its own
+        /// MasterServer\ subfolder (see AppModels.cs and
+        /// tools/Publish-Release.ps1) would otherwise keep pointing at a bare
+        /// filename that no longer exists there.
+        /// </summary>
+        private static readonly string[] KnownStaleMasterServerPaths =
+        [
+            "CairnMasterServer.exe", // flat-merged, pre-subfolder-isolation
+        ];
+
+        private static void MigrateStaleMasterServerUrl(AppSettings s)
+        {
+            if (Array.IndexOf(KnownStaleMasterServerUrls, s.MasterServerUrl) >= 0)
+            {
+                s.MasterServerUrl = new AppSettings().MasterServerUrl;
+            }
+        }
+
+        private static void MigrateStaleMasterServerPath(AppSettings s)
+        {
+            if (Array.IndexOf(KnownStaleMasterServerPaths, s.MasterServerPath) >= 0)
+            {
+                s.MasterServerPath = new AppSettings().MasterServerPath;
+            }
+        }
+
+        /// <summary>The settings window's SAVE: only what the player changed is written.</summary>
+        private void SaveSettings()
+        {
+            WriteSettings("the settings window");
+            showSettings = false;
+        }
+
+
+        #endregion
+    }
+}
+
