@@ -16,6 +16,30 @@
         color: var(--cairn-gold);
     }
 
+.home .update-banner.notice.issue {
+    background: linear-gradient(90deg, rgba(217, 148, 78, 0.2), rgba(217, 148, 78, 0.05));
+    border-bottom-color: rgba(217, 148, 78, 0.4);
+}
+
+    .home .update-banner.notice.issue svg {
+        color: var(--cairn-warn);
+    }
+
+.home .update-banner.notice.news {
+    background: linear-gradient(90deg, rgba(26, 159, 255, 0.14), rgba(26, 159, 255, 0.04));
+    border-bottom-color: rgba(26, 159, 255, 0.3);
+}
+
+    .home .update-banner.notice.news svg {
+        color: #1a9fff;
+    }
+
+.home .update-btn.quiet {
+    background: transparent;
+    color: var(--cairn-parchment-dim);
+    border: 1px solid var(--cairn-oak-lit);
+}
+
 .home .update-text {
     display: flex;
     flex-wrap: wrap;

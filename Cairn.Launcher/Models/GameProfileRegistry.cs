@@ -3,141 +3,120 @@
 // of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md).
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using Cairn.Setup;
 
 namespace Cairn.Launcher.Models
 {
     /// <summary>
-    /// The games Cairn knows about, by <see cref="GameProfile.Id"/>. Built-in profiles are registered on first use;
-    /// a game found on this PC is recorded with <see cref="MarkInstalled"/>. Thread-safe.
+    /// The games Cairn knows about, by <see cref="GameProfile.Id"/>. The list is the catalog (Cairn.Setup/Catalog.cs), read from the network
+    /// and kept on disk; what the launcher ships with is only the seed, the one game it must be able to show before it has ever reached the
+    /// network (Seed/*.json, embedded). A game found on this PC is recorded with <see cref="MarkInstalled"/>. Thread-safe.
     /// </summary>
     public static class GameProfileRegistry
     {
         public const string Kcd2Id = "kcd2";
-        public const string Kcd1Id = "kcd1";
-        public const string Fo4Id  = "fo4";
 
         private static readonly object Gate = new();
         private static readonly Dictionary<string, GameProfile> Profiles = new(StringComparer.OrdinalIgnoreCase);
+        private static GameList list = GameList.Empty;
 
         static GameProfileRegistry()
         {
-            Register(new GameProfile
-            {
-                Id = Kcd2Id,
-                DisplayName = "Kingdom Come: Deliverance II",
-                Developer = "Warhorse Studios",
-                Franchise = "Kingdom Come",
-                SteamAppId = 2429020,                 // the Modding Tools build, which is what both players run (AppSettings.SteamAppId)
-                StoreAppId = 1771300,                 // the retail game: the Modding Tools app has no store page
-                Requirements =
-                [
-                    new SteamRequirement("Kingdom Come: Deliverance II", 1771300),
-                    new SteamRequirement("Kingdom Come: Deliverance II Modding Tools", 2429020, HasStorePage: false),
-                ],
-                DefaultExeName = "KingdomCome.exe",
-                ModRepo = "Cairn-client/mod-kcd2",     // where the mod's releases (its packs) are published
-                BackgroundImage = "img/games/kcd2.jpg",   // the page artwork, shipped with the launcher (wwwroot/img/games)
-                LogoImage = "img/games/kcd2-logo.png",
-                Description = "Explore Bohemia side by side. The host's world is shared with a friend: the same NPCs, weather, doors and fights.",
-                DefaultServerApi = new AppSettings().MasterServerUrl,
-            });
-
-            // Listed so it can be found and selected; the multiplayer plugin does not target this game yet.
-            Register(new GameProfile
-            {
-                Id = Kcd1Id,
-                DisplayName = "Kingdom Come: Deliverance",
-                Developer = "Warhorse Studios",
-                Franchise = "Kingdom Come",
-                SteamAppId = 379430,                  // the retail game
-                DefaultExeName = "KingdomCome.exe",
-                BackgroundImage = "img/games/kcd1.jpg",
-                LogoImage = "img/games/kcd1-logo.png",
-                Description = "Rattay, Sasau and the Bohemian countryside. Co-op for the first game is on the roadmap.",
-                DefaultServerApi = new AppSettings().MasterServerUrl,
-                IsSupported = false,
-            });
-
-            Register(new GameProfile
-            {
-                Id = Fo4Id,
-                DisplayName = "Fallout 4",
-                Developer = "Bethesda Game Studios",
-                Franchise = "Fallout",
-                SteamAppId = 377160,                  // the retail game
-                DefaultExeName = "Fallout4.exe",
-                BackgroundImage = "img/games/fo4-bg.jpg",
-                LogoImage = "img/games/fo4-logo.png",
-                Description = "As the sole survivor of Vault 111, explore the Commonwealth wasteland. Co-op support is in research and development.",
-                DefaultServerApi = new AppSettings().MasterServerUrl,
-                IsSupported = false,
-            });
-
-            // Listed so they can be found and selected; no multiplayer plugin targets these games yet.
-            RegisterUpcoming("ai", "Alien: Isolation", "Creative Assembly", "Alien", 214490, "AlienIsolation.exe",
-                "Survive the Sevastopol station with a friend at your side. Co-op support is in research and development.");
-            RegisterUpcoming("hla", "Half-Life: Alyx", "Valve", "Half-Life", 546560, "hlvr.exe",
-                "Fight the Combine in City 17 together. Co-op support is in research and development.");
-            RegisterUpcoming("ksp", "Kerbal Space Program", "Squad", "Kerbal Space Program", 220200, "KSP_x64.exe",
-                "Build rockets and run a space program as a crew. Co-op support is in research and development.");
-            RegisterUpcoming("ksp2", "Kerbal Space Program 2", "Intercept Games", "Kerbal Space Program", 954850, "KSP2_x64.exe",
-                "Interstellar rockets and colonies, built together. Co-op support is in research and development.");
-            RegisterUpcoming("jfo", "Star Wars Jedi: Fallen Order", "Respawn Entertainment", "Star Wars", 1172380, "SwGame-Win64-Shipping.exe",
-                "Cal Kestis's run from the Empire, shared with a friend. Co-op support is in research and development.");
-            RegisterUpcoming("jsv", "Star Wars Jedi: Survivor", "Respawn Entertainment", "Star Wars", 1774580, "JediSurvivor.exe",
-                "Cal Kestis's next chapter, side by side. Co-op support is in research and development.");
-            RegisterUpcoming("swo", "Star Wars Outlaws", "Massive Entertainment", "Star Wars", 2842040, "Outlaws.exe",
-                "Work the galaxy's underworld as a pair of scoundrels. Co-op support is in research and development.");
-            RegisterUpcoming("sub", "Subnautica", "Unknown Worlds Entertainment", "Subnautica", 264710, "Subnautica.exe",
-                "Dive into the alien ocean of planet 4546B together. Co-op support is in research and development.");
-            RegisterUpcoming("subbz", "Subnautica: Below Zero", "Unknown Worlds Entertainment", "Subnautica", 848450, "SubnauticaZero.exe",
-                "Explore the frozen seas of 4546B with a partner. Co-op support is in research and development.");
-            RegisterUpcoming("fl", "007 First Light", "IO Interactive", "James Bond", 3768760, "007FirstLight.exe",
-                "Bond's origin story, shared with a friend. Co-op support is in research and development.");
-            RegisterUpcoming("cp77", "Cyberpunk 2077", "CD Projekt Red", "Cyberpunk", 1091500, "Cyberpunk2077.exe",
-                "Take on Night City with a friend. Co-op support is in research and development.");
-            Enrich();
+            if (Seed() is { } seed) Apply(seed, notify: false);
         }
 
-        // The Home page's slideshow and shelves: each game's accent colour, its tall poster (First Light has none on Steam, so its
-        // background is cropped instead) and the screenshots shipped in wwwroot/img/games.
-        private static readonly Dictionary<string, string> Accents = new(StringComparer.OrdinalIgnoreCase)
-        {
-            ["kcd2"] = "#E8C872", ["kcd1"] = "#C9A24A", ["fo4"] = "#6FD08C", ["ai"] = "#7FD14A", ["hla"] = "#F28C28", ["ksp"] = "#4FA3E0",
-            ["ksp2"] = "#5BC0BE", ["jfo"] = "#E8683A", ["jsv"] = "#4DB3F5", ["swo"] = "#E8B84A", ["sub"] = "#2AB7CA", ["subbz"] = "#8FD8F0",
-            ["fl"] = "#D9B25F", ["cp77"] = "#F3E02A",
-        };
-        private static readonly HashSet<string> WithoutPoster = new(StringComparer.OrdinalIgnoreCase) { "fl" };
+        /// <summary>The catalog's shared part: requirement definitions, blocked mod versions, notices, the repositories of packs that are not a game's mod.</summary>
+        public static GameList Catalog { get { lock (Gate) return list; } }
 
-        private static void Enrich()
+        /// <summary>The list of games changed (a catalog was read); raised on whatever thread applied it.</summary>
+        public static event Action? Changed;
+
+        /// <summary>The seed: what the launcher knows without the network (an embedded copy of the KCD2 game.json and a one-game list).</summary>
+        internal static CatalogSnapshot? Seed()
         {
-            foreach (var p in Profiles.Values)
+            var asm = typeof(GameProfileRegistry).Assembly;
+            string? Read(string name)
             {
-                if (Accents.TryGetValue(p.Id, out var accent)) p.Accent = accent;
-                p.HeroImage = $"img/games/{p.Id}-hero.jpg";
-                if (!WithoutPoster.Contains(p.Id)) p.PosterImage = $"img/games/{p.Id}-poster.jpg";
-                p.Screenshots = new List<string> { $"img/games/shots/{p.Id}-1.jpg", $"img/games/shots/{p.Id}-2.jpg" };
+                using var s = asm.GetManifestResourceStream(name);
+                if (s is null) return null;
+                using var r = new StreamReader(s);
+                return r.ReadToEnd();
             }
+            var l = Read("Cairn.Launcher.Seed.games.seed.json") is { } lt ? GameList.Parse(lt) : null;
+            if (l is null) return null;
+            var games = new List<CatalogGame>();
+            foreach (var e in l.Games)
+                if (Read($"Cairn.Launcher.Seed.{e.Id}.game.json") is { } gt && GameManifest.Parse(gt) is { } m)
+                    games.Add(new CatalogGame(e, m, "img/games/"));   // the seed's pictures ship with the launcher
+            return new CatalogSnapshot(l, games, FromCache: true);
         }
 
-        /// <summary>A game that is listed with its artwork but has no multiplayer support yet (<c>img/games/{id}-bg.jpg</c>, <c>{id}-logo.png</c>).</summary>
-        private static void RegisterUpcoming(string id, string displayName, string developer, string franchise, uint steamAppId, string exeName, string description, bool hasLogo = true)
+        private static CatalogGame? SeedGame(GameEntry entry) =>
+            Seed()?.Games.FirstOrDefault(g => string.Equals(g.Entry.Id, entry.Id, StringComparison.OrdinalIgnoreCase)) is { } s
+                ? new CatalogGame(entry, s.Manifest, s.BaseUrl) : null;
+
+        /// <summary>Makes the catalog the list of games. A game that stays keeps where it was found on this PC; a game that is no longer listed goes.</summary>
+        public static void ApplyCatalog(CatalogSnapshot snapshot) => Apply(snapshot, notify: true);
+
+        private static void Apply(CatalogSnapshot snapshot, bool notify)
         {
-            Register(new GameProfile
+            lock (Gate)
             {
-                Id = id,
-                DisplayName = displayName,
-                Developer = developer,
-                Franchise = franchise,
-                SteamAppId = steamAppId,              // the retail game
-                DefaultExeName = exeName,
-                BackgroundImage = $"img/games/{id}-bg.jpg",
-                LogoImage = hasLogo ? $"img/games/{id}-logo.png" : string.Empty,
-                Description = description,
+                var before = Profiles.ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase);
+                Profiles.Clear();
+                foreach (var g in snapshot.Games)
+                {
+                    var p = FromCatalog(g, snapshot.List);
+                    if (before.TryGetValue(p.Id, out var old)) { p.InstallPath = old.InstallPath; p.IsInstalled = old.IsInstalled; }
+                    Profiles[p.Id] = p;
+                }
+                // a listed game whose game.json could not be had (no release yet, no copy on disk) is not dropped: it stays what it was, or what the seed knows
+                foreach (var entry in snapshot.List.Games.Where(e => !Profiles.ContainsKey(e.Id)))
+                {
+                    if (before.TryGetValue(entry.Id, out var kept)) Profiles[entry.Id] = kept;
+                    else if (SeedGame(entry) is { } fromSeed) Profiles[entry.Id] = FromCatalog(fromSeed, snapshot.List);
+                }
+                list = snapshot.List;
+            }
+            if (notify) Changed?.Invoke();
+        }
+
+        internal static GameProfile FromCatalog(CatalogGame g, GameList catalog)
+        {
+            var m = g.Manifest;
+            return new GameProfile
+            {
+                Id = m.Id,
+                DisplayName = m.Name,
+                Developer = m.Developer,
+                Franchise = m.Franchise,
+                SteamAppId = m.SteamAppId,
+                StoreAppId = m.StoreAppId,
+                DefaultExeName = m.Exe,
+                ModRepo = g.Entry.Repo,
+                BackgroundImage = g.Picture(m.Images.Background),
+                LogoImage = g.Picture(m.Images.Logo),
+                HeroImage = g.Picture(m.Images.Hero),
+                PosterImage = g.Picture(m.Images.Poster),
+                Screenshots = m.Images.Screenshots.Select(g.Picture).ToList(),
+                Description = m.Description,
+                Accent = m.Accent,
+                IsSupported = m.Supported,
                 DefaultServerApi = new AppSettings().MasterServerUrl,
-                IsSupported = false,
-            });
+                Requirements = m.ResolveRequirements(catalog)
+                    .Where(c => c.Kind == Component.SteamApp)
+                    .Select(c => new SteamRequirement(c.Name, c.AppId, c.HasStorePage)).ToList(),
+                Features = m.Features.Select(f => new GameFeatureGroup(f.Title,
+                    f.Items.Select(i => new GameFeature(i.Name, i.Detail, i.State switch
+                    {
+                        FeatureState.InTest => FeatureStatus.InTest,
+                        FeatureState.Planned => FeatureStatus.Planned,
+                        _ => FeatureStatus.Ready,
+                    })).ToList())).ToList(),
+                ContentPacks = m.Content.ToList(),
+            };
         }
 
         /// <summary>Adds a profile, or replaces the one with the same id.</summary>

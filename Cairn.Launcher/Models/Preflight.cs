@@ -15,7 +15,7 @@ namespace Cairn.Launcher.Models
     /// <summary>What the launcher knows about this PC and this game when the ready check is asked for.</summary>
     public sealed record PreflightInput(
         bool Supported, bool GameFound, bool ModInstalled, bool SetupOk, bool SteamRunning,
-        bool PortFree, bool GameRunning, string? NewerLauncher);
+        bool PortFree, bool GameRunning, string? NewerLauncher, string? ModBlocked = null);
 
     /// <summary>The "ready check" before hosting or joining: everything that commonly goes wrong, in plain words, as a pure function.</summary>
     public static class Preflight
@@ -33,9 +33,11 @@ namespace Cairn.Launcher.Models
                 ? new("The game", CheckStatus.Ok, "Found on this PC.")
                 : new("The game", CheckStatus.Fail, "Not found. Set its path in Settings, or use Locate game on its page."));
 
-            list.Add(i.ModInstalled
-                ? new("The mod", CheckStatus.Ok, "Downloaded and installed.")
-                : new("The mod", CheckStatus.Fail, "Not installed. Download it from the game's page."));
+            list.Add(!i.ModInstalled
+                ? new("The mod", CheckStatus.Fail, "Not installed. Download it from the game's page.")
+                : i.ModBlocked is not null
+                    ? new("The mod", CheckStatus.Warn, $"This version has a known problem: {i.ModBlocked} Update it from the game's page when a new one is out.")
+                    : new("The mod", CheckStatus.Ok, "Downloaded and installed."));
 
             list.Add(i.SetupOk
                 ? new("Setup", CheckStatus.Ok, "Everything the checklist looks at is in place.")

@@ -190,7 +190,7 @@ namespace Cairn.Launcher.Pages
             confirmClosePort = false;
             var upd = HomeUpdate();
             preflightItems = Preflight.Build(new PreflightInput(
-                g.IsSupported, IsGameFound(g), IsModInstalled(g), SetupAllGood, steam, portFree, gameRunning, upd.Tag));
+                g.IsSupported, IsGameFound(g), IsModInstalled(g), SetupAllGood, steam, portFree, gameRunning, upd.Tag, BlockedReasonOfInstalled(g)));
             
             if (preflightItems.Any(x => x.Status == CheckStatus.Fail))
                 readyCheckStatus = CheckStatus.Fail;
@@ -253,6 +253,6 @@ namespace Cairn.Launcher.Pages
 
         // the footer's buttons: fire and forget, the queue shows what happens
         private void FooterUpdate(string gameId) => _ = DownloadPackAsync(gameId);
-        private Task FooterCheckAsync() => LoadPackIndexAsync();
+        private Task FooterCheckAsync() => RefreshCatalogAndPacksAsync();
     }
 }

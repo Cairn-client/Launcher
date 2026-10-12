@@ -250,7 +250,13 @@
                                         <span class="mod-state">@(packIndex is null ? "The mod catalog is not available right now." : "No mod for this game yet.")</span>
                                         @if (packIndex is null) { <button class="link-btn" @onclick="LoadPackIndexAsync">Retry</button> }
                                     }
+                                    @if (BlockedReasonOfInstalled(game) is { } badMod) { <span class="mod-note err">This version has a known problem: @badMod </span> }
+                                    @if (blockedOffers.TryGetValue(game.Id, out var heldBack)) { <span class="mod-note err">The newest version (@heldBack) is on hold and is not offered.</span> }
                                     @if (packMessage.Length > 0) { <span class="mod-note @(packMessageIsError ? "err" : "")">@packMessage</span> }
+                                    @if (game.ModRepo.Length > 0)
+                                    {
+                                        <button class="link-btn" title="@(ChannelOf(game.Id) == "beta" ? "You are offered beta versions of this mod. Click to follow stable versions only." : "Click to be offered beta versions of this mod too.")" @onclick="() => ToggleChannelAsync(game.Id)">@(ChannelOf(game.Id) == "beta" ? "Beta: on" : "Beta: off")</button>
+                                    }
                                 </dd>
                             </div>
                         @if (game.Requirements.Count > 0)
@@ -369,7 +375,7 @@
                     <HomeView Games="@GameProfileRegistry.All()" OnPc="@IsGameFound" GamesOnPc="@HomeGamesOnPc" ModsInstalled="@HomeModsInstalled"
                               Latest="@(changelog?.FirstOrDefault())" SetupReady="@(setupSnapshot is null ? null : SystemSetupGood)"
                               UpdateTag="@upd.Tag" UpdateNotes="@upd.Notes" UpdateBusy="@updateBusy" OnUpdate="@HomeUpdateClickAsync"
-                              Last="@HomeLast" FriendsState="@homeFriendsState" Friends="@homeFriends" OnJoinFriend="@JoinFriendFromHomeAsync" History="@HomeHistory()"
+                              Last="@HomeLast" FriendsState="@homeFriendsState" Friends="@homeFriends" OnJoinFriend="@JoinFriendFromHomeAsync" History="@HomeHistory()" Notices="@HomeNotices()" OnDismissNotice="@DismissNotice" 
                               Favorites="@HomeFavorites" OnToggleFavorite="@ToggleFavorite"
                               OnOpenGame="@OpenGameFromHome" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenVersions="@(() => NavigateTo(AppView.Versions))"
                               OnOpenHelp="@(() => NavigateTo(AppView.Help))" OnOpenSetup="@OpenSetupChecklist" />
@@ -378,7 +384,7 @@
                     <VersionsView Releases="@changelog" CheckingUpdates="@updateBusy" OnCheckUpdates="@CheckUpdatesAndChangelogAsync" OnReload="@ReloadChangelogAsync" />
                     break;
                 case AppView.Help:
-                    <HelpView OnReplayTour="@ReplayTour" OnOpenSetup="@OpenSetupChecklist" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenSettings="@(() => NavigateTo(AppView.Settings))" />
+                    <HelpView Notices="@CurrentNotices()" OnReplayTour="@ReplayTour" OnOpenSetup="@OpenSetupChecklist" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenSettings="@(() => NavigateTo(AppView.Settings))" />
                     break;
                 case AppView.Settings:
                     <SettingsModal Inline="true" IsVisible="true"
@@ -396,7 +402,7 @@
     }
 
     @* the strip at the bottom of every page: the downloads, like Steam's *@
-    <DownloadFooter Manager="@Downloads" Updates="@ModUpdates()" Checking="@packIndexLoading" LastChecked="@packIndexCheckedUtc" Offline="@(packIndexTried && packIndex is null)"
+    <DownloadFooter Manager="@Downloads" Updates="@ModUpdates()" Checking="@(packIndexLoading || catalogLoading)" LastChecked="@packIndexCheckedUtc" Offline="@(packIndexTried && packIndex is null)"
                     OnUpdate="@FooterUpdate" OnUpdateAll="@UpdateAllModsAsync" OnCheck="@FooterCheckAsync" />
 
 </div>

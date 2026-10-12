@@ -57,5 +57,11 @@ namespace Cairn.Launcher.Models
 
         /// <summary>Screenshots shown as thumbnails on the game's slide.</summary>
         public System.Collections.Generic.List<string> Screenshots { get; set; } = new();
+
+        /// <summary>What the game's mod does, as the card on its page tells it (from the game's game.json).</summary>
+        public System.Collections.Generic.List<GameFeatureGroup> Features { get; set; } = new();
+
+        /// <summary>The ids of the content packs (start saves) the game offers; their repositories are in the catalog.</summary>
+        public System.Collections.Generic.List<string> ContentPacks { get; set; } = new();
     }
 }

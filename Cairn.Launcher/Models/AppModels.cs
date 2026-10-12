@@ -227,6 +227,10 @@ namespace Cairn.Launcher.Models
         // from. Relative = next to the launcher, where Setup puts it.
         public string StartSavePath { get; set; } = "start-save";
 
+        // which release of a game's mod to follow, by game id: "stable" (the default, also for a game that is not in the list) or "beta"
+        // (the newest release, pre-releases included). Set from the mod row on the game's page.
+        public Dictionary<string, string> ModChannels { get; set; } = new();
+
         // Host finds the relay's ports taken by this install's own relay (a
         // launcher closed with the window's X leaves it running): the same release with
         // the same settings is used again, any other is stopped and replaced; another

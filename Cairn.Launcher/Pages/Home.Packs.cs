@@ -89,6 +89,14 @@ namespace Cairn.Launcher.Pages
 
         private PackInfo? CatalogPackOf(GameProfile g) => packIndex?.ForGame(g.Id);
 
+        // What the catalog offers for a pack that is not a game's own mod (what a mod depends on, content): asked when needed, until the catalog is read again.
+        private readonly Dictionary<string, PackInfo?> offeredPacks = new(StringComparer.OrdinalIgnoreCase);
+
+        // A newest mod version the catalog says not to offer: game id -> "version: why". The game's page says so instead of offering an update.
+        private readonly Dictionary<string, string> blockedOffers = new(StringComparer.OrdinalIgnoreCase);
+
+        private static PackInfo? ModOf(PackIndex? index) => index?.Packs.FirstOrDefault(p => p.Kind == PackKinds.Mod);
+
         private async Task LoadPackIndexAsync()
         {
             if (packIndexLoading) return;
@@ -97,12 +105,26 @@ namespace Cairn.Launcher.Pages
             {
                 // every game that has a mod repository has its own latest release; the catalog is what they say together
                 var found = new List<PackInfo>();
+                var blocked = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 bool anyRepo = false;
                 foreach (var g in GameProfileRegistry.All().Where(g => g.ModRepo.Length > 0))
                 {
                     anyRepo = true;
-                    if (await PackCatalog.FetchAsync(PackHttp, g.ModRepo) is { } index) found.AddRange(index.Packs);
+                    string channel = ChannelOf(g.Id);
+                    var stable = ModOf(await PackCatalog.FetchAsync(PackHttp, g.ModRepo));
+                    var beta = channel == PackChannels.Beta ? ModOf(await PackChannels.FetchBetaAsync(PackHttp, g.ModRepo)) : null;
+                    var chosen = PackChannels.Choose(channel, stable, beta);
+                    if (chosen is not null && GameProfileRegistry.Catalog.BlockOf(chosen.Id, chosen.Version) is { } block)
+                    {
+                        blocked[g.Id] = $"{chosen.Version}: {block.Reason}";
+                        // a blocked beta falls back to the stable release; a blocked stable release is simply not offered
+                        chosen = ReferenceEquals(chosen, beta) && stable is not null && GameProfileRegistry.Catalog.BlockOf(stable.Id, stable.Version) is null ? stable : null;
+                    }
+                    if (chosen is not null) found.Add(chosen);
                 }
+                blockedOffers.Clear();
+                foreach (var b in blocked) blockedOffers[b.Key] = b.Value;
+                offeredPacks.Clear();
                 packIndex = anyRepo && found.Count > 0 ? new PackIndex(PackIndex.CurrentSchema, found) : null;
                 if (packIndex is not null) packIndexCheckedUtc = DateTime.UtcNow;
                 Log.Information("packs: catalog {Result}", packIndex is null ? "not available" : $"{packIndex.Packs.Count} pack(s)");
@@ -113,19 +135,47 @@ namespace Cairn.Launcher.Pages
                 packIndexTried = true;
                 await InvokeAsync(StateHasChanged);
             }
+            foreach (var g in GameProfileRegistry.All().Where(g => g.ContentPacks.Count > 0 && IsModDownloaded(g))) _ = EnsureContentAsync(g);
         }
 
-        /// <summary>Queues a mod's download (a first one or an update) and returns when it is done: true when it was downloaded.</summary>
-        private async Task DownloadPackAsync(string gameId)
+        /// <summary>What the catalog offers for a pack: a game's mod (its channel's release), or any other pack from the repository the games catalog names for it. Null when nothing.</summary>
+        private async Task<PackInfo?> OfferedPackAsync(string packId)
         {
-            if (GameProfileRegistry.Get(gameId) is not { } game) return;
-            if (Downloads.ItemOf(gameId) is { } queued) { await queued.Finished; return; }
+            if (GameProfileRegistry.Get(packId) is { ModRepo.Length: > 0 } g) return CatalogPackOf(g);
+            if (offeredPacks.TryGetValue(packId, out var cached)) return cached;
+            var repo = GameProfileRegistry.Catalog.RepoOfPack(packId);
+            var info = repo is null ? null : (await PackCatalog.FetchAsync(PackHttp, repo))?.Packs.FirstOrDefault(p => string.Equals(p.Id, packId, StringComparison.OrdinalIgnoreCase));
+            if (info is not null && GameProfileRegistry.Catalog.BlockOf(info.Id, info.Version) is not null) info = null;
+            return offeredPacks[packId] = info;
+        }
+
+        // the catalog's answer for everything the pack depends on, the dependencies' own included (the planner works on what is known)
+        private async Task PrefetchDependenciesAsync(PackInfo pack, Dictionary<string, PackInfo> offered, int depth)
+        {
+            if (depth > 4) return;
+            foreach (var dep in pack.Dependencies)
+            {
+                if (offered.ContainsKey(dep.Id)) continue;
+                if (await OfferedPackAsync(dep.Id) is not { } o) continue;
+                offered[dep.Id] = o;
+                await PrefetchDependenciesAsync(o, offered, depth + 1);
+            }
+        }
+
+        /// <summary>Queues a pack's download (a game's mod, a first one or an update; or content) and returns when it is done. What it depends on is downloaded first.</summary>
+        private async Task DownloadPackAsync(string packId)
+        {
+            var game = GameProfileRegistry.Get(packId);   // null for a pack that is not a game's mod
+            string name = game?.DisplayName ?? packId;
+            if (Downloads.ItemOf(packId) is { } queued) { await queued.Finished; return; }
             if (!packIndexTried || packIndex is null) await LoadPackIndexAsync();
-            var info = CatalogPackOf(game);
-            var url = info is null ? null : PackCatalog.PackUrl(game.ModRepo, info);
+            var info = await OfferedPackAsync(packId);
+            var url = info is null ? null : PackCatalog.PackUrl(GameProfileRegistry.Catalog.RepoOfPack(packId), info);
             if (info is null || url is null)
             {
-                SetPackMessage("No mod is available for this game yet.", error: true);
+                SetPackMessage(blockedOffers.TryGetValue(packId, out var why)
+                    ? $"The newest {name} mod ({why}) is on hold, so it is not offered."
+                    : "No mod is available for this game yet.", error: true);
                 return;
             }
             if (!PackCatalog.LauncherIsEnough(info.LauncherMin, Globals.CairnVersion))
@@ -134,16 +184,44 @@ namespace Cairn.Launcher.Pages
                 return;
             }
 
+            var known = new Dictionary<string, PackInfo>(StringComparer.OrdinalIgnoreCase);
+            await PrefetchDependenciesAsync(info, known, 0);
+            var plan = PackPlanner.Plan(info, id => PackStore.Read(PacksRoot, id), id => known.GetValueOrDefault(id));
+            if (!plan.Ok)
+            {
+                SetPackMessage($"Could not download {name}: {plan.Problem}.", error: true);
+                return;
+            }
+
             SetPackMessage("", error: false);
-            await Downloads.Enqueue(new DownloadItem(gameId, game.DisplayName, InstalledPackOf(game)?.Version, info, url)).Finished;
+            foreach (var dep in plan.Order.Where(p => !string.Equals(p.Id, info.Id, StringComparison.OrdinalIgnoreCase)))
+            {
+                var depUrl = PackCatalog.PackUrl(GameProfileRegistry.Catalog.RepoOfPack(dep.Id), dep);
+                bool ok = depUrl is not null
+                    && await Downloads.Enqueue(new DownloadItem(dep.Id, dep.Id, PackStore.Read(PacksRoot, dep.Id)?.Version, dep, depUrl)).Finished;
+                if (!ok) { SetPackMessage($"Could not download {name}: {dep.Id} did not download.", error: true); return; }
+            }
+            await Downloads.Enqueue(new DownloadItem(packId, name, PackStore.Read(PacksRoot, packId)?.Version, info, url)).Finished;
         }
 
-        /// <summary>The queue's turn for one mod: download it, then (for the setup mod) put it in the game. Runs off the UI thread.</summary>
+        /// <summary>A game's content packs (its start saves): downloaded when the player has none yet or the catalog has a newer one.</summary>
+        private async Task EnsureContentAsync(GameProfile game)
+        {
+            foreach (var id in game.ContentPacks)
+            {
+                var info = await OfferedPackAsync(id);
+                if (info is null || info.Kind != PackKinds.Content) continue;
+                if (PackStore.Read(PacksRoot, id) is { } have
+                    && !(Version.TryParse(info.Version, out var offered) && Version.TryParse(have.Version, out var mine) && offered > mine)) continue;
+                _ = DownloadPackAsync(id);
+            }
+        }
+
+        /// <summary>The queue's turn for one pack: download it, then (for the setup mod) put it in the game, or (for content) put its files where the game looks. Runs off the UI thread.</summary>
         private async Task<(bool Ok, string Message)> RunPackDownloadAsync(DownloadItem item, IProgress<double> progress, CancellationToken ct)
         {
-            string gameId = item.GameId;
-            var game = GameProfileRegistry.Get(gameId)!;
-            bool isSetupMod = gameId == ModInstall.PackId;
+            string gameId = item.GameId, name = item.GameName;
+            bool isSetupMod = gameId == ModInstall.PackId && item.Info.Kind == PackKinds.Mod;
             if (isSetupMod) await InvokeAsync(() => SetActivity(setupActivity with { DownloadingPack = true, PackProgress = 0, PackFailure = null }));
             await InvokeAsync(StateHasChanged);
 
@@ -164,31 +242,39 @@ namespace Cairn.Launcher.Pages
             }
             catch (OperationCanceledException)
             {
-                Log.Information("packs: {Game} {Version} cancelled", gameId, item.Info.Version);
+                Log.Information("packs: {Pack} {Version} cancelled", gameId, item.Info.Version);
                 await InvokeAsync(() =>
                 {
                     if (isSetupMod) SetActivity(setupActivity with { DownloadingPack = false, PackProgress = null, PackFailure = null });
-                    SetPackMessage($"{game.DisplayName} download cancelled.", error: false);
+                    SetPackMessage($"{name} download cancelled.", error: false);
                     StateHasChanged();
                 });
                 throw;
             }
-            Log.Information("packs: {Game} {Version} {Outcome}: {Message}", gameId, item.Info.Version, result.Ok ? "downloaded" : "FAILED", result.Message);
+            Log.Information("packs: {Pack} {Version} {Outcome}: {Message}", gameId, item.Info.Version, result.Ok ? "downloaded" : "FAILED", result.Message);
 
+            string kindWord = item.Info.Kind == PackKinds.Content ? "files" : "mod";
             await InvokeAsync(() =>
             {
                 installedPackCache.Remove(gameId);
                 ModLua.Reload();
                 if (isSetupMod)
                     SetActivity(setupActivity with { DownloadingPack = false, PackProgress = null, PackFailure = result.Ok ? null : $"The mod could not be downloaded ({result.Message})." });
-                SetPackMessage(result.Ok ? $"{game.DisplayName} mod downloaded." : $"Could not download the mod: {result.Message}.", error: !result.Ok);
+                SetPackMessage(result.Ok ? $"{name} {kindWord} downloaded." : $"Could not download the {kindWord}: {result.Message}.", error: !result.Ok);
                 StateHasChanged();
             });
+            if (result.Ok && item.Info.Kind == PackKinds.Content && PackStore.ReadContract(PacksRoot, item.Info.Id) is { InstallTo: PackContract.StartSaveTarget })
+            {
+                // content the player did not have yet: copied where the game looks; what the player already has is never overwritten
+                int copied = await Task.Run(() => ContentInstall.CopyMissing(Path.Combine(PackStore.FilesDir(PacksRoot, item.Info.Id), PackStore.ModFolder), StartSaveRoot));
+                Log.Information("packs: {Pack} put {Count} file(s) into the start saves", gameId, copied);
+            }
             if (result.Ok && isSetupMod)
             {
                 // downloading installs it too: placed in the game right away (the Install button stays as the fallback if that fails)
                 Downloads.MarkInstalling(item);
                 await InvokeAsync(() => InstallModAsync(gameId));
+                if (GameProfileRegistry.Get(gameId) is { } installed) _ = EnsureContentAsync(installed);
             }
             return (result.Ok, result.Message);
         }
