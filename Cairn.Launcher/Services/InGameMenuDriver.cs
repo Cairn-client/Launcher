@@ -71,10 +71,12 @@ namespace Cairn.Launcher.Services
 
         // A game whose mod talks to the launcher through its bridge (Cairn.Setup/BridgeProtocol.cs) instead of the game's log and console.
         private readonly BridgeServer? _bridge;
+        private readonly bool _launcherRows;   // the launcher adds its own rows (DLSS 5) to a bridged menu too: Kingdom Come II's
 
-        public InGameMenuDriver(Process game, DateTime startLocal, string gameRoot, string menuKeyName, bool dlss5 = false, BridgeServer? bridge = null)
+        public InGameMenuDriver(Process game, DateTime startLocal, string gameRoot, string menuKeyName, bool dlss5 = false, BridgeServer? bridge = null, bool launcherRows = false)
         {
             _bridge = bridge;
+            _launcherRows = launcherRows;
             _dlss5 = dlss5;
             _game = game;
             _startLocal = startLocal;
@@ -326,7 +328,7 @@ namespace Cairn.Launcher.Services
         /// <summary>The mod's menu with the launcher's own rows: DLSS 5's (active when enabled/installed, greyed out when disabled).</summary>
         private MenuState WithOwnRows(MenuState st)
         {
-            if (_bridge is not null) return _lastState = st;   // the launcher's own rows (DLSS 5) belong to Kingdom Come II's menu
+            if (_bridge is not null && !_launcherRows) return _lastState = st;   // the launcher's own rows (DLSS 5) belong to Kingdom Come II's menu
             var items = st.Items.Where(i => i.Id != Dlss5.MenuItemId).Append(Dlss5.MenuItem(_inDlssMenu, _dlss5)).ToList();
             return _lastState = st with { Items = items };
         }
