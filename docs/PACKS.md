@@ -107,7 +107,7 @@ uses the ones it needs:
 | --- | --- | --- |
 | `options check <id> --game-dir D` / `options apply <id> on\|off --game-dir D` | `{"available":bool,"on":bool,"note":"..."}` / `{"say":"..."}` lines then `{"ok":bool,"message":"..."}` | the game's option toggles in its settings window (`options` of `game.json`) |
 | `saves list` / `saves delete <id>` | a bridge `saves` message / a `toast` then the new list | the "Saved games" list in the settings window with the game closed |
-| `setup check [--mt-exe EXE]` / `setup do <action> [--mt-exe EXE]` | see below | the game's setup checklist, when the contract says `"setup": true` |
+| `setup check [--game-exe EXE]` / `setup do <action> [--game-exe EXE]` | see below | the game's setup checklist, when the contract says `"setup": true` |
 
 ### Setup from the pack (`"setup": true`)
 

@@ -48,7 +48,7 @@ public class PackSetupTests : IDisposable
         Assert.NotNull(r);
         Assert.Equal(2, r!.Steps.Count);
         Assert.False(r.Ready);                       // the program said ready, but a step is not done: the launcher decides
-        Assert.Equal("C:\\mt\\KingdomCome.exe", r.ModdingToolsExe);
+        Assert.Equal("C:\\mt\\KingdomCome.exe", r.GameExe);
         Assert.Equal("place-mod", r.Steps[1].Action);
     }
 
@@ -74,7 +74,7 @@ public class PackSetupTests : IDisposable
     {
         var p = Script("echo {\"step\":{\"id\":\"a\",\"title\":\"%~1 %~2 %~3 %~nx4\",\"status\":\"done\"}}\r\necho {\"done\":true,\"ready\":true}");
         var r = await PackSetup.CheckAsync(p, "C:\\Games\\mt.exe");
-        Assert.Equal("setup check --mt-exe mt.exe", r!.Steps[0].Title);
+        Assert.Equal("setup check --game-exe mt.exe", r!.Steps[0].Title);
     }
 
     [Fact]

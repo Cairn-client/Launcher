@@ -83,7 +83,7 @@ namespace Cairn.Launcher.Pages
                                 StateHasChanged();
                             });
                             // Ready and the checklist closed: nothing left to watch.
-                            if (setupReady && !showSetup) break;
+                            if (!showSetup && (setupReady || PackSetupProgram() is null)) break;
                         }
                     }
                     catch (Exception ex) { Log.Warning(ex, "setup: a background check failed"); }
@@ -95,7 +95,7 @@ namespace Cairn.Launcher.Pages
         private async Task HandleSetupActionAsync(string actionName)
         {
             Log.Information("setup: the player clicked {Action}", actionName);
-            if (actionName == DownloadPackAction) { await DownloadPackAsync(ModInstall.PackId); await CheckSetupAgainAsync(); return; }
+            if (actionName == DownloadPackAction) { await DownloadPackAsync(ActiveGameId); await CheckSetupAgainAsync(); return; }
             if (packSetup?.Steps.FirstOrDefault(x => x.Action == actionName) is { } step) await RunPackActionAsync(step.Id, actionName);
         }
 
@@ -169,14 +169,14 @@ namespace Cairn.Launcher.Pages
         /// <summary>The step shown while the game's pack cannot run its setup: not downloaded yet, or too old for this launcher.</summary>
         private IReadOnlyList<PackStep> ModPackSteps()
         {
-            bool have = PackStore.IsDownloaded(PacksRoot, ModInstall.PackId);
+            bool have = PackStore.IsDownloaded(PacksRoot, ActiveGameId);
             string detail = have
                 ? "The downloaded mod is too old for this launcher: it cannot say what your PC still needs. Download the newest mod."
-                : "The Kingdom Come: Deliverance II mod is not downloaded yet. It is a small download from the project's release page.";
+                : $"The {ActiveGameName} mod is not downloaded yet. It is a small download from the project's release page.";
             if (setupPackDownloading)
-                return new[] { new PackStep("mod-pack", "Kingdom Come: Deliverance II mod downloaded", PackStepStatus.Working,
+                return new[] { new PackStep("mod-pack", $"{ActiveGameName} mod downloaded", PackStepStatus.Working,
                     "Downloading the mod" + (setupPackProgress is double p ? $" ({p * 100:0}%)" : "") + "...", Progress: setupPackProgress, System: true) };
-            return new[] { new PackStep("mod-pack", "Kingdom Come: Deliverance II mod downloaded", PackStepStatus.NeedsYou,
+            return new[] { new PackStep("mod-pack", $"{ActiveGameName} mod downloaded", PackStepStatus.NeedsYou,
                 (setupPackFailure is null ? "" : setupPackFailure + " ") + detail, DownloadPackAction, setupPackFailure is null ? "Download the mod" : "Try again", System: true) };
         }
 
@@ -196,7 +196,7 @@ namespace Cairn.Launcher.Pages
         /// </summary>
         private void AdoptDetectedGamePath(string? exe)
         {
-            if (exe is null || !File.Exists(exe)) return;
+            if (exe is null || !File.Exists(exe) || !GameExeIsSetting(ActiveGameId)) return;
             if (IsModdingToolsBuild(settings.GamePath ?? "") && File.Exists(settings.GamePath)) return;
             settings.GamePath = exe;
             if (settingsStore.IsUnsetOnDisk(nameof(AppSettings.GamePath)))

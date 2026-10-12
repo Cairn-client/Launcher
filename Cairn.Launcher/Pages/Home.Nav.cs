@@ -134,13 +134,13 @@ namespace Cairn.Launcher.Pages
         {
             if (homeFriendsState == "checking" || DateTime.UtcNow - homeFriendsAt < TimeSpan.FromSeconds(50)) return;
             if (showJoinSteam || steamBusy || gameRunning || !setupChecked || !SetupAllGood) return;
-            string? program = PackSessionProgram();
+            string? program = PackSessionProgram(FriendsGameId);
             if (program is null) { homeFriendsState = "unavailable"; return; }
             homeFriendsState = "checking";
             await InvokeAsync(StateHasChanged);
             try
             {
-                var r = await PackSession.FriendsOnceAsync(program, settings.SteamAppId, settings.GamePath ?? "");
+                var r = await PackSession.FriendsOnceAsync(program, settings.SteamAppId, GameExeOf(FriendsGameId) ?? "");
                 if (r is { State: "ok" })
                 {
                     var friends = r.Friends.Select(f => new SteamFriendData { Name = f.Name, Code = f.Code, Release = f.Release }).ToList();
@@ -179,7 +179,7 @@ namespace Cairn.Launcher.Pages
         /// </summary>
         private async Task JoinFriendFromHomeAsync(SteamFriendData friend)
         {
-            SelectGame(GameProfileRegistry.Kcd2Id);
+            if (FriendsGameId.Length > 0) SelectGame(FriendsGameId);
             if (gameRunning) { ShowToast("The game is already running. Close it first, or use Leave game on its page.", true); return; }
             if (SelectedProfile is { } g && NeedsMod(g))
             {

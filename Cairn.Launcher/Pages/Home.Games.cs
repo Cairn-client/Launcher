@@ -15,7 +15,7 @@ namespace Cairn.Launcher.Pages
     public partial class Home
     {
         // The game whose page is shown on the right of the window. Host and Join act on the game profile selected here.
-        private string selectedGameId = GameProfileRegistry.Kcd2Id;
+        private string selectedGameId = "";   // the catalog picks the first game when it is read (Home.Catalog.cs)
 
         // the feature card on a game's page: the category tab shown (empty = the first)
         private string featureTab = string.Empty;
@@ -212,6 +212,19 @@ namespace Cairn.Launcher.Pages
         {
             if (GameProfileRegistry.Get(id) is not null) selectedGameId = id;
             if (GameProfileRegistry.Get(id) is { } g) _ = LoadGameInfoAsync(g);
+            _ = CheckSetupAgainAsync();   // the setup list is the selected game's
+        }
+
+        /// <summary>The one game whose executable is a setting of the launcher (Settings > Game executable path): Kingdom Come II's Modding Tools build, which only its pack's setup can find. Every other game is found in Steam or where the player pointed.</summary>
+        private static bool GameExeIsSetting(string gameId) => gameId == GameProfileRegistry.Kcd2Id;
+
+        /// <summary>The game's executable as its pack is told: the setting for the game above, else the game's own file in the folder it was found in; null when it is not known.</summary>
+        private string? GameExeOf(string gameId)
+        {
+            if (GameExeIsSetting(gameId)) return string.IsNullOrWhiteSpace(settings.GamePath) ? null : settings.GamePath;
+            if (GameProfileRegistry.Get(gameId) is not { } g || GameFolderOf(g) is not { } folder || string.IsNullOrWhiteSpace(g.DefaultExeName)) return null;
+            string exe = Path.Combine(folder, g.DefaultExeName);
+            return File.Exists(exe) ? exe : null;
         }
 
         // Steam is asked once per other game, not at every render.
@@ -223,7 +236,7 @@ namespace Cairn.Launcher.Pages
         /// <summary>Whether the profile's game is on this PC. KCD2's is the game path in Settings; the others are looked up in Steam.</summary>
         private bool IsGameFound(GameProfile profile)
         {
-            if (profile.Id == GameProfileRegistry.Kcd2Id)
+            if (GameExeIsSetting(profile.Id))
             {
                 bool found = !string.IsNullOrWhiteSpace(settings.GamePath) && File.Exists(settings.GamePath);
                 GameProfileRegistry.MarkInstalled(profile.Id, found ? settings.GamePath : null);

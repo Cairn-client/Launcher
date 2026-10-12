@@ -27,13 +27,10 @@ namespace Cairn.Launcher.Pages
         /// <summary>The game's folder as its options program wants it: for Kingdom Come II the game's root (the Modding Tools build's own, as DLSS 5 has always had it), else the folder the game was found in.</summary>
         private string? OptionsGameDir(GameProfile g)
         {
-            if (g.Id == GameProfileRegistry.Kcd2Id)
+            if (GameExeIsSetting(g.Id))
                 return string.IsNullOrWhiteSpace(settings.GamePath) ? null : GameLocator.InstallRootOf(settings.GamePath) ?? Path.GetDirectoryName(settings.GamePath);
             return GameFolderOf(g);
         }
-
-        /// <summary>The launcher's own DLSS 5 (Home.Dlss5.cs) is used only for a game whose pack does not offer it as an option.</summary>
-        private bool LegacyDlss5For(GameProfile g) => g.Id == GameProfileRegistry.Kcd2Id && g.Options.Count == 0;
 
         /// <summary>Asks the pack's program what is so for each of the game's options (when the settings window opens).</summary>
         private async Task LoadOptionStatusesAsync(GameProfile g)

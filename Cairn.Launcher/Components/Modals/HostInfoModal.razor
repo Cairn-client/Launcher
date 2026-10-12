@@ -61,7 +61,7 @@
                                     <div><dt>How friends join</dt><dd>They find you in their JOIN GAME list. The code is the backup if you are not listed.</dd></div>
                                     <div><dt>Connection</dt><dd>Through Steam@(ShowAddress ? "" : "; your address stays hidden")</dd></div>
                                     <div><dt>Game</dt><dd>@(GameRunning ? "Running" : "Not started yet")</dd></div>
-                                    <div><dt>Mod</dt><dd>@Cairn.Launcher.Models.ModLua.Handshake() (your friend needs the same version of the mod)</dd></div>
+                                    <div><dt>Mod</dt><dd>@ModVersion (your friend needs the same version of the mod)</dd></div>
                                 </dl>
                             </div>
                         }
@@ -122,6 +122,7 @@
     [Parameter] public string ErrorMessage { get; set; } = "";
     [Parameter] public bool RelayRunning { get; set; }
     [Parameter] public EventCallback OnLaunchAsHost { get; set; }
+    [Parameter] public string ModVersion { get; set; } = "";
 
     [Parameter] public bool AllowSteam { get; set; }
     [Parameter] public string SteamState { get; set; } = "off";

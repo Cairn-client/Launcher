@@ -66,8 +66,9 @@ namespace Cairn.Launcher.Pages
         {
             if (!IsModDownloaded(g)) return false;
             if (IsExternalMod(g)) return GameFolderOf(g) is { } folder && ExternalInstall.IsPlaced(folder, PacksRoot, g.Id);
-            if (g.Id != ModInstall.PackId) return true;
-            return packSetup?.Steps.FirstOrDefault(s => s.Id == "mod")?.Status == PackStepStatus.Done;   // the pack's own word: its mod is in the Modding Tools
+            if (!IsPackRunGame(g.Id)) return true;
+            if (packSetupGameId != g.Id) return true;   // the pack's setup is asked for the game that is selected
+            return packSetup?.Steps.FirstOrDefault(s => s.Id == "mod")?.Status == PackStepStatus.Done;   // the pack's own word: its mod is in place
         }
 
         /// <summary>Puts a downloaded mod into the game's Mods folder (the setup checklist does the same on its own once everything else is ready).</summary>
@@ -75,7 +76,7 @@ namespace Cairn.Launcher.Pages
         {
             if (GameProfileRegistry.Get(gameId) is not { } game) return;
             if (IsExternalMod(game)) { await InstallExternalModAsync(game); return; }
-            if (gameId != ModInstall.PackId) return;
+            if (!IsPackRunGame(gameId)) return;
             if (gameRunning) { SetPackMessage("Close the game first.", error: true); return; }
             if (PackSetupProgram() is null) { SetPackMessage(ModTooOldText, error: true); return; }
             await RunPackActionAsync("mod", "place-mod");   // the pack's program puts its mod in the Modding Tools
@@ -216,7 +217,7 @@ namespace Cairn.Launcher.Pages
         private async Task<(bool Ok, string Message)> RunPackDownloadAsync(DownloadItem item, IProgress<double> progress, CancellationToken ct)
         {
             string gameId = item.GameId, name = item.GameName;
-            bool isSetupMod = gameId == ModInstall.PackId && item.Info.Kind == PackKinds.Mod;
+            bool isSetupMod = gameId == ActiveGameId && item.Info.Kind == PackKinds.Mod;
             if (isSetupMod && !gameRunning) await InvokeAsync(ReleasePackSession);   // its program holds the mod's files open
             if (isSetupMod) await InvokeAsync(() => SetPackDownloadActivity(true, 0, null));
             await InvokeAsync(StateHasChanged);
@@ -298,20 +299,20 @@ namespace Cairn.Launcher.Pages
                     note = r.Message;
                 }
             }
-            else if (gameId == ModInstall.PackId && PackSetupProgram() is { } program)
+            else if (PackSetupProgram(gameId) is { } program)
             {
                 // the pack's own program takes its mod out of the Modding Tools (an older pack without the action leaves it, and says so)
-                var r = await PackSetup.DoAsync(program, "unplace-mod", string.IsNullOrWhiteSpace(settings.GamePath) ? null : settings.GamePath, _ => { }, _ => { });
+                var r = await PackSetup.DoAsync(program, "unplace-mod", GameExeOf(gameId), _ => { }, _ => { });
                 if (!r.Ok && r.Message.Length > 0) { SetPackMessage($"Could not remove the mod from the game ({r.Message}).", error: true); return; }
                 note = r.Message;
             }
-            if (gameId == ModInstall.PackId) ReleasePackSession();
+            if (gameId == packSessionGameId) ReleasePackSession();
             await Task.Run(() => PackStore.Remove(PacksRoot, gameId));
             installedPackCache.Remove(gameId);
             ModLua.Reload();
             Log.Information("packs: {Game} removed ({Note})", gameId, note ?? "download only");
             SetPackMessage($"{game.DisplayName} mod removed.", error: false);
-            if (gameId == ModInstall.PackId) await CheckSetupAgainAsync();
+            if (gameId == ActiveGameId) await CheckSetupAgainAsync();
         }
 
         private void SetPackMessage(string message, bool error)

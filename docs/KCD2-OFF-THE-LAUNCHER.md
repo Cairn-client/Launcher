@@ -26,4 +26,7 @@ presence (a launcher feature), the update window.
 
 * The installer (`installer/Cairn.iss`, `CairnSetup.exe` from `dotnet/Cairn.SetupHost`) and the `Cairn.Setup` classes it uses (`SetupProbe`, the workspace links, `GameLocator`): the
   installer's first-run pages find Steam and the Modding Tools. They duplicate what the pack's `setup` does and are the next thing to retire.
+* The game's executable is a setting only for KCD2 (`GameExeIsSetting`, its Modding Tools build, which only its pack's setup can find); every other game is found in Steam or where the player pointed, and
+  the pack is handed that file. Everything else that names a pack (setup, session, start-game, logs, saves, the menu bridge) is looked up by the selected game's id, so a second game whose pack says
+  `"session": true` / `"setup": true` is run the same way, with no launcher change.
 * The settings.json keys of the KCD2 session (`GamePath`, `HostPort`, `ConnectGate`, ...) are the player's file; the launcher passes them to the session as they are.
