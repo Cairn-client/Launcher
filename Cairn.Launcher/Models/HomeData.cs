@@ -81,10 +81,19 @@ namespace Cairn.Launcher.Models
 
     public static class HomeLogic
     {
+        /// <summary>The catalog's version is newer than the downloaded one. An older one (the stable channel after a beta was downloaded) is not an update.</summary>
+        public static bool IsNewerPack(string catalogVersion, string downloadedVersion) =>
+            Cairn.Wire.ReleaseVersionCompare.Compare(downloadedVersion, catalogVersion) switch
+            {
+                Cairn.Wire.ReleaseVersionComparison.LocalIsOlder => true,
+                Cairn.Wire.ReleaseVersionComparison.Ambiguous => !string.Equals(catalogVersion, downloadedVersion, StringComparison.Ordinal),
+                _ => false,
+            };
+
         public static ModState ModStateOf(string? catalogVersion, string? downloadedVersion, bool installed)
         {
             if (downloadedVersion is null) return catalogVersion is null ? ModState.NotAvailable : ModState.NotDownloaded;
-            if (catalogVersion is not null && !string.Equals(catalogVersion, downloadedVersion, StringComparison.Ordinal)) return ModState.UpdateAvailable;
+            if (catalogVersion is not null && IsNewerPack(catalogVersion, downloadedVersion)) return ModState.UpdateAvailable;
             return installed ? ModState.Installed : ModState.NotInstalled;
         }
 

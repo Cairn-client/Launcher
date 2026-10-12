@@ -236,7 +236,7 @@
                                             <span class="mod-state ok">@pack.Version@(IsModInstalled(game) ? "" : " (not installed)")</span>
                                             <button class="link-btn" title="Remove the downloaded mod" @onclick="() => RemovePackAsync(game.Id)">Remove</button>
                                             @if (!IsModInstalled(game) && game.Id == Cairn.Setup.ModInstall.PackId) { <button class="link-btn strong" disabled="@(gameRunning)" @onclick="() => InstallModAsync(game.Id)">Install</button> }
-                                            @if (offered is not null && offered.Version != pack.Version) { <button class="link-btn" @onclick="() => DownloadPackAsync(game.Id)">Update to @offered.Version</button> }
+                                            @if (offered is not null && HomeLogic.IsNewerPack(offered.Version, pack.Version)) { <button class="link-btn" @onclick="() => DownloadPackAsync(game.Id)">Update to @offered.Version</button> }
                                         }
                                         else if (offered is not null)
                                         {
