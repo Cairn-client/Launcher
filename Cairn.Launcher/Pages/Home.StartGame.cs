@@ -40,6 +40,9 @@ namespace Cairn.Launcher.Pages
         private string startGameNewWhy = "";
         private readonly ConcurrentQueue<MenuTakeoverRule.MenuChoice> startGameChoices = new();
         private string? startGameStartRoot;                        // the start saves: one folder per playstyle
+
+        /// <summary>The folder of the start saves (the agent is told, as it runs from the mod's own folder, not the launcher's).</summary>
+        private string StartSaveRootPath() => Environment.GetEnvironmentVariable("CAIRN_START_SAVE") is { Length: > 0 } envRoot ? envRoot : ResolveAgainstLauncher(settings.StartSavePath);
         private List<string> startGameStyles = new();              // the playstyles whose start save is installed
 
         private const int StartGameTickMs = 250;
@@ -84,6 +87,8 @@ namespace Cairn.Launcher.Pages
             startGameStartRoot = Environment.GetEnvironmentVariable("CAIRN_START_SAVE") is { Length: > 0 } envRoot ? envRoot : ResolveAgainstLauncher(settings.StartSavePath);
             startGameStyles = MenuTakeoverRule.Styles.Where(st => Directory.Exists(Path.Combine(startGameStartRoot, st))
                 && Directory.GetFiles(Path.Combine(startGameStartRoot, st), "*.whs").Length == 1).ToList();
+            // a joiner may pick any playstyle: a start save it does not have is asked of the host, whose own it is (the agent does it)
+            if (!hosting) startGameStyles = MenuTakeoverRule.Styles.ToList();
             Log.Information("MP-StartGame start saves installed: {Styles}", startGameStyles.Count == 0 ? "none" : string.Join(", ", startGameStyles));
             // a start save an earlier run staged and never played (the launcher closed with its game still open)
             if (await AgentHelper.RunAsync<StartGameUnstageData>(agent, $"{ModLua.HelperFlag} unstage", ModLua.HelperTag, TimeSpan.FromSeconds(20)) is { } u && u.Lines.Count > 0)
