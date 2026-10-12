@@ -19,6 +19,7 @@ is open to the current Windows user only. The first thing a bridge says is `hell
 | `{"t":"menu","title":"..","blocked":"","note":"..","items":[ ... ]}` | the whole menu. An item: `id` (letters, digits, `-`, `_`), `group`, `kind` (`onoff` `choice` `key` `action` `info`), `on` (true/false/absent), `locked`, `disabled`, `value`, `label`, `help`, `gate` (`f1`..`f12`). At most 64 items; a damaged item is skipped. |
 | `{"t":"notice","text":"Ann joined^^Press Insert"}` / `{"t":"notice_hide"}` | the cards at the top left; `^^` separates lines. |
 | `{"t":"subtitle","seconds":4,"text":".."}` | a spoken line (1 to 15 seconds). |
+| `{"t":"saves","slots":[{"id":"run-12","name":"Ann's run","detail":"depth 4","kind":"world","when":"2026-10-12T10:30:00Z"}]}` | the saves the game has, the whole list each time (`kind`: `world` or `character`; ids are letters, digits, `- _ .`; at most 100). Shown in the Saves row of the game's page while the game runs. |
 
 | Launcher to bridge | |
 | --- | --- |
@@ -26,6 +27,8 @@ is open to the current Windows user only. The first thing a bridge says is `hell
 | `{"t":"attach"}` | the launcher draws the menu now: the mod's own key handling steps aside. Sent until the first `menu`. |
 | `{"t":"state"}` | send the menu again (asked about once a second while the menu is open). |
 | `{"t":"do","id":"friendly_fire","verb":"enter"}` | the player did something to a row (`enter` or `nudge`). |
+| `{"t":"saves_ask"}` | send the list of saves again (sent when the bridge connects). |
+| `{"t":"save_delete","id":"run-12"}` | the player confirmed deleting this save; the bridge deletes it in its game and answers with the new `saves` list. |
 | `{"t":"bye","reason":".."}` | the connection is ending. |
 
 Texts are cut to their limits and stripped of control characters; unknown messages are ignored, so a newer bridge can say more than an
@@ -34,5 +37,5 @@ styling.
 
 ## What this does not carry yet
 
-Saves (the slot list, new/continue/delete) and the setup steps a game needs are still Kingdom Come II code in the launcher; they are
-the next parts to become data and messages.
+The setup steps a game needs (find its tools, link files) are still Kingdom Come II code in the launcher, and Kingdom Come II itself
+still talks to the launcher through its log and console, not through a bridge. Both are the next parts to move.

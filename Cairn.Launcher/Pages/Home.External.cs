@@ -2,6 +2,7 @@
 // GPLv3 section 7 additional terms: AUTHORS.md. Unofficial, free, not affiliated with or endorsed by the studios or publishers
 // of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md).
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -54,7 +55,7 @@ namespace Cairn.Launcher.Pages
             if (GameFolderOf(game) is not { } folder) { SetPackMessage($"{game.DisplayName} was not found on this PC.", error: true); return; }
 
             var companion = ExternalInstall.CompanionPath(PacksRoot, game.Id);
-            if (companion is not null) externalBridge ??= new BridgeServer();   // the companion is the mod's bridge: it connects to this pipe
+            if (companion is not null) EnsureExternalBridge();   // the companion is the mod's bridge: it connects to this pipe
             if (companion is not null && !IsRunning(companion))
             {
                 try
@@ -94,6 +95,40 @@ namespace Cairn.Launcher.Pages
 
         // The bridge the launcher listens on for external games whose mod has a companion; one per launcher run, given to the companion when it starts.
         private BridgeServer? externalBridge;
+
+        // The saves the connected game's bridge lists, shown on the game's page; and the one whose Delete was pressed once (a second press confirms).
+        private IReadOnlyList<BridgeSaveSlot> externalSaves = Array.Empty<BridgeSaveSlot>();
+        private string? deleteSaveAsked;
+        private bool externalBridgeConnected;
+
+        private void EnsureExternalBridge()
+        {
+            if (externalBridge is not null) return;
+            var bridge = externalBridge = new BridgeServer();
+            bridge.ConnectionChanged += game =>
+            {
+                externalBridgeConnected = game.Length > 0;
+                if (game.Length > 0) bridge.Send(BridgeProtocol.AskSaves());
+                else { externalSaves = Array.Empty<BridgeSaveSlot>(); deleteSaveAsked = null; }
+                _ = InvokeAsync(StateHasChanged);
+            };
+            bridge.Received += msg =>
+            {
+                if (msg is not BridgeSaves saves) return;
+                externalSaves = saves.Slots;
+                deleteSaveAsked = null;
+                _ = InvokeAsync(StateHasChanged);
+            };
+        }
+
+        /// <summary>Delete on a save: the first press asks, the second asks the game's bridge to delete it (it answers with the new list).</summary>
+        private void DeleteExternalSave(string id)
+        {
+            if (deleteSaveAsked != id) { deleteSaveAsked = id; return; }
+            deleteSaveAsked = null;
+            if (BridgeProtocol.DeleteSave(id) is { } msg && externalBridge?.Send(msg) == true) Log.Information("games: asked the bridge to delete save {Id}", id);
+            else SetPackMessage("The game's program did not answer. Is the game running?", error: true);
+        }
 
         /// <summary>Waits for the game's process (the game starts through Steam, so there is no process to hold), then draws the mod's menu over it from the bridge.</summary>
         private async Task ShowExternalMenuWhenUpAsync(GameProfile game, string folder)

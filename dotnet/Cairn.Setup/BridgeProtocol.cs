@@ -22,6 +22,12 @@ public sealed record BridgeMenu(string Title, string Blocked, string Note, IRead
 /// <summary>A notice to show (several lines joined by "^^") until it is hidden.</summary>
 public sealed record BridgeNotice(bool Show, string Text) : BridgeIn;
 
+/// <summary>One save a game has: a world, a character, a run. <c>Kind</c> is "world" or "character"; <c>When</c> is UTC, or null when the bridge does not know.</summary>
+public sealed record BridgeSaveSlot(string Id, string Name, string Detail, string Kind, DateTime? When);
+
+/// <summary>The saves the game has, as its bridge lists them (the whole list each time).</summary>
+public sealed record BridgeSaves(IReadOnlyList<BridgeSaveSlot> Slots) : BridgeIn;
+
 /// <summary>A spoken line to show for a few seconds.</summary>
 public sealed record BridgeSubtitle(double Seconds, string Text) : BridgeIn;
 
@@ -48,6 +54,7 @@ public static class BridgeProtocol
     public const string PipeEnvironmentVariable = "CAIRN_BRIDGE_PIPE";
     public const int MaxLine = 16 * 1024;
     public const int MaxItems = 64;
+    public const int MaxSaves = 100;
 
     /// <summary>Reads one line a bridge sent; null when it is not a message this launcher understands (damaged, too big, unknown, or unsafe).</summary>
     public static BridgeIn? Parse(string line)
@@ -89,6 +96,21 @@ public static class BridgeProtocol
                 }
                 case "notice_hide":
                     return new BridgeNotice(false, "");
+                case "saves":
+                {
+                    if (!r.TryGetProperty("slots", out var arr) || arr.ValueKind != JsonValueKind.Array) return null;
+                    var slots = new List<BridgeSaveSlot>();
+                    foreach (var e in arr.EnumerateArray())
+                    {
+                        if (slots.Count >= MaxSaves) break;
+                        if (e.ValueKind != JsonValueKind.Object) continue;
+                        string id = S(e, "id", 60), name = S(e, "name", 80), kind = S(e, "kind", 10);
+                        if (!IsSaveId(id) || name.Length == 0 || kind is not ("world" or "character")) continue;
+                        DateTime? when = DateTime.TryParse(S(e, "when", 40), CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var w) ? w : null;
+                        slots.Add(new BridgeSaveSlot(id, name, S(e, "detail", 120), kind, when));
+                    }
+                    return new BridgeSaves(slots);
+                }
                 case "subtitle":
                 {
                     string text = S(r, "text", 400);
@@ -105,6 +127,9 @@ public static class BridgeProtocol
     /// <summary>A plain id: letters, digits, dash and underscore (a game, a menu row). It goes into messages and is shown nowhere as markup.</summary>
     public static bool IsId(string s) => s.Length is > 0 and <= 40 && s.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_');
 
+    /// <summary>A save's id as the game's bridge names it: it goes back in a message to delete it, so it is kept plain (letters, digits, <c>- _ .</c>).</summary>
+    public static bool IsSaveId(string s) => s.Length is > 0 and <= 60 && !s.Contains("..") && s.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.');
+
     // text from a bridge is shown on screen: no control characters, no more than the cap (the "^^" line separator stays)
     private static string Clean(string s, int max)
     {
@@ -120,6 +145,10 @@ public static class BridgeProtocol
     public static string Welcome() => Line(w => { w.WriteString("t", "welcome"); w.WriteNumber("protocol", Version); });
     public static string Attach() => Line(w => w.WriteString("t", "attach"));
     public static string AskState() => Line(w => w.WriteString("t", "state"));
+    /// <summary>"Send the list of saves again."</summary>
+    public static string AskSaves() => Line(w => w.WriteString("t", "saves_ask"));
+    /// <summary>"The player deletes this save"; null when the id is not a plain save id. The bridge decides what that means in its game and answers with the new list.</summary>
+    public static string? DeleteSave(string id) => IsSaveId(id) ? Line(w => { w.WriteString("t", "save_delete"); w.WriteString("id", id); }) : null;
     public static string Bye(string reason) => Line(w => { w.WriteString("t", "bye"); w.WriteString("reason", Clean(reason, 120)); });
 
     /// <summary>"Do this to that row"; null when the id is not a plain id or the verb is not one the menu has.</summary>
