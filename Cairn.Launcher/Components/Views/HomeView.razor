@@ -24,6 +24,21 @@
         </div>
     }
 
+    @foreach (var n in Notices)
+    {
+        <div class="update-banner notice @(n.Kind == Cairn.Setup.Notice.KnownIssue ? "issue" : "news")" role="status">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                @if (n.Kind == Cairn.Setup.Notice.KnownIssue) { <circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12.5"/><line x1="12" y1="16" x2="12.01" y2="16"/> }
+                else { <path d="M4 5h16v11H8l-4 4z"/> }
+            </svg>
+            <div class="update-text">
+                <strong>@n.Title</strong>
+                @if (n.Text.Length > 0) { <span>@n.Text</span> }
+            </div>
+            <button class="update-btn quiet" title="Hide this message (it stays under Help)" @onclick="() => OnDismissNotice.InvokeAsync(n.Id)">Hide</button>
+        </div>
+    }
+
     @if (Slides.Count > 0)
     {
         var current = Slides[Math.Min(index, Slides.Count - 1)];
@@ -219,6 +234,8 @@
     [Parameter] public IReadOnlyList<string> UpdateNotes { get; set; } = Array.Empty<string>();
     [Parameter] public bool UpdateBusy { get; set; }
     [Parameter] public EventCallback OnUpdate { get; set; }
+    [Parameter] public IReadOnlyList<Cairn.Setup.Notice> Notices { get; set; } = Array.Empty<Cairn.Setup.Notice>();
+    [Parameter] public EventCallback<string> OnDismissNotice { get; set; }
 
     [Parameter] public RecentSession? Last { get; set; }
     [Parameter] public string FriendsState { get; set; } = "idle";

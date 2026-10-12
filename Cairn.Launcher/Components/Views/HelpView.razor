@@ -10,6 +10,19 @@
         <p class="lead">Get unstuck, report a problem, and find out who made what.</p>
     </header>
 
+    @if (Notices.Count > 0)
+    {
+        <section class="card">
+            <div class="card-head"><h2>Known issues and news</h2></div>
+            <ul class="list">
+                @foreach (var n in Notices)
+                {
+                    <li><strong>@n.Title</strong>@(n.Kind == Cairn.Setup.Notice.KnownIssue ? " (known issue)" : "") @n.Text</li>
+                }
+            </ul>
+        </section>
+    }
+
     <div class="columns">
         <section class="card">
             <div class="card-head"><h2>Having trouble?</h2></div>
@@ -69,6 +82,7 @@
     public const string RepoUrl = "https://github.com/Cairn-client/launcher";
     private const string IssueUrl = RepoUrl + "/issues/new";
 
+    [Parameter] public IReadOnlyList<Cairn.Setup.Notice> Notices { get; set; } = Array.Empty<Cairn.Setup.Notice>();
     [Parameter] public EventCallback OnOpenSetup { get; set; }
     [Parameter] public EventCallback OnReplayTour { get; set; }
     [Parameter] public EventCallback OnOpenLibrary { get; set; }

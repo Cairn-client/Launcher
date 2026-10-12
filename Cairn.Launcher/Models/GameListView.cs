@@ -116,6 +116,9 @@ namespace Cairn.Launcher.Models
         /// <summary>The first-run tour has been seen (or skipped).</summary>
         public bool TourSeen { get; set; }
 
+        /// <summary>The ids of the notices the player closed on Home; they stay in Help.</summary>
+        public List<string> DismissedNotices { get; set; } = new();
+
         public static string DefaultFile => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Cairn", "list-prefs.json");
 

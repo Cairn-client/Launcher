@@ -64,6 +64,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<!-- the seed: the one game the launcher can show before it has ever reached the catalog (Models/GameProfileRegistry.cs) -->
+		<EmbeddedResource Include="Seed\*.json" LogicalName="Cairn.Launcher.Seed.%(Filename)%(Extension)" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<Content Include="wwwroot\**">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>

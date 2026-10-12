@@ -134,13 +134,14 @@ namespace Cairn.Launcher.Pages
             LoadSettings();
             LoadCustomServers();
             StartSetupCheck();   // in the background; replaces the old "open Settings when no game path" check
-            _ = LoadPackIndexAsync();   // which game mods this release offers
+            _ = RefreshCatalogAndPacksAsync();   // which games there are, then which mods they offer
             _ = LoadChangelogAsync();   // the Versions page and Home show what changed
             StartHomeFriendsLoop();        // who is hosting, while Home is showing
             showTour = !listPrefs.TourSeen;   // the first-run tour
             CheckInstallIntegrity();
             Globals.OnStyleChanged += OnStyleChanged;
             Downloads.Changed += OnDownloadsChanged;
+            GameProfileRegistry.Changed += OnGamesChanged;
             await EnsureLocalMasterServerAsync();
             StartPresence();   // friends on Cairn: who is online, invitations
             await RefreshApp();
@@ -224,6 +225,7 @@ namespace Cairn.Launcher.Pages
         {
             Globals.OnStyleChanged -= OnStyleChanged;
             Downloads.Changed -= OnDownloadsChanged;
+            GameProfileRegistry.Changed -= OnGamesChanged;
             gameWatchCts.Cancel();
             StopPresence();
             objRef?.Dispose();
