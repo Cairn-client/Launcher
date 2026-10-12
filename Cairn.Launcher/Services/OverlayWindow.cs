@@ -201,8 +201,9 @@ namespace Cairn.Launcher.Services
         }
 
         /// <summary>
-        /// Shows (or hides) a notice of the mod at the top centre of the game's window, in the menu's own look: the brand line and the
-        /// words on the same dark card. It takes neither the focus nor the mouse.
+        /// Shows (or hides) a notice of the mod at the top left of the game's window, in the menu's own look: the brand line and the
+        /// words on the same dark card, one line of the notice under another ("^^" separates them; the first is the headline, the next ones
+        /// smaller). It takes neither the focus nor the mouse.
         /// </summary>
         public void RenderNotice(bool visible, string text, Int32Rect gameClient)
         {
@@ -218,11 +219,17 @@ namespace Cairn.Launcher.Services
                 if (text != _noticeText)
                 {
                     _noticeText = text;
-                    var stack = new StackPanel { MinWidth = 300 };
+                    var stack = new StackPanel { MinWidth = 260 };
                     stack.Children.Add(Pad(Text("CAIRN", 11, Gold, FontWeights.SemiBold, 3), 0, 0, 0, 6));
-                    var line = Text(text, Math.Clamp(gameClient.Height / scale * 0.026, 17, 28), Parchment, FontWeights.Medium);
-                    line.MaxWidth = 640;
-                    stack.Children.Add(line);
+                    double size = Math.Clamp(gameClient.Height / scale * 0.022, 15, 24);
+                    var lines = text.Split("^^", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    for (int i = 0; i < lines.Length; i++)
+                    {
+                        var line = Text(lines[i], i == 0 ? size : size * 0.82, i == 0 ? Parchment : Muted, i == 0 ? FontWeights.Medium : FontWeights.Normal);
+                        line.MaxWidth = 460;
+                        line.TextWrapping = TextWrapping.Wrap;
+                        stack.Children.Add(i == 0 ? line : Pad(line, 0, 6, 0, 0));
+                    }
                     _noticeWindow.Content = new Border
                     {
                         Background = Ink, BorderBrush = Oak, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14),
@@ -233,8 +240,8 @@ namespace Cairn.Launcher.Services
                 if (!_noticeWindow.IsVisible) _noticeWindow.Show();
                 _noticeWindow.UpdateLayout();
                 double w = _noticeWindow.ActualWidth > 0 ? _noticeWindow.ActualWidth : 360;
-                _noticeWindow.Left = (gameClient.X + gameClient.Width / 2.0) / scale - w / 2;
-                _noticeWindow.Top = gameClient.Y / scale + Math.Max(40, gameClient.Height / scale * 0.1);
+                _noticeWindow.Left = gameClient.X / scale + Math.Max(24, gameClient.Width / scale * 0.015);
+                _noticeWindow.Top = gameClient.Y / scale + Math.Max(24, gameClient.Height / scale * 0.04);
                 var hnd = new WindowInteropHelper(_noticeWindow).Handle;
                 SetWindowPos(hnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
               }
@@ -304,7 +311,7 @@ namespace Cairn.Launcher.Services
 
             if (blockedText.Length > 0)
             {
-                root.Children.Add(Pad(Text(blockedText, 14, Warn), 20, 18, 20, 18));
+                root.Children.Add(Pad(Text(blockedText, 14, blockedText.StartsWith("Loading", StringComparison.Ordinal) ? Dim : Warn), 20, 18, 20, 18));
             }
             else if (state.Items.Count == 0)
             {

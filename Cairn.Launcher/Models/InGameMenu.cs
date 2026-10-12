@@ -90,7 +90,7 @@ namespace Cairn.Launcher.Models
         }
 
         /// <summary>
-        /// A notice the mod wants shown (a partner joining the world): <c>[CAIRN-EVT] v1 &lt;seq&gt; notice &lt;text&gt;</c> shows it until
+        /// A notice the mod wants shown (a partner joining, the sleep question, a message; several lines joined by "^^"): <c>[CAIRN-EVT] v1 &lt;seq&gt; notice &lt;text&gt;</c> shows it until
         /// <c>[CAIRN-EVT] v1 &lt;seq&gt; notice_hide</c>. Null when the line is something else; Text is empty for the hide.
         /// </summary>
         public static (bool Show, string Text)? ParseNotice(string line)
@@ -106,7 +106,7 @@ namespace Cairn.Launcher.Models
             if (!rest.StartsWith("notice ", StringComparison.Ordinal)) return null;
             string text = rest[7..].Trim();
             if (text.Length == 0) return null;
-            return (true, text.Length > 200 ? text[..200] : text);
+            return (true, text.Length > 400 ? text[..400] : text);   // lines are separated by "^^"
         }
 
         /// <summary>The virtual-key code of a gate key name ("f1" to "f12"), or null for a name this does not know.</summary>
