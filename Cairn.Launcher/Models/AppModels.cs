@@ -121,11 +121,13 @@ namespace Cairn.Launcher.Models
         // this at the base game produces a running game the agent cannot reach.
         public string GamePath { get; set; } = "";
 
-        public string DllPath { get; set; } = "CairnNative.dll";
+        // Empty means "the pack's": the programs of a game's mod (native plugin, agent, relay) come with that mod's pack and are
+        // started from the pack store. A path the player (or a developer) writes here wins; a relative one means "next to the launcher".
+        public string DllPath { get; set; } = "";
 
         // The agent. Launching the game and injecting the DLL is only half the
         // system — without this process nothing talks to the relay at all.
-        public string AgentPath { get; set; } = "CairnClient.exe";
+        public string AgentPath { get; set; } = "";
 
         // How long to let the game get far enough along to be injected. The
         // injector needs the target's modules loaded, not just a live pid.
@@ -172,7 +174,7 @@ namespace Cairn.Launcher.Models
         // The relay executable, started locally when the player clicks "Host".
         // Same resolution rule as AgentPath/DllPath: relative means "next to
         // the launcher", which is where a packaged release puts it.
-        public string RelayPath { get; set; } = "CairnServer.exe";
+        public string RelayPath { get; set; } = "";
 
         // The master server executable, auto-started alongside the
         // launcher itself -- not on Host, unlike RelayPath -- whenever

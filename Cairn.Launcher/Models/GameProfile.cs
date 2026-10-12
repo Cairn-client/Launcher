@@ -27,7 +27,8 @@ namespace Cairn.Launcher.Models
 
         public uint PageAppId => StoreAppId != 0 ? StoreAppId : SteamAppId;
         public string DefaultExeName { get; set; } = string.Empty;
-        public string PayloadFolder { get; set; } = string.Empty;
+        /// <summary>Where the game's mod is published ("owner/name" on GitHub): its latest release carries the pack the launcher downloads.</summary>
+        public string ModRepo { get; set; } = string.Empty;
         public string BackgroundImage { get; set; } = string.Empty;
         public string DefaultServerApi { get; set; } = string.Empty;
         public bool IsInstalled { get; set; }

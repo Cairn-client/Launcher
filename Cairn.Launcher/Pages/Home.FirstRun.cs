@@ -374,7 +374,7 @@ namespace Cairn.Launcher.Pages
             if (r.Ok)
             {
                 RecordModsPath(ModInstall.TargetDir(mt), snap.ModdingToolsExe);
-                string agentPath = ResolveAgainstLauncher(settings.AgentPath);
+                string agentPath = AgentExe();
                 if (File.Exists(agentPath) && await RefreshKeysPakAsync(agentPath, mt, IsInstalledFile(agentPath)) is { } keysBlock)
                     Log.Warning("setup: keys pak not built -- {Line}", keysBlock.LogLine);   // told at the next launch
             }

@@ -36,7 +36,7 @@ namespace Cairn.Launcher.Models
                     new SteamRequirement("Kingdom Come: Deliverance II Modding Tools", 2429020, HasStorePage: false),
                 ],
                 DefaultExeName = "KingdomCome.exe",
-                PayloadFolder = "cairn",              // the mod folder placed into the game's Mods directory
+                ModRepo = "Cairn-client/mod-kcd2",     // where the mod's releases (its packs) are published
                 BackgroundImage = "img/games/kcd2.jpg",   // the page artwork, shipped with the launcher (wwwroot/img/games)
                 LogoImage = "img/games/kcd2-logo.png",
                 Description = "Explore Bohemia side by side. The host's world is shared with a friend: the same NPCs, weather, doors and fights.",

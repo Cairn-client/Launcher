@@ -128,7 +128,7 @@ namespace Cairn.Launcher.Pages
         {
             if (homeFriendsState == "checking" || DateTime.UtcNow - homeFriendsAt < TimeSpan.FromSeconds(50)) return;
             if (showJoinSteam || steamBusy || gameRunning || setupSnapshot is null || !SetupAllGood) return;
-            string agent = ResolveAgainstLauncher(settings.AgentPath);
+            string agent = AgentExe();
             if (!File.Exists(agent)) { homeFriendsState = "unavailable"; return; }
             homeFriendsState = "checking";
             await InvokeAsync(StateHasChanged);

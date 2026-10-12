@@ -105,24 +105,36 @@ public sealed class FakeSteam : IDisposable
         return this;
     }
 
+    public const string ContractJson = """
+        { "schema": 2, "id": "kcd2", "game": "kcd2", "version": "0.1.0", "upstream": "0.48.6", "modFolder": "kdcmp", "luaPrefix": "KCD2MP_",
+          "agent": "bin/Agent.exe", "relay": "bin/Relay.exe", "native": "bin/Native.dll", "brandPak": "bin/brand.pak",
+          "agentConfig": "agent.json", "launcherMin": "0.1.0", "replacesFolders": ["cairn"] }
+        """;
+
     /// <summary>A downloaded, verified mod pack for the game, laid out the way <see cref="PackInstaller"/> leaves it.</summary>
     public FakeSteam WithPack(string version = "0.1.0")
     {
         var modManifest = "mod.manifest contents";
-        var modPak = "cairn.pak contents";
+        var modPak = "kdcmp.pak contents";
         var files = PackStore.FilesDir(PacksRoot, ModInstall.PackId);
-        Directory.CreateDirectory(Path.Combine(files, "Data"));
-        File.WriteAllText(Path.Combine(files, "mod.manifest"), modManifest);
-        File.WriteAllText(Path.Combine(files, "Data", "cairn.pak"), modPak);
-        File.WriteAllLines(PackStore.ManifestPath(PacksRoot, ModInstall.PackId), new[]
+        var mod = Path.Combine(files, PackStore.ModFolder);
+        var bin = Path.Combine(files, PackStore.BinFolder);
+        Directory.CreateDirectory(Path.Combine(mod, "Data"));
+        Directory.CreateDirectory(bin);
+        File.WriteAllText(Path.Combine(mod, "mod.manifest"), modManifest);
+        File.WriteAllText(Path.Combine(mod, "Data", "kdcmp.pak"), modPak);
+        var lines = new List<string> { $"# pack|{ModInstall.PackId}|{version}",
+            $"MOD|Data\\kdcmp.pak|{modPak.Length}|{Sha(modPak).ToLowerInvariant()}",
+            $"MOD|mod.manifest|{modManifest.Length}|{Sha(modManifest).ToLowerInvariant()}" };
+        foreach (var program in new[] { "Agent.exe", "Relay.exe", "Native.dll", "brand.pak" })
         {
-            $"# pack|{ModInstall.PackId}|{version}",
-            $"MOD|Data\\cairn.pak|{modPak.Length}|{Sha(modPak).ToLowerInvariant()}",
-            $"MOD|mod.manifest|{modManifest.Length}|{Sha(modManifest).ToLowerInvariant()}",
-        });
+            File.WriteAllText(Path.Combine(bin, program), "stub " + program);
+            lines.Add($"BIN|{program}|{("stub " + program).Length}|{Sha("stub " + program).ToLowerInvariant()}");
+        }
+        File.WriteAllLines(PackStore.ManifestPath(PacksRoot, ModInstall.PackId), lines);
+        File.WriteAllText(PackStore.ContractPath(PacksRoot, ModInstall.PackId), ContractJson.Replace("\"version\": \"0.1.0\"", $"\"version\": \"{version}\""));
         return this;
     }
-
     public FakeSteam WithModPlaced()
     {
         Assert.True(ModInstall.Place(MtRoot, PacksRoot).Ok);

@@ -80,7 +80,7 @@ namespace Cairn.Launcher.Pages
             while (startGameChoices.TryDequeue(out _)) { }
             if (!settings.MenuTakeover) return true;
 
-            string agent = ResolveAgainstLauncher(settings.AgentPath);
+            string agent = AgentExe();
             startGameStartRoot = Environment.GetEnvironmentVariable("CAIRN_START_SAVE") is { Length: > 0 } envRoot ? envRoot : ResolveAgainstLauncher(settings.StartSavePath);
             startGameStyles = MenuTakeoverRule.Styles.Where(st => Directory.Exists(Path.Combine(startGameStartRoot, st))
                 && Directory.GetFiles(Path.Combine(startGameStartRoot, st), "*.whs").Length == 1).ToList();
@@ -193,7 +193,7 @@ namespace Cairn.Launcher.Pages
                             case "newadv" when hosting && !loadIssued && startGameSaves?.Staged is { } st:
                             {
                                 // the chosen playstyle's start save into the staged slot, then the load
-                                var sw = await AgentHelper.RunAsync<StartGameStageData>(ResolveAgainstLauncher(settings.AgentPath),
+                                var sw = await AgentHelper.RunAsync<StartGameStageData>(AgentExe(),
                                     $"--start_game swap --path \"{st.Path}\" --source \"{startGameStartRoot}\" --style {c.Style}", "StartGame", TimeSpan.FromSeconds(30));
                                 if (sw is not { Ok: true })
                                 {
@@ -281,26 +281,25 @@ namespace Cairn.Launcher.Pages
             try { await game.WaitForExitAsync(); } catch { }
             Log.Information("MP-StartGame the game exited");
             await StartGameRemoveLogoAsync();
-            string agent = ResolveAgainstLauncher(settings.AgentPath);
+            string agent = AgentExe();
             if (await AgentHelper.RunAsync<StartGameUnstageData>(agent, "--start_game unstage", "StartGame", TimeSpan.FromSeconds(20)) is { } u && u.Lines.Count > 0)
                 Log.Information("MP-StartGame start saves after the game: {Lines}", string.Join("; ", u.Lines));
         }
 
         // ------------------------------------------------------------ our logo on the main menu (launcher-started only)
         //
-        // The game draws its menu logo from Libs/UI/Textures/KCDLogo.dds. cairn_brand.pak (beside the launcher; built by
-        // tools\Build-MenuLogo.py + tools\Publish-Release.ps1) carries ours under that name. It is put into the mod's
+        // The game draws its menu logo from Libs/UI/Textures/KCDLogo.dds. The mod's brand pak (part of the pack; the contract names it) carries ours under that name. It is put into the mod's
         // Data folder only for a game this launcher starts and taken out when that game exits, so a game started any other
         // way shows the game's own logo. A pak left behind by a launcher that was killed is removed by the next launch's
         // exit, or by Setup (it prunes what is not the mod's).
-        private const string BrandPak = "cairn_brand.pak";
+        private string BrandPak => Path.GetFileName(BrandPakFile()) is { Length: > 0 } n ? n : "brand.pak";
 
         private string? StartGameBrandTarget() =>
             string.IsNullOrEmpty(settings.GamePath) ? null : Path.Combine(ModDirFor(settings.GamePath), "Data", BrandPak);
 
         private void StartGamePlaceLogo()
         {
-            string src = ResolveAgainstLauncher(BrandPak);
+            string src = BrandPakFile();
             if (!File.Exists(src) || StartGameBrandTarget() is not string dst) { Log.Information("MP-StartGame no menu logo pak beside the launcher: the game's own logo"); return; }
             try
             {
@@ -338,7 +337,7 @@ namespace Cairn.Launcher.Pages
             if (ok && newAdventure && startGameSaves?.Staged is { } st)
             {
                 // a normal save from now on: never taken back, even before its first save
-                string agent = ResolveAgainstLauncher(settings.AgentPath);
+                string agent = AgentExe();
                 await AgentHelper.RunAsync<StartGameStageData>(agent, $"--start_game used --path \"{st.Path}\"", "StartGame", TimeSpan.FromSeconds(20));
             }
             return ok;

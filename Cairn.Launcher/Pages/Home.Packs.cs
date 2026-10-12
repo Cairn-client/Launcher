@@ -17,7 +17,7 @@ namespace Cairn.Launcher.Pages
 {
     /// <summary>
     /// Game mods are separate downloads: the installer carries only the launcher, and each game's mod is a pack published with
-    /// the release (see Cairn.Setup/Packs.cs). The game page shows the pack's state; the sidebar can filter by it.
+    /// the releases of the game's own mod repository (see Cairn.Setup/Packs.cs), updated on its own. The game page shows the pack's state; the sidebar can filter by it.
     /// </summary>
     public partial class Home
     {
@@ -29,7 +29,7 @@ namespace Cairn.Launcher.Pages
             return http;
         }
 
-        // The release's catalog of downloadable mods; null until it has been fetched (or when it cannot be).
+        // The catalog of downloadable mods (each game's latest mod release); null until it has been fetched (or when it cannot be).
         private PackIndex? packIndex;
         private bool packIndexLoading;
         private bool packIndexTried;
@@ -92,7 +92,15 @@ namespace Cairn.Launcher.Pages
             packIndexLoading = true;
             try
             {
-                packIndex = await PackCatalog.FetchAsync(PackHttp, Globals.CairnVersion);
+                // every game that has a mod repository has its own latest release; the catalog is what they say together
+                var found = new List<PackInfo>();
+                bool anyRepo = false;
+                foreach (var g in GameProfileRegistry.All().Where(g => g.ModRepo.Length > 0))
+                {
+                    anyRepo = true;
+                    if (await PackCatalog.FetchAsync(PackHttp, g.ModRepo) is { } index) found.AddRange(index.Packs);
+                }
+                packIndex = anyRepo && found.Count > 0 ? new PackIndex(PackIndex.CurrentSchema, found) : null;
                 Log.Information("packs: catalog {Result}", packIndex is null ? "not available" : $"{packIndex.Packs.Count} pack(s)");
             }
             finally
@@ -109,10 +117,15 @@ namespace Cairn.Launcher.Pages
             if (GameProfileRegistry.Get(gameId) is not { } game) return;
             if (!packIndexTried || packIndex is null) await LoadPackIndexAsync();
             var info = CatalogPackOf(game);
-            var url = info is null ? null : PackCatalog.PackUrl(Globals.CairnVersion, info);
+            var url = info is null ? null : PackCatalog.PackUrl(game.ModRepo, info);
             if (info is null || url is null)
             {
-                SetPackMessage("No mod is available for this game in this version of Cairn.", error: true);
+                SetPackMessage("No mod is available for this game yet.", error: true);
+                return;
+            }
+            if (!PackCatalog.LauncherIsEnough(info.LauncherMin, Globals.CairnVersion))
+            {
+                SetPackMessage($"This mod needs Cairn {info.LauncherMin} or newer. Update the launcher first.", error: true);
                 return;
             }
 

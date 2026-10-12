@@ -50,7 +50,7 @@ Download the latest installer (`.exe`) from the [Releases](https://github.com/Ca
 The installer is not code-signed yet, so Windows may warn: click **More info**, then **Run anyway**.
 
 The installer carries only the launcher. Each game's mod is a separate download: open the game in the launcher and click **Download mod**
-(a small file from the same release, checked against a checksum before it is used). Games bought outside Steam can be pointed at
+(a file from that game's own repository, checked against a checksum before it is used; mods update on their own). Games bought outside Steam can be pointed at
 with **Locate game...** on their page. See [docs/PACKS.md](docs/PACKS.md).
 
 ## Credits

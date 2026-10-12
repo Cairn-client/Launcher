@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
 // GPLv3 section 7 additional terms: AUTHORS.md. This project's own code only; Kingdom Come: Deliverance II and its
 // content belong to Warhorse Studios and PLAION. Unofficial, free, not affiliated with or endorsed by them.
 using System;
@@ -149,7 +149,7 @@ namespace Cairn.Launcher.Pages
 
         private string? AgentPathOrError()
         {
-            string agentPath = ResolveAgainstLauncher(settings.AgentPath);
+            string agentPath = AgentExe();
             if (File.Exists(agentPath)) return agentPath;
             UiService.ShowError("The multiplayer agent (CairnClient.exe) is missing. Reinstall, or check the Agent Path in Settings.");
             return null;
@@ -235,7 +235,7 @@ namespace Cairn.Launcher.Pages
         /// <summary>Starts the session agent for <paramref name="server"/> (address or Steam code), replacing any running one.</summary>
         private void StartAgent(ServerInfo server)
         {
-            string agentPath = ResolveAgainstLauncher(settings.AgentPath);
+            string agentPath = AgentExe();
             // --hosting is also connection path's host claim (the relay makes this agent
             // the authority whatever order people connect in).
             bool isHosting = hostedRelayProcess != null && !hostedRelayProcess.HasExited;

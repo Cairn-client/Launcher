@@ -14,7 +14,7 @@ public class DetectionTests
         Assert.Equal(f.GameRoot, s.GameRoot);
         Assert.Equal(f.MtExe, s.ModdingToolsExe);
         Assert.Equal(f.MtRoot, s.ModdingToolsRoot);
-        Assert.Equal(Path.Combine(f.MtRoot, "Mods", "cairn"), s.ModsTarget);
+        Assert.Equal(Path.Combine(f.MtRoot, "Mods", "kdcmp"), s.ModsTarget);
     }
 
     [Fact]

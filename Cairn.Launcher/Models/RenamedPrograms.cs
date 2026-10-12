@@ -6,27 +6,32 @@ using System;
 namespace Cairn.Launcher.Models
 {
     /// <summary>
-    /// 0.2.0 renamed the programs the launcher starts (the native plugin, the agent, the relay, the master server). A settings.json
-    /// written by 0.1.x still names the old files, and the launcher then reports "a mod file is missing". The old default names are
-    /// corrected in memory (never written unless the player changes that key); a path the player chose themselves is left alone.
+    /// The programs the launcher starts (the native plugin, the agent, the relay) used to ship with the installer and be named in
+    /// settings.json by their file names. They now come with each game's mod pack, and an empty path means "the pack's". A settings.json
+    /// written by an earlier launcher still names the old default files; those names are corrected in memory (never written unless the
+    /// player changes that key). A path the player chose themselves is left alone. The master server still ships with the launcher.
     /// </summary>
     public static class RenamedPrograms
     {
-        private static readonly (string Old, string New)[] Dll =
-            { ("KCDMP.dll", "CairnNative.dll") };
-        private static readonly (string Old, string New)[] Agent =
-            { ("KcdMpClient.exe", "CairnClient.exe") };
-        private static readonly (string Old, string New)[] Relay =
-            { ("KcdMpServer.exe", "CairnServer.exe") };
+        private static readonly string[] Dll = { "KCDMP.dll", "CairnNative.dll" };
+        private static readonly string[] Agent = { "KcdMpClient.exe", "CairnClient.exe" };
+        private static readonly string[] Relay = { "KcdMpServer.exe", "CairnServer.exe" };
         private static readonly (string Old, string New)[] MasterServer =
             { (@"MasterServer\KcdMpMasterServer.exe", @"MasterServer\CairnMasterServer.exe"), ("KcdMpMasterServer.exe", "CairnMasterServer.exe") };
 
         public static void Apply(AppSettings s)
         {
-            s.DllPath = Fix(s.DllPath, Dll);
-            s.AgentPath = Fix(s.AgentPath, Agent);
-            s.RelayPath = Fix(s.RelayPath, Relay);
+            s.DllPath = ToPack(s.DllPath, Dll);
+            s.AgentPath = ToPack(s.AgentPath, Agent);
+            s.RelayPath = ToPack(s.RelayPath, Relay);
             s.MasterServerPath = Fix(s.MasterServerPath, MasterServer);
+        }
+
+        private static string ToPack(string current, string[] oldDefaults)
+        {
+            foreach (var name in oldDefaults)
+                if (string.Equals(current?.Trim(), name, StringComparison.OrdinalIgnoreCase)) return "";
+            return current ?? "";
         }
 
         private static string Fix(string current, (string Old, string New)[] renames)

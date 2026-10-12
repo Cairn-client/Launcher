@@ -3,6 +3,7 @@
 // content belong to Warhorse Studios and PLAION. Unofficial, free, not affiliated with or endorsed by them.
 // Portions from the original project, marczukmichal/kcd2-multiplayer; its author keeps their copyright (AUTHORS.md).
 using System;
+using Cairn.Setup;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -460,8 +461,8 @@ namespace Cairn.Launcher.Pages
                 return;
             }
 
-            string dllFullPath = ResolveAgainstLauncher(settings.DllPath);
-            string agentPath = ResolveAgainstLauncher(settings.AgentPath);
+            string dllFullPath = NativeDll();
+            string agentPath = AgentExe();
             // a file the launch needs that is gone or empty -- what an antivirus quarantine
             // leaves -- is told in plain words, by its name only (the old messages showed full paths).
             // no injector exe any more (the launcher loads the DLL itself); a mod file the check
@@ -588,7 +589,7 @@ namespace Cairn.Launcher.Pages
             }
             StopConnectGate();
 
-            string agentPath = ResolveAgainstLauncher(settings.AgentPath);
+            string agentPath = AgentExe();
             string waitingText = launchStatusMessage;   // back to it when Windows refuses a start
 
             try
@@ -844,17 +845,19 @@ namespace Cairn.Launcher.Pages
             }
             agentProcess = null;
 
+            string agentName = AgentProcessName();
+            if (agentName.Length == 0) return;
             try
             {
-                foreach (var proc in Process.GetProcessesByName("CairnClient"))
+                foreach (var proc in Process.GetProcessesByName(agentName))
                 {
                     try { proc.Kill(); }
-                    catch (Exception ex) { Log.Warning(ex, "Failed to stop stray CairnClient.exe (pid {Pid})", proc.Id); }
+                    catch (Exception ex) { Log.Warning(ex, "Failed to stop stray {Agent} (pid {Pid})", agentName, proc.Id); }
                 }
             }
             catch (Exception ex)
             {
-                Log.Warning(ex, "Failed to enumerate CairnClient.exe processes");
+                Log.Warning(ex, "Failed to enumerate {Agent} processes", agentName);
             }
         }
 
@@ -872,7 +875,7 @@ namespace Cairn.Launcher.Pages
 
             if (hostedRelayProcess == null || hostedRelayProcess.HasExited)
             {
-                string relayPath = ResolveAgainstLauncher(settings.RelayPath);
+                string relayPath = RelayExe();
                 // gone or empty (a quarantine looks like this) -- one plain message, no path.
                 if (BlockedBeforeLaunch("", relayPath, Path.ChangeExtension(relayPath, ".dll")))
                     return;
@@ -1170,7 +1173,7 @@ namespace Cairn.Launcher.Pages
 
         /// <summary>combat visualisation, item K: where the agent writes agent.log.</summary>
         private string LogBundleAgentDirectory =>
-            Path.GetDirectoryName(ResolveAgainstLauncher(settings.AgentPath)) ?? "";
+            Path.GetDirectoryName(AgentExe()) ?? "";
 
         /// <summary>
         /// where the relay writes relay*.log, if it is running (or has
@@ -1180,7 +1183,33 @@ namespace Cairn.Launcher.Pages
         /// machine, which has no local relay process at all.
         /// </summary>
         private string LogBundleRelayDirectory =>
-            Path.GetDirectoryName(ResolveAgainstLauncher(settings.RelayPath)) ?? "";
+            Path.GetDirectoryName(RelayExe()) ?? "";
+
+        // ---- the programs of a game's mod (the pack's contract names them; a path in settings.json still wins) ----
+
+        private PackContract? ModContract => PackStore.ReadContract(PacksRoot, ModInstall.PackId);
+
+        private string ProgramPath(string setting, Func<PackContract, string?> fromPack)
+        {
+            if (!string.IsNullOrWhiteSpace(setting)) return ResolveAgainstLauncher(setting);
+            var rel = ModContract is { } c ? fromPack(c) : null;
+            return string.IsNullOrEmpty(rel) ? "" : PackContract.Resolve(PackStore.FilesDir(PacksRoot, ModInstall.PackId), rel);
+        }
+
+        /// <summary>The agent (the program that talks to the game's mod and to the relay).</summary>
+        private string AgentExe() => ProgramPath(settings.AgentPath, c => c.Agent);
+
+        /// <summary>The relay a host starts.</summary>
+        private string RelayExe() => ProgramPath(settings.RelayPath, c => c.Relay);
+
+        /// <summary>The native plugin loaded into the game.</summary>
+        private string NativeDll() => ProgramPath(settings.DllPath, c => c.Native);
+
+        /// <summary>The picture pak for the game's main menu; "" when the pack has none.</summary>
+        private string BrandPakFile() => ProgramPath("", c => c.BrandPak.Length > 0 ? c.BrandPak : null);
+
+        /// <summary>The agent's process name (its file name without ".exe"), for stopping strays.</summary>
+        private string AgentProcessName() => Path.GetFileNameWithoutExtension(AgentExe()) is { Length: > 0 } n ? n : "";
 
         /// <summary>
         /// A relative path in settings means "next to the launcher", which is

@@ -35,10 +35,16 @@ namespace Cairn.Launcher.Pages
         private async Task<InjectResult> InjectFromLauncherAsync(int pid, string dllPath)
         {
             ReadInstallManifest();
-            // The shipped DLL's hash when Setup's manifest lists it (a development build has no manifest).
-            string? sha = installedEntries!.TryGetValue("APP|CairnNative.dll", out var e) ? e.Sha256 : null;
+            // The DLL's hash as the pack's own manifest lists it (a path chosen in settings.json is not the pack's: no hash to compare).
+            string? sha = null;
+            if (PackStore.Read(PacksRoot, ModInstall.PackId) is { Contract: { } c } installed
+                && string.Equals(Path.GetFullPath(dllPath), PackContract.Resolve(PackStore.FilesDir(PacksRoot, ModInstall.PackId), c.Native), StringComparison.OrdinalIgnoreCase))
+            {
+                string rel = c.Native.StartsWith("bin/", StringComparison.Ordinal) ? c.Native["bin/".Length..] : c.Native;
+                sha = installed.Files.FirstOrDefault(f => f.Kind == "BIN" && string.Equals(f.Rel.Replace('\\', '/'), rel, StringComparison.OrdinalIgnoreCase))?.Sha256;
+            }
             var r = await Task.Run(() => GameInjector.Inject(pid, dllPath, pendingGameExe, sha));
-            if (r.Ok) Log.Information(r.LogLine + (sha is null ? " (development build: no install manifest, the DLL's hash not compared)" : " (sha256 matches the install manifest)"));
+            if (r.Ok) Log.Information(r.LogLine + (sha is null ? " (the DLL's hash not compared: not the pack's own file)" : " (sha256 matches the pack's manifest)"));
             else
             {
                 Log.Warning(r.LogLine);
@@ -57,7 +63,7 @@ namespace Cairn.Launcher.Pages
         internal sealed record FileCheck(string Label, string Path, FileFinding Finding, string Detail, bool ModFile);
 
         /// <summary>
-        /// The Modding Tools' Mods\cairn folder for the configured game. from the install root the
+        /// The Modding Tools' Mods\<mod folder> for the configured game. from the install root the
         /// setup checklist uses (the folder above Bin), not GameRootOf's steam_appid.txt walk -- that walk
         /// falls back to the exe's own Bin\... folder where no steam_appid.txt exists (a fresh Modding Tools
         /// install), and the field's launcher then reported a present cairn.pak as gone and refused to launch.
@@ -117,18 +123,15 @@ namespace Cairn.Launcher.Pages
             if (!string.IsNullOrWhiteSpace(settings.GamePath))
             {
                 string modDir = ModDirFor(settings.GamePath);
-                string staged = System.IO.Path.Combine(baseDir, "mod", "cairn");
-                foreach (var rel in InstalledModFiles())
+                // the mod's files are the pack's MOD entries; the staged copy is the downloaded pack in the pack store
+                var pack = PackStore.Read(PacksRoot, ModInstall.PackId);
+                foreach (var e in pack?.Files.Where(f => f.Kind == "MOD") ?? Enumerable.Empty<ManifestEntry>())
                 {
-                    installedEntries!.TryGetValue("MOD|" + rel, out var e);
-                    var inMods = Look("the Modding Tools' Mods folder", System.IO.Path.Combine(modDir, rel), e, modFile: true);
+                    var inMods = Look("the Modding Tools' Mods folder", System.IO.Path.Combine(modDir, e.Rel), e, modFile: true);
                     // A held-back mod (Setup's verdict) is the checklist's to place: its absence is not a removal.
                     list.Add(inMods);
                     if (inMods.Finding == FileFinding.Missing)
-                    {
-                        installedEntries.TryGetValue("APP|" + System.IO.Path.Combine("mod", "cairn", rel), out var se);
-                        list.Add(Look("the staged copy in the install folder", System.IO.Path.Combine(staged, rel), se, modFile: true));
-                    }
+                        list.Add(Look("the staged copy in the pack store", PackStore.EntryPath(PacksRoot, ModInstall.PackId, e), e, modFile: true));
                 }
             }
             return list;

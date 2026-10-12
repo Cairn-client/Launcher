@@ -124,14 +124,14 @@ namespace Cairn.Launcher.Pages
 
         /// <summary>
         /// The launch's own files, before anything starts: <paramref name="appFiles"/> (full paths) and the
-        /// mod's files in &lt;game root&gt;\Mods\cairn as the install manifest lists them. True: told, stop.
+        /// mod's files in &lt;game root&gt;\Mods\&lt;mod folder&gt; as the install manifest lists them. True: told, stop.
         /// </summary>
         private bool BlockedBeforeLaunch(string gameRoot, params string[] appFiles)
         {
             var check = appFiles.Select(f => (Path: f, Installed: IsInstalledFile(f))).ToList();
             if (!string.IsNullOrWhiteSpace(gameRoot))
             {
-                string modDir = Path.Combine(gameRoot, "Mods", "cairn");
+                string modDir = Path.Combine(gameRoot, "Mods", Cairn.Setup.ModInstall.ModFolder());
                 foreach (var rel in InstalledModFiles())
                     check.Add((Path.Combine(modDir, rel), true));
             }
@@ -273,7 +273,7 @@ namespace Cairn.Launcher.Pages
 
         private async Task JoinerGateLoopAsync(ServerInfo server, CancellationToken ct)
         {
-            string agent = ResolveAgainstLauncher(settings.AgentPath);
+            string agent = AgentExe();
             string args = server.SteamCode is null
                 ? $"--test-connection --host {server.Ip} --port {server.Port}"
                 : $"--test-connection --steam \"{server.SteamCode}\" --steam-app {settings.SteamAppId}{SteamGameArg}";

@@ -15,7 +15,7 @@ public sealed class ModReport
     public string VerdictLine { get; init; } = "";
     /// <summary>Install-folder files that are missing or the wrong size (sizes only: hashing ~700 files is not a startup check).</summary>
     public List<string> AppProblems { get; init; } = new();
-    /// <summary>Mod files that are not in &lt;MT&gt;\Mods\cairn at all.</summary>
+    /// <summary>Mod files that are not in &lt;MT&gt;\Mods\&lt;mod folder&gt; at all.</summary>
     public List<string> ModMissing { get; init; } = new();
     /// <summary>Mod files that are there but are not the bytes Setup shipped (sha256: two small files) -- a hand-built pak, typically.</summary>
     public List<string> ModDifferent { get; init; } = new();
@@ -23,9 +23,9 @@ public sealed class ModReport
     public bool StagedAvailable { get; init; }
     /// <summary>No mod pack has been downloaded yet: the installer no longer carries the game mod, the launcher fetches it.</summary>
     public bool PackMissing { get; init; }
-    /// <summary>An earlier release's copy of our mod is still in &lt;MT&gt;\Mods\kdcmp (the folder was renamed to cairn); with both there, the game loads the mod twice.</summary>
+    /// <summary>An earlier mod of ours is still in a folder the pack replaces (e.g. &lt;MT&gt;\Mods\cairn); with both there, the game loads two mods.</summary>
     public bool LegacyFolder { get; init; }
-    /// <summary>A cairn folder is there whose mod.manifest is not ours, and nothing says we put it there.</summary>
+    /// <summary>The mod folder is there but its mod.manifest is not the pack's, and nothing says we put it there.</summary>
     public bool ForeignFolder { get; init; }
     public string TargetDir { get; init; } = "";
 
@@ -46,7 +46,7 @@ public sealed class ModReport
 /// <summary>
 /// The mod half of setup (checklist step 6). The installer's own files are checked against its install-manifest.txt
 /// (&lt;kind&gt;|&lt;rel&gt;|&lt;size&gt;|&lt;sha256&gt;, APP entries = files in the install folder). The game mod comes from a
-/// downloaded <see cref="PackStore"/> pack: its manifest lists the MOD files (relative to &lt;MT&gt;\Mods\cairn) and its
+/// downloaded <see cref="PackStore"/> pack: its manifest lists the MOD files (relative to &lt;MT&gt;\Mods\&lt;mod folder&gt;) and its
 /// files are what the launcher places once the Modding Tools are set up.
 /// </summary>
 public static class ModInstall
@@ -55,25 +55,34 @@ public static class ModInstall
     public const string VerdictName = "install-verify.txt";
     /// <summary>The pack that holds the Kingdom Come: Deliverance II mod (see <see cref="PackStore"/>).</summary>
     public const string PackId = "kcd2";
+    /// <summary>The mod folder of a pack that has no contract yet (nothing downloaded): the folder the mod ships in.</summary>
+    public const string DefaultModFolder = "kdcmp";
+
+    /// <summary>The mod folder under &lt;MT&gt;\Mods: the downloaded pack's contract says which one; before any download, the default.</summary>
+    public static string ModFolder(string? packsRoot = null) =>
+        PackStore.ReadContract(packsRoot ?? PackStore.DefaultRoot, PackId)?.ModFolder ?? DefaultModFolder;
+
     /// <summary>Built by the agent from the player's own game files; ours, kept across a re-place.</summary>
-    public const string KeysPak = @"Data\cairn_keys.pak";
+    public static string KeysPak(string? packsRoot = null) => @"Data\" + ModFolder(packsRoot) + "_keys.pak";
 
-    public static string TargetDir(string moddingToolsRoot) => Path.Combine(moddingToolsRoot, "Mods", "cairn");
+    public static string TargetDir(string moddingToolsRoot, string? packsRoot = null) => Path.Combine(moddingToolsRoot, "Mods", ModFolder(packsRoot));
 
-    // ---- the folder an earlier release used ------------------------------------------------------------------------------
-    // 0.1.x placed the mod at Mods\kdcmp; the rename moved it to Mods\cairn. Left behind, the old copy loads beside the new one (two
-    // mods, every hook twice). It is removed only when it is provably ours: our mod id and name, and nothing in it but our three files.
+    // ---- the folders an earlier mod used -----------------------------------------------------------------------------------
+    // A mod folder an earlier release (or an earlier mod of this project) put in the game's Mods folder loads beside the new one: two
+    // mods, every hook twice. The pack's contract names such folders (replacesFolders); one is removed only when it is provably ours:
+    // our mod name and its own id, and nothing in it but its three files.
 
     /// <summary>
-    /// Whether the downloaded mod is really in &lt;MT&gt;\Mods\cairn: every file the pack lists is there at the listed size, and no
+    /// Whether the downloaded mod is really in &lt;MT&gt;\Mods\&lt;mod folder&gt;: every file the pack lists is there at the listed size, and no
     /// earlier release's copy sits beside it. Sizes only (it runs on every repaint of the game list); the full check is <see cref="Check"/>.
     /// Works for a development build too, which has no install manifest for <see cref="Check"/> to read.
     /// </summary>
     public static bool IsPlaced(string moddingToolsRoot, string? packsRoot = null)
     {
-        var pack = PackStore.Read(packsRoot ?? PackStore.DefaultRoot, PackId);
-        if (pack is null || HasLegacyFolder(moddingToolsRoot)) return false;
-        var target = TargetDir(moddingToolsRoot);
+        packsRoot ??= PackStore.DefaultRoot;
+        var pack = PackStore.Read(packsRoot, PackId);
+        if (pack is null || HasLegacyFolder(moddingToolsRoot, packsRoot)) return false;
+        var target = TargetDir(moddingToolsRoot, packsRoot);
         return pack.Files.Where(f => f.Kind == "MOD").All(f =>
         {
             var fi = new FileInfo(Path.Combine(target, f.Rel));
@@ -81,38 +90,50 @@ public static class ModInstall
         });
     }
 
-    public static string LegacyDir(string moddingToolsRoot) => Path.Combine(moddingToolsRoot, "Mods", "kdcmp");
+    /// <summary>The folders the downloaded pack's contract says it replaces.</summary>
+    public static IReadOnlyList<string> ReplacedFolders(string? packsRoot = null) =>
+        PackStore.ReadContract(packsRoot ?? PackStore.DefaultRoot, PackId)?.ReplacesFolders ?? Array.Empty<string>();
 
-    private static readonly string[] LegacyFiles = { "mod.manifest", @"Data\kdcmp.pak", @"Data\kdcmp_keys.pak" };
+    public static string LegacyDir(string moddingToolsRoot, string folder) => Path.Combine(moddingToolsRoot, "Mods", folder);
 
-    public static bool HasLegacyFolder(string moddingToolsRoot)
+    /// <summary>An earlier mod's folder is provably ours: its manifest names the folder as its own id and our mod's name, and it holds only its three files.</summary>
+    private static bool IsOurOldFolder(string moddingToolsRoot, string folder)
     {
-        var dir = LegacyDir(moddingToolsRoot);
+        var dir = LegacyDir(moddingToolsRoot, folder);
         var manifest = Path.Combine(dir, "mod.manifest");
         try
         {
             if (!File.Exists(manifest)) return false;
             var text = File.ReadAllText(manifest);
-            if (!text.Contains("<modid>kdcmp</modid>") || !text.Contains("<name>KCD2 Multiplayer</name>")) return false;
-            var ours = new HashSet<string>(LegacyFiles.Select(f => Path.GetFullPath(Path.Combine(dir, f))), StringComparer.OrdinalIgnoreCase);
+            if (!text.Contains($"<modid>{folder}</modid>") || !text.Contains("<name>KCD2 Multiplayer</name>")) return false;
+            var ours = new HashSet<string>(new[] { "mod.manifest", $@"Data\{folder}.pak", $@"Data\{folder}_keys.pak" }
+                .Select(f => Path.GetFullPath(Path.Combine(dir, f))), StringComparer.OrdinalIgnoreCase);
             return Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).All(f => ours.Contains(Path.GetFullPath(f)));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return false; }
     }
 
-    /// <summary>Removes the earlier release's folder when it is ours (see <see cref="HasLegacyFolder"/>); true when it is gone or was never there.</summary>
-    public static bool RemoveLegacyFolder(string moddingToolsRoot)
-    {
-        if (!HasLegacyFolder(moddingToolsRoot)) return true;
-        try
-        {
-            foreach (var f in Directory.EnumerateFiles(LegacyDir(moddingToolsRoot), "*", SearchOption.AllDirectories)) new FileInfo(f).IsReadOnly = false;
-            Directory.Delete(LegacyDir(moddingToolsRoot), recursive: true);
-            return true;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return false; }
-    }
+    /// <summary>A replaced folder of ours is still in &lt;MT&gt;\Mods.</summary>
+    public static bool HasLegacyFolder(string moddingToolsRoot, string? packsRoot = null) =>
+        ReplacedFolders(packsRoot).Any(f => IsOurOldFolder(moddingToolsRoot, f));
 
+    /// <summary>Removes the replaced folders that are ours (see <see cref="HasLegacyFolder"/>); true when they are gone or were never there.</summary>
+    public static bool RemoveLegacyFolder(string moddingToolsRoot, string? packsRoot = null)
+    {
+        bool all = true;
+        foreach (var folder in ReplacedFolders(packsRoot))
+        {
+            if (!IsOurOldFolder(moddingToolsRoot, folder)) continue;
+            try
+            {
+                var dir = LegacyDir(moddingToolsRoot, folder);
+                foreach (var f in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories)) new FileInfo(f).IsReadOnly = false;
+                Directory.Delete(dir, recursive: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { all = false; }
+        }
+        return all;
+    }
     public static List<ManifestEntry> ReadManifest(string path)
     {
         var list = new List<ManifestEntry>();
@@ -132,7 +153,7 @@ public static class ModInstall
     {
         packsRoot ??= PackStore.DefaultRoot;
         var manifestPath = Path.Combine(appDir, ManifestName);
-        var target = TargetDir(moddingToolsRoot);
+        var target = TargetDir(moddingToolsRoot, packsRoot);
         if (!File.Exists(manifestPath))
             return new ModReport { DevelopmentBuild = true, TargetDir = target };
 
@@ -153,7 +174,6 @@ public static class ModInstall
 
         var pack = PackStore.Read(packsRoot, PackId);
         var mods = (pack?.Files ?? new List<ManifestEntry>()).Where(e => e.Kind == "MOD").ToList();
-        string staging = PackStore.FilesDir(packsRoot, PackId);
         var missing = new List<string>();
         var different = new List<string>();
         foreach (var e in mods)
@@ -163,7 +183,7 @@ public static class ModInstall
             else different.Add($"{e.Rel} ({why})");
         }
 
-        bool staged = mods.Count > 0 && mods.All(e => Matches(Path.Combine(staging, e.Rel), e, out _));
+        bool staged = mods.Count > 0 && mods.All(e => Matches(PackStore.EntryPath(packsRoot, PackId, e), e, out _));
 
         // Ours by content: our mod.manifest has never changed between releases, so a cairn folder whose
         // mod.manifest is not those bytes was put there by someone else -- unless the registry says it was us.
@@ -181,7 +201,7 @@ public static class ModInstall
             ModDifferent = foreign ? new List<string>() : different,
             StagedAvailable = staged,
             PackMissing = pack is null,
-            LegacyFolder = HasLegacyFolder(moddingToolsRoot),
+            LegacyFolder = HasLegacyFolder(moddingToolsRoot, packsRoot),
             ForeignFolder = foreign,
             TargetDir = target,
         };
@@ -206,8 +226,8 @@ public static class ModInstall
     public sealed record PlaceResult(bool Ok, string Message);
 
     /// <summary>
-    /// Copies the staged mod into &lt;MT&gt;\Mods\cairn. Never over a foreign
-    /// cairn (the caller checks <see cref="ModReport.ForeignFolder"/> first).
+    /// Copies the staged mod into &lt;MT&gt;\Mods\&lt;mod folder&gt;. Never over a foreign
+    /// folder (the caller checks <see cref="ModReport.ForeignFolder"/> first).
     /// Prunes the folder the way the installer does for its own upgrades
     ///: everything but our files goes -- loose pak sources there break
     /// the game outright ("114 tables are not loaded") -- and each of our files
@@ -216,29 +236,28 @@ public static class ModInstall
     /// </summary>
     public static PlaceResult Place(string moddingToolsRoot, string? packsRoot = null)
     {
-        var target = TargetDir(moddingToolsRoot);
+        packsRoot ??= PackStore.DefaultRoot;
+        var target = TargetDir(moddingToolsRoot, packsRoot);
         try
         {
-            packsRoot ??= PackStore.DefaultRoot;
             var pack = PackStore.Read(packsRoot, PackId);
             var mods = (pack?.Files ?? new List<ManifestEntry>()).Where(e => e.Kind == "MOD").ToList();
             if (mods.Count == 0) return new PlaceResult(false, "the mod has not been downloaded yet");
-            string staging = PackStore.FilesDir(packsRoot, PackId);
             foreach (var e in mods)
-                if (!Matches(Path.Combine(staging, e.Rel), e, out var why))
+                if (!Matches(PackStore.EntryPath(packsRoot, PackId, e), e, out var why))
                     return new PlaceResult(false, $"the downloaded copy of {e.Rel} is {why}");
-            if (!RemoveLegacyFolder(moddingToolsRoot))
-                return new PlaceResult(false, "an earlier copy of the mod (Mods\\kdcmp) could not be removed (is the game running?)");
+            if (!RemoveLegacyFolder(moddingToolsRoot, packsRoot))
+                return new PlaceResult(false, "an earlier copy of the mod could not be removed (is the game running?)");
 
             Directory.CreateDirectory(Path.Combine(target, "Data"));
-            Prune(target, mods.Select(m => m.Rel).Append(KeysPak).ToList());
+            Prune(target, mods.Select(m => m.Rel).Append(KeysPak(packsRoot)).ToList());
 
             foreach (var e in mods)
             {
                 var dest = Path.Combine(target, e.Rel);
                 Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
                 var tmp = dest + ".cairn-new";
-                File.Copy(Path.Combine(staging, e.Rel), tmp, overwrite: true);
+                File.Copy(PackStore.EntryPath(packsRoot, PackId, e), tmp, overwrite: true);
                 if (File.Exists(dest)) new FileInfo(dest).IsReadOnly = false;
                 File.Move(tmp, dest, overwrite: true);
             }
@@ -255,18 +274,19 @@ public static class ModInstall
     }
 
     /// <summary>
-    /// Takes the mod back out of &lt;MT&gt;Modsirn: only the files the pack lists (and the keys pak built from the player's
+    /// Takes the mod back out of &lt;MT&gt;Mods\&lt;MT&gt;Modsirnlt;mod folder&gt;: only the files the pack lists (and the keys pak built from the player's
     /// own game files), then the folders that are left empty. Anything else in the folder is not ours and stays.
     /// </summary>
     public static PlaceResult Unplace(string moddingToolsRoot, string? packsRoot = null)
     {
-        var target = TargetDir(moddingToolsRoot);
+        packsRoot ??= PackStore.DefaultRoot;
+        var target = TargetDir(moddingToolsRoot, packsRoot);
         try
         {
-            var pack = PackStore.Read(packsRoot ?? PackStore.DefaultRoot, PackId);
+            var pack = PackStore.Read(packsRoot, PackId);
             if (!Directory.Exists(target)) return new PlaceResult(true, "nothing to remove");
             int removed = 0;
-            foreach (var rel in (pack?.Files.Select(f => f.Rel) ?? Enumerable.Empty<string>()).Append(KeysPak))
+            foreach (var rel in (pack?.Files.Where(f => f.Kind == "MOD").Select(f => f.Rel) ?? Enumerable.Empty<string>()).Append(KeysPak(packsRoot)))
             {
                 var path = Path.GetFullPath(Path.Combine(target, rel));
                 if (!path.StartsWith(Path.GetFullPath(target) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || !File.Exists(path)) continue;

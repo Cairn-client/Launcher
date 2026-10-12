@@ -77,7 +77,7 @@ namespace Cairn.Launcher.Pages
             {
                 string? file = PickSaveFile();
                 if (file is null) return;
-                string agent = ResolveAgainstLauncher(settings.AgentPath);
+                string agent = AgentExe();
                 if (!File.Exists(agent)) { ShowMessage("START SAVE", "The agent (CairnClient.exe) is not beside the launcher, so the save cannot be checked.", "Run Setup again."); return; }
 
                 string? style = null;

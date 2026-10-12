@@ -36,11 +36,11 @@ public class ModInstallTests
         var target = ModInstall.TargetDir(f.MtRoot);
         Directory.CreateDirectory(Path.Combine(target, "Data", "Libs", "Tables"));
         File.WriteAllText(Path.Combine(target, "Data", "Libs", "Tables", "loose.xml"), "breaks the game");
-        File.WriteAllText(Path.Combine(target, "Data", "cairn_keys.pak"), "keys");
-        File.WriteAllText(Path.Combine(target, "Data", "cairn.pak"), "an older pak");
+        File.WriteAllText(Path.Combine(target, "Data", "kdcmp_keys.pak"), "keys");
+        File.WriteAllText(Path.Combine(target, "Data", "kdcmp.pak"), "an older pak");
         Assert.True(ModInstall.Place(f.MtRoot, f.PacksRoot).Ok);
         Assert.False(Directory.Exists(Path.Combine(target, "Data", "Libs")));
-        Assert.Equal("keys", File.ReadAllText(Path.Combine(target, "Data", "cairn_keys.pak")));
+        Assert.Equal("keys", File.ReadAllText(Path.Combine(target, "Data", "kdcmp_keys.pak")));
         Assert.True(ModInstall.Check(f.AppDir, f.MtRoot, true, f.PacksRoot).Ok);
     }
 
@@ -78,7 +78,7 @@ public class ModInstallTests
     {
         // The maintainer's workflow: Build-And-Install-Mod.ps1 drops a fresh pak over the installed one.
         using var f = new FakeSteam("devpak").WithGame().WithModdingTools().Linked().WithInstall().WithModPlaced();
-        var pak = Path.Combine(ModInstall.TargetDir(f.MtRoot), "Data", "cairn.pak");
+        var pak = Path.Combine(ModInstall.TargetDir(f.MtRoot), "Data", "kdcmp.pak");
         File.WriteAllText(pak, "a pak built by hand, different bytes");
         var r = ModInstall.Check(f.AppDir, f.MtRoot, ownsModFolder: false, packsRoot: f.PacksRoot);   // not even the registry marker
         Assert.True(r.Ok);
@@ -261,7 +261,7 @@ public class InstallerCaseTests
         var d = Detect(f);
         Assert.Equal("linked", d["workspace"]);
         Assert.Equal("1", d["place_mod"]);
-        Assert.Equal(Path.Combine(f.MtRoot, "Mods", "cairn"), d["mods_dir"]);
+        Assert.Equal(Path.Combine(f.MtRoot, "Mods", "kdcmp"), d["mods_dir"]);
     }
 
     [Fact]

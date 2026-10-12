@@ -34,10 +34,10 @@ namespace Cairn.Launcher.Pages
         {
             try
             {
-                string modDir = Path.Combine(gameRoot, "Mods", "cairn");
+                string modDir = Path.Combine(gameRoot, "Mods", Cairn.Setup.ModInstall.ModFolder());
                 if (!Directory.Exists(modDir))
                 {
-                    Log.Warning("keys pak: no Mods\\cairn folder in the game root; not built");
+                    Log.Warning("keys pak: no mod folder (Mods\\{Folder}) in the game root; not built", Cairn.Setup.ModInstall.ModFolder());
                     return null;
                 }
                 var r = await AgentHelper.RunAsync<KeysPakResult>(

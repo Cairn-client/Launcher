@@ -7,46 +7,40 @@ using System.Text.Json;
 
 namespace Cairn.Setup;
 
-/// <summary>One downloadable mod pack, as listed in the release's packs.json.</summary>
-public sealed record PackInfo(string Id, string Game, string Version, string File, string Sha256, long Size);
+/// <summary>One downloadable mod pack, as listed in the mod repository's latest release (<c>pack-index.json</c>).</summary>
+public sealed record PackInfo(string Id, string Game, string Version, string File, string Sha256, long Size, string LauncherMin = "", string Upstream = "");
 
 /// <summary>
-/// The catalog a release publishes next to its installer (<c>packs.json</c>): which game mods can be downloaded for that
-/// client version. A pack is built together with the client it is released with, so the catalog URL names the client's own
-/// version and a pack never meets a client it was not built for.
+/// What the launcher needs to know to drive a mod's programs (the pack's <c>pack.json</c>). The mod repository decides these names;
+/// the launcher never hard-codes a game's agent, relay or plugin.
 /// </summary>
-public sealed record PackIndex(int Schema, string Client, IReadOnlyList<PackInfo> Packs)
+public sealed record PackContract(
+    string Id, string Version, string Upstream, string ModFolder, string LuaPrefix,
+    string Agent, string Relay, string Native, string BrandPak, string AgentConfig, string LauncherMin,
+    IReadOnlyList<string> ReplacesFolders)
 {
-    public const int CurrentSchema = 1;
-    public const string FileName = "packs.json";
+    public const string FileName = "pack.json";
+    public const int CurrentSchema = 2;
 
-    public PackInfo? ForGame(string gameId) =>
-        Packs.FirstOrDefault(p => string.Equals(p.Game, gameId, StringComparison.OrdinalIgnoreCase));
-
-    /// <summary>Reads a catalog; null when it is not one this client understands (bad JSON, a newer schema, a malformed entry).</summary>
-    public static PackIndex? Parse(string json)
+    /// <summary>Reads a contract; null when it is not one this launcher understands (bad JSON, another schema, an unsafe path).</summary>
+    public static PackContract? Parse(string json)
     {
         try
         {
             using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-            int schema = root.GetProperty("schema").GetInt32();
-            if (schema != CurrentSchema) return null;
-            var packs = new List<PackInfo>();
-            foreach (var p in root.GetProperty("packs").EnumerateArray())
-            {
-                var info = new PackInfo(
-                    p.GetProperty("id").GetString() ?? "",
-                    p.GetProperty("game").GetString() ?? "",
-                    p.GetProperty("version").GetString() ?? "",
-                    p.GetProperty("file").GetString() ?? "",
-                    (p.GetProperty("sha256").GetString() ?? "").ToLowerInvariant(),
-                    p.GetProperty("size").GetInt64());
-                if (!IsSafeName(info.Id) || !IsSafeName(info.Game) || info.Version.Length == 0 || !IsSafeFile(info.File)
-                    || info.Sha256.Length != 64 || info.Size <= 0) return null;
-                packs.Add(info);
-            }
-            return new PackIndex(schema, root.GetProperty("client").GetString() ?? "", packs);
+            var r = doc.RootElement;
+            if (r.GetProperty("schema").GetInt32() != CurrentSchema) return null;
+            string S(string name, string fallback = "") => r.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? fallback : fallback;
+            var replaces = new List<string>();
+            if (r.TryGetProperty("replacesFolders", out var rf) && rf.ValueKind == JsonValueKind.Array)
+                foreach (var e in rf.EnumerateArray()) if (e.GetString() is { } f) replaces.Add(f);
+            var c = new PackContract(S("id"), S("version"), S("upstream"), S("modFolder"), S("luaPrefix"),
+                S("agent"), S("relay"), S("native"), S("brandPak"), S("agentConfig"), S("launcherMin"), replaces);
+            bool ok = IsPlainName(c.Id) && c.Version.Length > 0 && IsPlainName(c.ModFolder) && c.LuaPrefix.Length is > 0 and <= 40
+                      && IsPackPath(c.Agent) && IsPackPath(c.Relay) && IsPackPath(c.Native)
+                      && (c.BrandPak.Length == 0 || IsPackPath(c.BrandPak)) && (c.AgentConfig.Length == 0 || IsFileName(c.AgentConfig))
+                      && replaces.All(IsPlainName);
+            return ok ? c : null;
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or FormatException)
         {
@@ -54,23 +48,78 @@ public sealed record PackIndex(int Schema, string Client, IReadOnlyList<PackInfo
         }
     }
 
-    // ids and file names come from the network: only plain names are accepted, so nothing can point outside the pack store.
+    // everything here comes from the network: only plain names and paths that stay inside the pack are accepted
+    private static bool IsPlainName(string s) => s.Length is > 0 and <= 40 && s.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_');
+    private static bool IsFileName(string s) => s.Length is > 0 and <= 80 && s.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.') && !s.Contains("..");
+    private static bool IsPackPath(string s) => s.Length is > 0 and <= 120 && !s.Contains("..") && !Path.IsPathRooted(s) && !s.Contains(':')
+        && s.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.' or '/');
+
+    /// <summary>A program of the pack as a path on this PC (the pack's files folder + the contract's relative path).</summary>
+    public static string Resolve(string filesDir, string relative) => Path.GetFullPath(Path.Combine(filesDir, relative.Replace('/', Path.DirectorySeparatorChar)));
+}
+
+/// <summary>
+/// The catalog a mod repository publishes with each release (<c>pack-index.json</c>): the one pack that release carries, with the
+/// zip's size and sha256. A mod is released on its own, so its catalog says nothing about the launcher's version except the
+/// minimum the pack needs.
+/// </summary>
+public sealed record PackIndex(int Schema, IReadOnlyList<PackInfo> Packs)
+{
+    public const int CurrentSchema = 2;
+    public const string FileName = "pack-index.json";
+
+    public PackInfo? ForGame(string gameId) =>
+        Packs.FirstOrDefault(p => string.Equals(p.Game, gameId, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Reads a catalog; null when it is not one this launcher understands (bad JSON, another schema, a malformed entry).</summary>
+    public static PackIndex? Parse(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var p = doc.RootElement;
+            if (p.GetProperty("schema").GetInt32() != CurrentSchema) return null;
+            string Opt(string name) => p.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+            var info = new PackInfo(
+                p.GetProperty("id").GetString() ?? "",
+                p.GetProperty("game").GetString() ?? "",
+                p.GetProperty("version").GetString() ?? "",
+                p.GetProperty("file").GetString() ?? "",
+                (p.GetProperty("sha256").GetString() ?? "").ToLowerInvariant(),
+                p.GetProperty("size").GetInt64(),
+                Opt("launcherMin"), Opt("upstream"));
+            if (!IsSafeName(info.Id) || !IsSafeName(info.Game) || !IsPlainVersion(info.Version) || !IsSafeFile(info.File)
+                || info.Sha256.Length != 64 || info.Size <= 0) return null;
+            return new PackIndex(CurrentSchema, new[] { info });
+        }
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or FormatException)
+        {
+            return null;
+        }
+    }
+
+    // ids, versions and file names come from the network: only plain names are accepted, so nothing can point outside the pack store
     private static bool IsSafeName(string s) => s.Length is > 0 and <= 40 && s.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_');
     private static bool IsSafeFile(string s) => s.Length is > 0 and <= 120 && s.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.') && !s.Contains("..");
+    private static bool IsPlainVersion(string s) => System.Text.RegularExpressions.Regex.IsMatch(s, @"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$");
 }
 
 /// <summary>A pack that is downloaded, verified and extracted on this PC.</summary>
-public sealed record InstalledPack(string Id, string Version, IReadOnlyList<ManifestEntry> Files);
+public sealed record InstalledPack(string Id, string Version, IReadOnlyList<ManifestEntry> Files, PackContract? Contract = null);
 
 /// <summary>
-/// Where downloaded packs live: <c>&lt;root&gt;\&lt;id&gt;\manifest.txt</c> (the pack's own file list, <c>MOD|rel|size|sha256</c>,
-/// first line <c># pack|id|version</c>) and <c>&lt;root&gt;\&lt;id&gt;\files\&lt;rel&gt;</c>. The root sits beside the launcher
+/// Where downloaded packs live: <c>&lt;root&gt;\&lt;id&gt;\manifest.txt</c> (the pack's own file list, <c>MOD|rel|size|sha256</c> and
+/// <c>BIN|rel|size|sha256</c>, first line <c># pack|id|version</c>), <c>&lt;root&gt;\&lt;id&gt;\pack.json</c> (the contract) and
+/// <c>&lt;root&gt;\&lt;id&gt;\files\mod\&lt;rel&gt;</c> / <c>files\bin\&lt;rel&gt;</c>. MOD files are put into the game's mod folder; BIN files
+/// (the programs that run a session) stay here and are started from here. The root sits beside the launcher
 /// (<c>%LOCALAPPDATA%\Cairn\packs</c> for an installed one), so it is writable without elevation.
 /// </summary>
 public static class PackStore
 {
     public const string ManifestName = "manifest.txt";
     public const string FilesFolder = "files";
+    public const string ModFolder = "mod";
+    public const string BinFolder = "bin";
 
     public static string DefaultRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Cairn", "packs");
@@ -78,6 +127,13 @@ public static class PackStore
     public static string Dir(string root, string id) => Path.Combine(root, id);
     public static string FilesDir(string root, string id) => Path.Combine(root, id, FilesFolder);
     public static string ManifestPath(string root, string id) => Path.Combine(root, id, ManifestName);
+    public static string ContractPath(string root, string id) => Path.Combine(root, id, PackContract.FileName);
+
+    /// <summary>Where a manifest entry's file lies in the store: <c>files\mod\rel</c> for MOD, <c>files\bin\rel</c> for BIN.</summary>
+    public static string EntryPath(string root, string id, ManifestEntry e) =>
+        Path.Combine(FilesDir(root, id), KindFolder(e.Kind), e.Rel);
+
+    public static string KindFolder(string kind) => string.Equals(kind, "BIN", StringComparison.OrdinalIgnoreCase) ? BinFolder : ModFolder;
 
     /// <summary>The downloaded pack, or null when there is none (or its manifest cannot be read).</summary>
     public static InstalledPack? Read(string root, string id)
@@ -93,8 +149,16 @@ public static class PackStore
                 if (f.Length >= 3 && f[0] == "# pack") { version = f[2]; break; }
             }
             var files = ModInstall.ReadManifest(path);
-            return files.Count == 0 || version.Length == 0 ? null : new InstalledPack(id, version, files);
+            return files.Count == 0 || version.Length == 0 ? null : new InstalledPack(id, version, files, ReadContract(root, id));
         }
+        catch (IOException) { return null; }
+    }
+
+    /// <summary>The pack's contract; null when the pack has none (a pack built for an older launcher) or it cannot be read.</summary>
+    public static PackContract? ReadContract(string root, string id)
+    {
+        var path = ContractPath(root, id);
+        try { return File.Exists(path) ? PackContract.Parse(File.ReadAllText(path)) : null; }
         catch (IOException) { return null; }
     }
 
@@ -115,7 +179,8 @@ public static class PackInstaller
 {
     /// <summary>
     /// The zip is hashed while it downloads and refused unless size and sha256 are what the catalog said; every file in it must be
-    /// listed in its manifest.txt with the listed size and hash; entries that would land outside the pack folder are refused.
+    /// listed in its manifest.txt with the listed size and hash; entries that would land outside the pack folder are refused; the
+    /// contract must be one this launcher understands and name programs the pack really carries.
     /// Only then is the previous copy replaced.
     /// </summary>
     public static async Task<PackResult> DownloadAsync(PackInfo pack, Uri url, string root, HttpClient http,
@@ -156,6 +221,8 @@ public static class PackInstaller
             if (!extracted.Ok) return extracted;
 
             var finalDir = PackStore.Dir(root, pack.Id);
+            // what the programs wrote beside themselves (their settings and logs) survives an update; the new pack's own files win
+            CarryOver(Path.Combine(finalDir, PackStore.FilesFolder, PackStore.BinFolder), Path.Combine(work, PackStore.FilesFolder, PackStore.BinFolder));
             if (Directory.Exists(finalDir)) Directory.Delete(finalDir, recursive: true);
             Directory.Move(work, finalDir);
             return new PackResult(true, $"{pack.Id} {pack.Version} downloaded");
@@ -175,14 +242,14 @@ public static class PackInstaller
         string filesFull = Path.GetFullPath(files) + Path.DirectorySeparatorChar;
 
         using var zip = ZipFile.OpenRead(zipPath);
-        string? manifestText = null;
+        string? manifestText = null, contractText = null;
         foreach (var e in zip.Entries)
         {
             if (e.FullName.EndsWith('/') || e.FullName.EndsWith('\\')) continue;
-            if (e.FullName == PackStore.ManifestName)
+            if (e.FullName == PackStore.ManifestName || e.FullName == PackContract.FileName)
             {
                 using var r = new StreamReader(e.Open());
-                manifestText = r.ReadToEnd();
+                if (e.FullName == PackStore.ManifestName) manifestText = r.ReadToEnd(); else contractText = r.ReadToEnd();
                 continue;
             }
             string dest = Path.GetFullPath(Path.Combine(files, e.FullName));
@@ -192,16 +259,23 @@ public static class PackInstaller
             e.ExtractToFile(dest, overwrite: true);
         }
         if (manifestText is null) return new PackResult(false, "the pack has no manifest");
+        if (contractText is null) return new PackResult(false, "the pack has no contract (pack.json)");
+        var contract = PackContract.Parse(contractText);
+        if (contract is null) return new PackResult(false, "the pack's contract is not one this launcher understands");
+        if (!string.Equals(contract.Id, pack.Id, StringComparison.OrdinalIgnoreCase) || contract.Version != pack.Version)
+            return new PackResult(false, "the pack's contract does not match its catalog entry");
 
         var manifestPath = Path.Combine(work, PackStore.ManifestName);
         File.WriteAllText(manifestPath, $"# pack|{pack.Id}|{pack.Version}\n" + manifestText);
+        File.WriteAllText(Path.Combine(work, PackContract.FileName), contractText);
         var entries = ModInstall.ReadManifest(manifestPath);
         if (entries.Count == 0) return new PackResult(false, "the pack lists no files");
+        if (!entries.Any(e => e.Kind == "MOD")) return new PackResult(false, "the pack lists no mod files");
 
         var listed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var e in entries)
         {
-            string path = Path.GetFullPath(Path.Combine(files, e.Rel));
+            string path = Path.GetFullPath(Path.Combine(files, PackStore.KindFolder(e.Kind), e.Rel));
             if (!path.StartsWith(filesFull, StringComparison.OrdinalIgnoreCase)) return new PackResult(false, "the pack lists a path outside its folder");
             var fi = new FileInfo(path);
             if (!fi.Exists) return new PackResult(false, $"{e.Rel} is missing from the pack");
@@ -213,7 +287,30 @@ public static class PackInstaller
         }
         foreach (var f in Directory.EnumerateFiles(files, "*", SearchOption.AllDirectories))
             if (!listed.Contains(Path.GetRelativePath(files, f))) return new PackResult(false, $"{Path.GetRelativePath(files, f)} is not listed in the pack manifest");
+
+        // the contract may only name programs the pack carries
+        foreach (var program in new[] { contract.Agent, contract.Relay, contract.Native })
+            if (!listed.Contains(program.Replace('/', Path.DirectorySeparatorChar)))
+                return new PackResult(false, $"the contract names {program}, which the pack does not carry");
         return new PackResult(true, "");
+    }
+
+    /// <summary>Copies the files the old pack's bin folder gained after it was installed (not in the new one) into the new one.</summary>
+    private static void CarryOver(string oldBin, string newBin)
+    {
+        if (!Directory.Exists(oldBin) || !Directory.Exists(newBin)) return;
+        try
+        {
+            foreach (var f in Directory.EnumerateFiles(oldBin, "*", SearchOption.AllDirectories))
+            {
+                var rel = Path.GetRelativePath(oldBin, f);
+                var dest = Path.Combine(newBin, rel);
+                if (File.Exists(dest)) continue;
+                Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+                File.Copy(f, dest);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* a log that is in use stays behind; the update goes on */ }
     }
 
     private static void CleanUp(string work, string zipPath)
@@ -223,29 +320,23 @@ public static class PackInstaller
     }
 }
 
-/// <summary>Where a client finds its packs: the assets of the release that carries its own version, and nowhere else.</summary>
+/// <summary>Where a launcher finds a game's mod: the latest release of the game's own mod repository, and nowhere else.</summary>
 public static class PackCatalog
 {
-    public const string ReleaseBase = "https://github.com/Cairn-client/launcher/releases/download/";
+    /// <summary>The repository ("owner/name") must be plain: it comes from the game profile, never from the network.</summary>
+    public static bool IsRepo(string? repo) =>
+        repo is not null && System.Text.RegularExpressions.Regex.IsMatch(repo, @"^[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9._-]{1,100}$");
 
-    /// <summary>The release tag for a client version ("0.2.0+abc" gives "0.2.0"); null when it is not a plain X.Y.Z.</summary>
-    public static string? ReleaseTag(string? clientVersion)
+    public static Uri? IndexUrl(string? repo) =>
+        IsRepo(repo) ? new Uri($"https://github.com/{repo}/releases/latest/download/{PackIndex.FileName}") : null;
+
+    public static Uri? PackUrl(string? repo, PackInfo pack) =>
+        IsRepo(repo) ? new Uri($"https://github.com/{repo}/releases/download/{pack.Version}/{pack.File}") : null;
+
+    /// <summary>The newest catalog of the repository; null when it has no release yet or cannot be reached.</summary>
+    public static async Task<PackIndex?> FetchAsync(HttpClient http, string? repo, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(clientVersion)) return null;
-        var m = System.Text.RegularExpressions.Regex.Match(clientVersion.Trim(), @"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?=$|[+-])");
-        return m.Success ? m.Value : null;
-    }
-
-    public static Uri? IndexUrl(string? clientVersion) =>
-        ReleaseTag(clientVersion) is { } tag ? new Uri(ReleaseBase + tag + "/" + PackIndex.FileName) : null;
-
-    public static Uri? PackUrl(string? clientVersion, PackInfo pack) =>
-        ReleaseTag(clientVersion) is { } tag ? new Uri(ReleaseBase + tag + "/" + pack.File) : null;
-
-    /// <summary>The catalog of this client's release; null when there is no such release yet (a development build) or it cannot be reached.</summary>
-    public static async Task<PackIndex?> FetchAsync(HttpClient http, string? clientVersion, CancellationToken ct = default)
-    {
-        var url = IndexUrl(clientVersion);
+        var url = IndexUrl(repo);
         if (url is null) return null;
         try
         {
@@ -254,5 +345,17 @@ public static class PackCatalog
             return PackIndex.Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested) { return null; }
+    }
+
+    /// <summary>The newer pack of the same game, when the downloaded one is older (both plain X.Y.Z); null when there is nothing newer.</summary>
+    public static PackInfo? UpdateFor(InstalledPack? installed, PackInfo? latest) =>
+        installed is not null && latest is not null && Version.TryParse(installed.Version, out var a) && Version.TryParse(latest.Version, out var b) && b > a
+            ? latest : null;
+
+    /// <summary>Whether this launcher is new enough for the pack (its contract's / catalog's <c>launcherMin</c>); true when the pack names none.</summary>
+    public static bool LauncherIsEnough(string? launcherMin, string? launcherVersion)
+    {
+        if (string.IsNullOrWhiteSpace(launcherMin)) return true;
+        return Version.TryParse(launcherMin, out var need) && Version.TryParse((launcherVersion ?? "").Split('+', '-')[0], out var have) && have >= need;
     }
 }
