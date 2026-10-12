@@ -227,6 +227,7 @@ namespace Cairn.Launcher.Pages
             Downloads.Changed -= OnDownloadsChanged;
             GameProfileRegistry.Changed -= OnGamesChanged;
             gameWatchCts.Cancel();
+            packSession?.Dispose();
             StopPresence();
             objRef?.Dispose();
         }
@@ -240,7 +241,7 @@ namespace Cairn.Launcher.Pages
         // HOST GAME starts hosting; while this launcher's own hosted game runs the same button shows the Host window again (the code)
         private async Task OpenHostOrCode()
         {
-            if (gameRunning && launchedAs == "host" && hostedRelayProcess != null && !hostedRelayProcess.HasExited)
+            if (gameRunning && launchedAs == "host" && HostRelayRunning)
             {
                 hostErrorMessage = "";
                 hostLanAddresses = NetService.GetLocalIPv4Addresses();
@@ -318,11 +319,14 @@ namespace Cairn.Launcher.Pages
                             launchedGameId = "";
                             // a relay this launcher started for the hosted game goes with it: left running it holds the host port, and the
                             // next Host finds the port taken
-                            StopHostedRelay();
-                            // and so does the agent: nothing is left running from the mod's folder, so an update of the mod can replace its files
-                            StopExistingAgent();
-                            // the Modding Tools' helper programs go with the game, so Steam stops showing the tools as running
-                            _ = Task.Run(CloseModdingTools);
+                            if (!UsePackSession)   // with a pack that runs the session, its program does all of this
+                            {
+                                StopHostedRelay();
+                                // and so does the agent: nothing is left running from the mod's folder, so an update of the mod can replace its files
+                                StopExistingAgent();
+                                // the Modding Tools' helper programs go with the game, so Steam stops showing the tools as running
+                                _ = Task.Run(CloseModdingTools);
+                            }
                             // the game closed on its own (the player quit it, or it crashed): the launch it belonged to is over, so the next
                             // Host or Join is not refused with "a launch is already in progress"
                             if (launchStage != LaunchStage.Idle) await InvokeAsync(ResetLaunchState);
@@ -455,6 +459,7 @@ namespace Cairn.Launcher.Pages
         private async Task LaunchGame(ServerInfo server)
         {
             if (!await EnsureSetupReadyAsync()) return;   // Host and Join unlock at Ready!
+            if (UsePackSession) { await LaunchGameViaPackAsync(server); return; }   // the pack's program starts the game and connects it
             lastLaunchServer = server;   // LAUNCH ANYWAY repeats this launch
 
             if (launchStage != LaunchStage.Idle && launchStage != LaunchStage.Failed)
@@ -602,6 +607,7 @@ namespace Cairn.Launcher.Pages
         /// </summary>
         private async Task ConnectToGame()
         {
+            if (UsePackSession) { await ConnectToGameViaPackAsync(); return; }
             if (pendingGameProcess == null || pendingServer == null || pendingDllPath == null)
             {
                 return;
@@ -699,6 +705,7 @@ namespace Cairn.Launcher.Pages
         /// </summary>
         private async Task SendJoinChoiceAsync(string choice)
         {
+            if (UsePackSession && packSession is { Alive: true } ps) { ps.Choice(choice); return; }
             bool ok = await NetService.PostJoinChoiceAsync(settings.VersionIpcPort, choice);
             joinStatusMessage = ok ? (choice == "bring" ? "Bringing your character..." : "Starting fresh...") : "The choice did not reach the agent -- try again.";
             joinStatusState = ok ? "chosen" : joinStatusState;
@@ -840,6 +847,7 @@ namespace Cairn.Launcher.Pages
         private void ResetLaunchState()
         {
             Log.Information("MP-LAUNCH launch state reset (stage was {Stage})", launchStage);
+            if (UsePackSession) packSession?.Cancel();
             launchStage = LaunchStage.Idle;
             pendingGameProcess = null;
             pendingServer = null;
@@ -868,6 +876,7 @@ namespace Cairn.Launcher.Pages
         // got as far as starting an agent does not kill an unrelated one.
         private void StopExistingAgent()
         {
+            if (UsePackSession) return;   // the pack's program stops the agent with the game
             try
             {
                 if (agentProcess != null && !agentProcess.HasExited)
@@ -905,6 +914,7 @@ namespace Cairn.Launcher.Pages
         {
             if (await OfferUpdateBeforeAsync("host")) return;   // Cairn: a newer version is offered once
             if (!await EnsureSetupReadyAsync()) return;   // before a relay is started
+            if (UsePackSession) { await OpenHostModalViaPackAsync(); return; }   // the pack's program starts the relay
 
             hostErrorMessage = "";
             hostLanAddresses = NetService.GetLocalIPv4Addresses();
@@ -982,6 +992,7 @@ namespace Cairn.Launcher.Pages
 
         private void StopHostedRelay()
         {
+            if (UsePackSession) { packSession?.RelayStop(); packRelayUp = false; return; }
             try
             {
                 if (hostedRelayProcess != null && !hostedRelayProcess.HasExited)
@@ -1321,6 +1332,7 @@ namespace Cairn.Launcher.Pages
             hostPollCts?.Cancel();
             setupPollCts?.Cancel();   // first-run setup
             StopHostedRelay();
+            packSession?.Dispose();
             StopHostedMasterServer();
             Environment.Exit(0);
         }

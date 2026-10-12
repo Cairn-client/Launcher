@@ -128,3 +128,5 @@ uses the ones it needs:
 `setup do <action>` works and prints `{"say":"..."}` and `{"progress":0..1}` lines while it does, and ends with `{"ok":bool,"message":"...","pending":seconds}`: `message`
 is shown with the step (or as the failure), `pending` says the PC needs that long to catch up (Steam starting) so the step shows as working meanwhile.
 A launcher that does not know a pack's `setup` (or a pack without it) uses the setup checklist the launcher has always had.
+
+A pack can also run the game's connection (`"session": true`, [SESSION.md](SESSION.md)): the same program is started as `session` and owns the relay, the game's start, the plugin and the agent.

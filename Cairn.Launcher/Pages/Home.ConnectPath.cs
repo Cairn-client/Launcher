@@ -79,6 +79,7 @@ namespace Cairn.Launcher.Pages
         /// <summary>While this launcher hosts: the relay's Steam state and code, and refused joiner versions.</summary>
         private void StartHostStatusPoll()
         {
+            if (UsePackSession) return;   // the pack's program reports the relay's state
             hostPollCts?.Cancel();
             var cts = hostPollCts = new CancellationTokenSource();
             _ = Task.Run(async () =>
@@ -157,6 +158,13 @@ namespace Cairn.Launcher.Pages
 
         private async Task FindSteamFriendsAsync()
         {
+            if (UsePackSession && EnsurePackSession() is { } ps)
+            {
+                steamBusy = true; steamBusyText = "Asking Steam which friends are hosting..."; steamFriendsNote = ""; StateHasChanged();
+                ConfigurePackSession();
+                ps.AskFriends();
+                return;
+            }
             if (AgentPathOrError() is not { } agent) return;
             steamBusy = true; steamBusyText = "Asking Steam which friends are hosting..."; steamFriendsNote = ""; StateHasChanged();
             var (r, blocked) = await RunHelperAsync<SteamFriendsData>(agent, $"--steam-friends --steam-app {settings.SteamAppId}{SteamGameArg}", "STEAM-FRIENDS", TimeSpan.FromSeconds(25));
@@ -195,6 +203,12 @@ namespace Cairn.Launcher.Pages
 
         private async Task ShowConnectionTestAsync(ServerInfo server, bool launching)
         {
+            if (UsePackSession && EnsurePackSession() is { } ps)
+            {
+                ConfigurePackSession();
+                ps.TestConnection(server.Ip ?? "", server.Port, server.SteamCode);
+                return;
+            }
             if (AgentPathOrError() is not { } agent) return;
             ShowMessage("TESTING...", server.SteamCode is null ? "Reaching the host..." : "Reaching the host through Steam (up to 20 seconds)...", "");
             var (r, blocked) = await RunHelperAsync<TestConnectionData>(agent, server.SteamCode is null
@@ -350,6 +364,13 @@ namespace Cairn.Launcher.Pages
             }
             showMessage = false;
             var server = new ServerInfo { Name = "(Address)", Ip = host, Port = port };
+            if (UsePackSession && packSession is { Alive: true } ps)
+            {
+                if (launchStage == LaunchStage.Connected) { ConfigurePackSession(); ps.Fallback(host, port); }
+                else await LaunchGame(server);
+                StateHasChanged();
+                return;
+            }
             bool gameUp = agentProcess != null && launchStage == LaunchStage.Connected;
             try
             {
