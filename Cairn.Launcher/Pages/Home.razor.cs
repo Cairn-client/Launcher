@@ -289,7 +289,24 @@ namespace Cairn.Launcher.Pages
                 while (!gameWatchCts.IsCancellationRequested)
                 {
                     bool now = false;
-                    try { var ps = Process.GetProcessesByName("KingdomCome"); now = ps.Length > 0; foreach (var p in ps) p.Dispose(); } catch { }
+                    try
+                    {
+                        if (pendingGameProcess is { HasExited: false })
+                        {
+                            now = true;
+                        }
+                        else
+                        {
+                            string exeName = "KingdomCome";
+                            var curProfile = GameProfileRegistry.Get(launchedGameId) ?? SelectedProfile;
+                            if (curProfile != null && !string.IsNullOrWhiteSpace(curProfile.DefaultExeName))
+                                exeName = Path.GetFileNameWithoutExtension(curProfile.DefaultExeName);
+                            var ps = Process.GetProcessesByName(exeName);
+                            now = ps.Length > 0;
+                            foreach (var p in ps) p.Dispose();
+                        }
+                    }
+                    catch { }
                     if (now != gameRunning)
                     {
                         gameRunning = now;

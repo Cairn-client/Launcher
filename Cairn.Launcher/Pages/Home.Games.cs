@@ -123,8 +123,28 @@ namespace Cairn.Launcher.Pages
 
         private static readonly string[] ModdingToolsProcesses = ["trace_server", "trace_server.run", "trace_server_launcher"];
 
-        /// <summary>Closes KingdomCome.exe and the Modding Tools' helper programs (the trace server, in its three process names), and waits a moment for them to go.</summary>
-        private static void CloseGameAndTools() => CloseProcesses(["KingdomCome", .. ModdingToolsProcesses]);
+        /// <summary>Closes the game executable and its helper programs, and waits a moment for them to exit.</summary>
+        private void CloseGameAndTools()
+        {
+            var names = new List<string>(ModdingToolsProcesses);
+            string? gameExe = null;
+            if (pendingGameProcess is { HasExited: false } pg)
+            {
+                try { gameExe = pg.ProcessName; } catch { }
+            }
+            if (string.IsNullOrEmpty(gameExe))
+            {
+                var profile = GameProfileRegistry.Get(launchedGameId) ?? SelectedProfile;
+                if (profile != null && !string.IsNullOrWhiteSpace(profile.DefaultExeName))
+                    gameExe = Path.GetFileNameWithoutExtension(profile.DefaultExeName);
+            }
+            if (!string.IsNullOrEmpty(gameExe) && !names.Contains(gameExe, StringComparer.OrdinalIgnoreCase))
+                names.Insert(0, gameExe);
+            else if (!names.Contains("KingdomCome", StringComparer.OrdinalIgnoreCase))
+                names.Insert(0, "KingdomCome");
+
+            CloseProcesses(names.ToArray());
+        }
 
         private static void CloseProcesses(string[] names)
         {
