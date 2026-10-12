@@ -33,15 +33,5 @@ $masterOut = Join-Path $OutDir "MasterServer"
 New-Item -ItemType Directory -Path $masterOut -Force | Out-Null
 Copy-Item "$($script:PublishDir)\*" $masterOut -Recurse -Force
 
-# the setup helper is NativeAOT: ILCompiler finds the MSVC linker through vswhere, which is not on PATH by default
-$vsInstaller = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer"
-if ((Test-Path $vsInstaller) -and ($env:PATH -notlike "*$vsInstaller*")) { $env:PATH = "$vsInstaller;$env:PATH" }
-$setupHost = Join-Path $root "dotnet\Cairn.SetupHost\Cairn.SetupHost.csproj"
-Write-Output "Publishing $setupHost (NativeAOT) ..."
-& dotnet publish $setupHost -c Release 2>&1 | ForEach-Object { Write-Output $_ }
-if ($LASTEXITCODE -ne 0) { throw "publish failed: $setupHost" }
-$setupExe = Join-Path $root "dotnet\Cairn.SetupHost\bin\Release\net8.0\win-x64\publish\CairnSetup.exe"
-if (-not (Test-Path $setupExe)) { throw "expected publish output not found: $setupExe" }
-Copy-Item $setupExe $OutDir -Force
 
 Write-Output "release payload: $OutDir"

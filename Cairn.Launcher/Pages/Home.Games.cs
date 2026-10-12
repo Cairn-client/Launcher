@@ -202,9 +202,6 @@ namespace Cairn.Launcher.Pages
         private static void OpenSteamLibrary(uint appId) =>
             Cairn.Launcher.Components.Shared.UrlLauncher.Open($"steam://nav/games/details/{appId}");
 
-        private static void OpenSteamStore(uint appId) =>
-            Cairn.Launcher.Components.Shared.UrlLauncher.Open($"https://store.steampowered.com/app/{appId}");
-
         private static void OpenSteamStore(GameProfile g) =>
             Cairn.Launcher.Components.Shared.UrlLauncher.Open($"https://store.steampowered.com/app/{g.PageAppId}");
 

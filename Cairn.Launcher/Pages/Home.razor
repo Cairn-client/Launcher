@@ -416,6 +416,7 @@
                                    OnDeleteSaves="@DeleteAllSavesAsync"
                                    OnOpenStartSave="@OpenStartSaveFolder"
                                    ExeIsSetting="@(SelectedProfile is { } esp1 && GameExeIsSetting(esp1.Id))"
+                                   ExeNote="@(SelectedProfile is { } esn1 && packExeNotes.TryGetValue(esn1.Id, out var exn1) ? exn1 : "")"
                                    OnClose="@CancelSettings" />
                     break;
             }
@@ -675,6 +676,7 @@ else if (launchStage != LaunchStage.Idle && launchStage != LaunchStage.Connected
                                    OnDeleteSaves="@DeleteAllSavesAsync"
                 OnOpenStartSave="@OpenStartSaveFolder"
                 ExeIsSetting="@(SelectedProfile is { } esp2 && GameExeIsSetting(esp2.Id))"
+                ExeNote="@(SelectedProfile is { } esn2 && packExeNotes.TryGetValue(esn2.Id, out var exn2) ? exn2 : "")"
                 OnToggleChannel="@ToggleChannelAsync"
                 OptionStatuses="@optionStatuses"
                 OptionsBusy="@optionsBusy"

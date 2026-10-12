@@ -24,12 +24,12 @@ namespace Cairn.Launcher.Pages
         private IReadOnlyDictionary<string, OptionStatus> optionStatuses = new Dictionary<string, OptionStatus>();
         private bool optionsBusy;
 
-        /// <summary>The game's folder as its options program wants it: for Kingdom Come II the game's root (the Modding Tools build's own, as DLSS 5 has always had it), else the folder the game was found in.</summary>
+        /// <summary>The game's folder as its options program wants it: the one its pack's setup reported (found.gameDir), else the folder the game was found in.</summary>
         private string? OptionsGameDir(GameProfile g)
         {
-            if (GameExeIsSetting(g.Id))
-                return string.IsNullOrWhiteSpace(settings.GamePath) ? null : GameLocator.InstallRootOf(settings.GamePath) ?? Path.GetDirectoryName(settings.GamePath);
-            return GameFolderOf(g);
+            if (packGameDirs.TryGetValue(g.Id, out var dir)) return dir;
+            // a game whose exe is a setting is somewhere only its pack knows; until the pack's setup has said, there is no guess
+            return GameExeIsSetting(g.Id) ? null : GameFolderOf(g);
         }
 
         /// <summary>Asks the pack's program what is so for each of the game's options (when the settings window opens).</summary>

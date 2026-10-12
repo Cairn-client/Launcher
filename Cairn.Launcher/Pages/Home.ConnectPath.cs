@@ -30,8 +30,6 @@ namespace Cairn.Launcher.Pages
         private string hostSteamMessage = "";
         private string? hostSteamCode;
         private string hostRefusedNotice = "";
-        private string? lastRefusedShownKey;
-        private CancellationTokenSource? hostPollCts;
 
         // Join through Steam
         private bool showJoinSteam;
@@ -55,7 +53,6 @@ namespace Cairn.Launcher.Pages
         // The agent's connection, in plain words
         private string connStatusLine = "";
         private bool connStatusBad;
-        private bool steamFallbackShown;
         #endregion
 
         // ------------------------------------------------------------ host

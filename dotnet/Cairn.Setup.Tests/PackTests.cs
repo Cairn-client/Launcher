@@ -418,103 +418,9 @@ public class PackInstallerTests : IDisposable
     public void RemoveDeletesTheDownloadedPack()
     {
         using var f = new FakeSteam("rm").WithPack();
-        Assert.True(PackStore.IsDownloaded(f.PacksRoot, ModInstall.PackId));
-        PackStore.Remove(f.PacksRoot, ModInstall.PackId);
-        Assert.False(PackStore.IsDownloaded(f.PacksRoot, ModInstall.PackId));
-    }
-}
-
-public class PackChecklistTests
-{
-    [Fact]
-    public void WithoutADownloadedPackTheModStepAsksForTheDownload()
-    {
-        using var f = new FakeSteam("nopack").WithGame().WithModdingTools().Linked().WithInstall(staged: false);
-        var snap = f.Snapshot();
-        Assert.True(snap.Mod!.PackMissing);
-        Assert.False(snap.Mod.Ok);
-        var step = SetupChecklist.Evaluate(snap, SetupActivity.Idle).Single(s => s.Id == StepId.Mod);
-        Assert.Equal(StepStatus.NeedsYou, step.Status);
-        Assert.Equal(StepAction.DownloadPack, step.Action);
-    }
-
-    [Fact]
-    public void WhileTheDownloadRunsTheStepShowsProgress()
-    {
-        using var f = new FakeSteam("dl").WithGame().WithModdingTools().Linked().WithInstall(staged: false);
-        var step = SetupChecklist.Evaluate(f.Snapshot(), SetupActivity.Idle with { DownloadingPack = true, PackProgress = 0.42 }).Single(s => s.Id == StepId.Mod);
-        Assert.Equal(StepStatus.Working, step.Status);
-        Assert.Contains("42%", step.Detail);
-    }
-
-    [Fact]
-    public void ADownloadedPackIsPlacedByTheLauncherThenTheStepIsDone()
-    {
-        using var f = new FakeSteam("placepack").WithGame().WithModdingTools().Linked().WithInstall(staged: true);
-        var before = f.Snapshot();
-        Assert.False(before.Mod!.PackMissing);
-        Assert.Equal(StepAction.PlaceMod, SetupChecklist.Evaluate(before, SetupActivity.Idle).Single(s => s.Id == StepId.Mod).Action);
-        f.WithModPlaced();
-        Assert.Equal(StepStatus.Done, SetupChecklist.Evaluate(f.Snapshot(), SetupActivity.Idle).Single(s => s.Id == StepId.Mod).Status);
-    }
-}
-
-public class ModRemovalTests
-{
-    [Fact]
-    public void RemovingTheModTakesOutOnlyTheFilesThePackListedAndTheKeysPak()
-    {
-        using var f = new FakeSteam("unplace").WithModdingTools().WithInstall().WithModPlaced();
-        var target = ModInstall.TargetDir(f.MtRoot, f.PacksRoot);
-        File.WriteAllText(Path.Combine(target, "Data", "kdcmp_keys.pak"), "built from the player's own game files");
-        File.WriteAllText(Path.Combine(target, "player-notes.txt"), "not ours");
-
-        var r = ModInstall.Unplace(f.MtRoot, f.PacksRoot);
-
-        Assert.True(r.Ok, r.Message);
-        Assert.False(File.Exists(Path.Combine(target, "mod.manifest")));
-        Assert.False(File.Exists(Path.Combine(target, "Data", "kdcmp.pak")));
-        Assert.False(File.Exists(Path.Combine(target, "Data", "kdcmp_keys.pak")));
-        Assert.True(File.Exists(Path.Combine(target, "player-notes.txt")));   // somebody else's file stays
-    }
-
-    [Fact]
-    public void ThePrograms_of_the_pack_are_never_put_into_the_game_folder()
-    {
-        using var f = new FakeSteam("unplace-bin").WithModdingTools().WithInstall().WithModPlaced();
-        var target = ModInstall.TargetDir(f.MtRoot, f.PacksRoot);
-        Assert.False(File.Exists(Path.Combine(target, "Agent.exe")));
-        Assert.False(File.Exists(Path.Combine(target, "Native.dll")));
-        Assert.False(Directory.Exists(Path.Combine(target, "bin")));
-    }
-
-    [Fact]
-    public void RemovingTheLastFileAlsoRemovesTheEmptyFolders()
-    {
-        using var f = new FakeSteam("unplace-empty").WithModdingTools().WithInstall().WithModPlaced();
-        Assert.True(ModInstall.Unplace(f.MtRoot, f.PacksRoot).Ok);
-        Assert.False(Directory.Exists(ModInstall.TargetDir(f.MtRoot, f.PacksRoot)));
-    }
-
-    [Fact]
-    public void RemovingWhenNothingIsPlacedIsHarmless()
-    {
-        using var f = new FakeSteam("unplace-none").WithModdingTools();
-        Assert.True(ModInstall.Unplace(f.MtRoot, f.PacksRoot).Ok);
-    }
-
-    [Fact]
-    public void RemovingNeverFollowsALinkOutOfTheModFolder()
-    {
-        using var f = new FakeSteam("unplace-link").WithModdingTools().WithInstall().WithModPlaced();
-        var outside = Path.Combine(f.Root, "outside");
-        Directory.CreateDirectory(outside);
-        File.WriteAllText(Path.Combine(outside, "keep.txt"), "do not touch");
-        var link = Path.Combine(ModInstall.TargetDir(f.MtRoot, f.PacksRoot), "linked");
-        try { Directory.CreateSymbolicLink(link, outside); }
-        catch (Exception) { return; }   // creating a symlink needs a privilege some machines do not give a test run
-        ModInstall.Unplace(f.MtRoot, f.PacksRoot);
-        Assert.True(File.Exists(Path.Combine(outside, "keep.txt")));
+        Assert.True(PackStore.IsDownloaded(f.PacksRoot, "kcd2"));
+        PackStore.Remove(f.PacksRoot, "kcd2");
+        Assert.False(PackStore.IsDownloaded(f.PacksRoot, "kcd2"));
     }
 }
 
@@ -541,138 +447,18 @@ public class ScriptBuiltPackTests : IDisposable
 
         var index = PackIndex.Parse(File.ReadAllText(Path.Combine(packs, PackIndex.FileName)));
         Assert.NotNull(index);
-        var info = index!.ForGame(ModInstall.PackId);
+        var info = index!.ForGame("kcd2");
         Assert.NotNull(info);
 
         var http = new HttpClient(new FileHandler(Path.Combine(packs, info!.File)));
         var r = await PackInstaller.DownloadAsync(info, new Uri("https://example.test/" + info.File), _root, http);
         Assert.True(r.Ok, r.Message);
 
-        var installed = PackStore.Read(_root, ModInstall.PackId);
+        var installed = PackStore.Read(_root, "kcd2");
         Assert.NotNull(installed);
         Assert.NotNull(installed!.Contract);
-        Assert.True(File.Exists(PackContract.Resolve(PackStore.FilesDir(_root, ModInstall.PackId), installed.Contract!.Agent)));
+        Assert.True(File.Exists(PackContract.Resolve(PackStore.FilesDir(_root, "kcd2"), installed.Contract!.Agent)));
         Assert.Contains(installed.Files, f => f.Kind == "MOD" && f.Rel == "mod.manifest");
         Assert.NotNull(PackCatalog.PackUrl("Cairn-client/mod-kcd2", info));
-    }
-}
-
-public class LegacyModFolderTests
-{
-    private const string OldManifest = "<kcd_mod>\n<info>\n<name>KCD2 Multiplayer</name>\n<modid>cairn</modid>\n</info>\n</kcd_mod>\n";
-
-    private static string MakeLegacy(FakeSteam f, bool extraFile = false, string manifest = OldManifest)
-    {
-        var dir = ModInstall.LegacyDir(f.MtRoot, "cairn");
-        Directory.CreateDirectory(Path.Combine(dir, "Data"));
-        File.WriteAllText(Path.Combine(dir, "mod.manifest"), manifest);
-        File.WriteAllText(Path.Combine(dir, "Data", "cairn.pak"), "old pak");
-        File.WriteAllText(Path.Combine(dir, "Data", "cairn_keys.pak"), "old keys");
-        if (extraFile) File.WriteAllText(Path.Combine(dir, "notes.txt"), "somebody else's");
-        return dir;
-    }
-
-    [Fact]
-    public void An_earlier_mods_folder_is_recognised_and_stops_the_mod_counting_as_in_place()
-    {
-        using var f = new FakeSteam("legacy").WithModdingTools().WithInstall().WithModPlaced();
-        MakeLegacy(f);
-        var r = ModInstall.Check(f.AppDir, f.MtRoot, ownsModFolder: true, packsRoot: f.PacksRoot);
-        Assert.True(r.LegacyFolder);
-        Assert.False(r.Ok);   // the current mod is there, but the game would load two
-    }
-
-    [Fact]
-    public void Placing_the_mod_removes_the_earlier_folder_and_then_everything_is_fine()
-    {
-        using var f = new FakeSteam("legacy-place").WithModdingTools().WithInstall().WithModPlaced();
-        var dir = MakeLegacy(f);
-        Assert.True(ModInstall.Place(f.MtRoot, f.PacksRoot).Ok);
-        Assert.False(Directory.Exists(dir));
-        var r = ModInstall.Check(f.AppDir, f.MtRoot, ownsModFolder: true, packsRoot: f.PacksRoot);
-        Assert.False(r.LegacyFolder);
-        Assert.True(r.Ok);
-    }
-
-    [Fact]
-    public void A_folder_with_anything_else_in_it_is_not_ours_and_stays()
-    {
-        using var f = new FakeSteam("legacy-foreign").WithModdingTools().WithInstall();
-        var dir = MakeLegacy(f, extraFile: true);
-        Assert.False(ModInstall.HasLegacyFolder(f.MtRoot, f.PacksRoot));
-        Assert.True(ModInstall.RemoveLegacyFolder(f.MtRoot, f.PacksRoot));
-        Assert.True(File.Exists(Path.Combine(dir, "notes.txt")));
-    }
-
-    [Fact]
-    public void A_different_mod_that_happens_to_be_called_cairn_stays()
-    {
-        using var f = new FakeSteam("legacy-other").WithModdingTools().WithInstall();
-        var dir = MakeLegacy(f, manifest: "<kcd_mod><info><name>Another Mod</name><modid>cairn</modid></info></kcd_mod>");
-        Assert.False(ModInstall.HasLegacyFolder(f.MtRoot, f.PacksRoot));
-        Assert.True(Directory.Exists(dir));
-    }
-
-    [Fact]
-    public void A_folder_the_contract_does_not_name_is_never_touched()
-    {
-        using var f = new FakeSteam("legacy-unnamed").WithModdingTools().WithInstall();
-        var other = Path.Combine(f.MtRoot, "Mods", "some-other-mod");
-        Directory.CreateDirectory(Path.Combine(other, "Data"));
-        File.WriteAllText(Path.Combine(other, "mod.manifest"), OldManifest.Replace("cairn", "some-other-mod"));
-        Assert.False(ModInstall.HasLegacyFolder(f.MtRoot, f.PacksRoot));
-        Assert.True(Directory.Exists(other));
-    }
-
-    [Fact]
-    public void No_earlier_folder_is_nothing_to_do()
-    {
-        using var f = new FakeSteam("legacy-none").WithModdingTools();
-        Assert.False(ModInstall.HasLegacyFolder(f.MtRoot, f.PacksRoot));
-        Assert.True(ModInstall.RemoveLegacyFolder(f.MtRoot, f.PacksRoot));
-    }
-}
-
-public class ModPlacedTests
-{
-    [Fact]
-    public void A_downloaded_pack_that_was_never_placed_is_not_installed()
-    {
-        using var f = new FakeSteam("placed-no").WithModdingTools().WithPack();
-        Assert.False(ModInstall.IsPlaced(f.MtRoot, f.PacksRoot));
-    }
-
-    [Fact]
-    public void A_placed_mod_is_installed_even_without_an_install_manifest()
-    {
-        using var f = new FakeSteam("placed-yes").WithModdingTools().WithPack();
-        Assert.True(ModInstall.Place(f.MtRoot, f.PacksRoot).Ok);
-        Assert.True(ModInstall.IsPlaced(f.MtRoot, f.PacksRoot));   // no AppDir / manifest involved
-    }
-
-    [Fact]
-    public void A_file_of_the_wrong_size_or_a_missing_one_is_not_installed()
-    {
-        using var f = new FakeSteam("placed-bad").WithModdingTools().WithPack().WithModPlaced();
-        var pak = Path.Combine(ModInstall.TargetDir(f.MtRoot, f.PacksRoot), "Data", "kdcmp.pak");
-        File.WriteAllText(pak, "short");
-        Assert.False(ModInstall.IsPlaced(f.MtRoot, f.PacksRoot));
-        File.Delete(pak);
-        Assert.False(ModInstall.IsPlaced(f.MtRoot, f.PacksRoot));
-    }
-
-    [Fact]
-    public void No_pack_at_all_is_not_installed()
-    {
-        using var f = new FakeSteam("placed-nopack").WithModdingTools();
-        Assert.False(ModInstall.IsPlaced(f.MtRoot, f.PacksRoot));
-    }
-
-    [Fact]
-    public void The_mod_folder_is_the_one_the_contract_names()
-    {
-        using var f = new FakeSteam("folder").WithModdingTools().WithPack();
-        Assert.Equal(Path.Combine(f.MtRoot, "Mods", "kdcmp"), ModInstall.TargetDir(f.MtRoot, f.PacksRoot));
-        Assert.Equal(@"Data\kdcmp_keys.pak", ModInstall.KeysPak(f.PacksRoot));
     }
 }

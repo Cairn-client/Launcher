@@ -28,15 +28,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Cairn.Setup\Cairn.Setup.csproj" />
-    <!-- Built alongside, copied beside the tests: the fake WorkspaceSetup.exe the runner drives. -->
-    <ProjectReference Include="..\Cairn.Setup.FakeTool\Cairn.Setup.FakeTool.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
-
-  <Target Name="CopyFakeTool" AfterTargets="Build">
-    <ItemGroup>
-      <FakeToolFiles Include="..\Cairn.Setup.FakeTool\bin\$(Configuration)\net8.0\FakeWorkspaceSetup.*" />
-    </ItemGroup>
-    <Copy SourceFiles="@(FakeToolFiles)" DestinationFolder="$(OutDir)faketool" SkipUnchangedFiles="true" />
-  </Target>
 
 </Project>

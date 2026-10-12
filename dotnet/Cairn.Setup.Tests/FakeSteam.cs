@@ -18,7 +18,7 @@ public sealed class FakeSteam : IDisposable
     public string Library => Path.Combine(Root, "Lib");
     public string GameRoot => Path.Combine(Library, "steamapps", "common", "KingdomComeDeliverance2");
     public string MtRoot => Path.Combine(Library, "steamapps", "common", "KCD2Mod");
-    public string MtExe => Path.Combine(MtRoot, "Bin", GameLocator.KnownMtConfig, GameLocator.ExeName);
+    public string MtExe => Path.Combine(MtRoot, "Bin", "Win64ReleaseSteamLTO_DLL", "KingdomCome.exe");
     public string AppDir => Path.Combine(Root, "App");
     public string PacksRoot => Path.Combine(Root, "Packs");
 
@@ -77,21 +77,6 @@ public sealed class FakeSteam : IDisposable
         return this;
     }
 
-    public enum Linking { HardLinks, Copies }
-
-    public FakeSteam Linked(Linking how = Linking.HardLinks)
-    {
-        foreach (var rel in Workspace.ExpectedFiles(GameRoot))
-        {
-            var src = Path.Combine(GameRoot, rel);
-            var dst = Path.Combine(MtRoot, rel);
-            Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
-            if (how == Linking.Copies) File.Copy(src, dst, overwrite: true);
-            else Assert.Equal(0, Native.CreateHardLink(dst, src));
-        }
-        return this;
-    }
-
     /// <summary>The installed launcher's folder (install-manifest.txt, the verdict) and, when <paramref name="staged"/>, the downloaded mod pack.</summary>
     public FakeSteam WithInstall(bool verdictPass = true, bool staged = true)
     {
@@ -118,14 +103,14 @@ public sealed class FakeSteam : IDisposable
     {
         var modManifest = "mod.manifest contents";
         var modPak = "kdcmp.pak contents";
-        var files = PackStore.FilesDir(PacksRoot, ModInstall.PackId);
+        var files = PackStore.FilesDir(PacksRoot, "kcd2");
         var mod = Path.Combine(files, PackStore.ModFolder);
         var bin = Path.Combine(files, PackStore.BinFolder);
         Directory.CreateDirectory(Path.Combine(mod, "Data"));
         Directory.CreateDirectory(bin);
         File.WriteAllText(Path.Combine(mod, "mod.manifest"), modManifest);
         File.WriteAllText(Path.Combine(mod, "Data", "kdcmp.pak"), modPak);
-        var lines = new List<string> { $"# pack|{ModInstall.PackId}|{version}",
+        var lines = new List<string> { $"# pack|{"kcd2"}|{version}",
             $"MOD|Data\\kdcmp.pak|{modPak.Length}|{Sha(modPak).ToLowerInvariant()}",
             $"MOD|mod.manifest|{modManifest.Length}|{Sha(modManifest).ToLowerInvariant()}" };
         foreach (var program in new[] { "Agent.exe", "Relay.exe", "Native.dll", "brand.pak" })
@@ -133,16 +118,10 @@ public sealed class FakeSteam : IDisposable
             File.WriteAllText(Path.Combine(bin, program), "stub " + program);
             lines.Add($"BIN|{program}|{("stub " + program).Length}|{Sha("stub " + program).ToLowerInvariant()}");
         }
-        File.WriteAllLines(PackStore.ManifestPath(PacksRoot, ModInstall.PackId), lines);
-        File.WriteAllText(PackStore.ContractPath(PacksRoot, ModInstall.PackId), ContractJson.Replace("\"version\": \"0.1.0\"", $"\"version\": \"{version}\""));
+        File.WriteAllLines(PackStore.ManifestPath(PacksRoot, "kcd2"), lines);
+        File.WriteAllText(PackStore.ContractPath(PacksRoot, "kcd2"), ContractJson.Replace("\"version\": \"0.1.0\"", $"\"version\": \"{version}\""));
         return this;
     }
-    public FakeSteam WithModPlaced()
-    {
-        Assert.True(ModInstall.Place(MtRoot, PacksRoot).Ok);
-        return this;
-    }
-
     private static string Sha(string s) => Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(s)));
 
     private void WriteManifest(uint appId, string name, string installDir, long flags, long toDownload = 0, long downloaded = 0)
@@ -153,16 +132,6 @@ public sealed class FakeSteam : IDisposable
             $"\t\"BytesToDownload\"\t\t\"{toDownload}\"\n\t\"BytesDownloaded\"\t\t\"{downloaded}\"\n}}\n");
     }
 
-    public SetupSnapshot Snapshot(FakeHost? host = null, bool ownsMod = true, string? explicitExe = null) =>
-        SetupProbe.Take(host ?? new FakeHost(), new SetupProbeOptions
-        {
-            SteamRootOverride = SteamRoot,
-            AppDir = Directory.Exists(AppDir) ? AppDir : null,
-            OwnsModFolder = _ => ownsMod,
-            PacksRoot = PacksRoot,
-            ExplicitModdingToolsExe = explicitExe,
-        });
-
     public void Dispose()
     {
         try { Directory.Delete(Root, recursive: true); } catch { }
@@ -171,20 +140,5 @@ public sealed class FakeSteam : IDisposable
 
 public sealed class FakeHost : ISetupHost
 {
-    public bool SteamRunning { get; set; } = true;
-    public bool GameRunning { get; set; }
-    public bool? SignedIn { get; set; }
-    public long? Free { get; set; } = 100L * 1024 * 1024 * 1024;
-    public bool DotNet6 { get; set; } = true;
-    public bool VcRuntime { get; set; } = true;   // beta patch
-
     public string? SteamRootFromRegistry() => null;
-    public bool IsProcessRunning(string name) =>
-        name.Equals("steam", StringComparison.OrdinalIgnoreCase) ? SteamRunning :
-        name.Equals("KingdomCome", StringComparison.OrdinalIgnoreCase) && GameRunning;
-    public bool? SteamSignedIn() => SignedIn;
-    public long? FreeBytes(string path) => Free;
-    public bool HasDotNet6Runtime() => DotNet6;
-    public bool HasVcRuntime2013() => VcRuntime;
-    public bool HasVcRuntime2010() => VcRuntime;   // Cairn
 }

@@ -120,7 +120,6 @@ namespace Cairn.Launcher.Pages
         }
 
         /// <summary>The game page's "Setup needed" chip: the whole list, game steps included.</summary>
-        private Task OpenGameSetupChecklist() => OpenChecklistAsync(systemOnly: false);
 
         private void CloseSetupChecklist()
         {
@@ -197,7 +196,7 @@ namespace Cairn.Launcher.Pages
         private void AdoptDetectedGamePath(string? exe)
         {
             if (exe is null || !File.Exists(exe) || !GameExeIsSetting(ActiveGameId)) return;
-            if (IsModdingToolsBuild(settings.GamePath ?? "") && File.Exists(settings.GamePath)) return;
+            if (!string.IsNullOrWhiteSpace(settings.GamePath) && SetupPaths.SamePath(settings.GamePath, exe)) return;   // the pack checked the saved path and kept it
             settings.GamePath = exe;
             if (settingsStore.IsUnsetOnDisk(nameof(AppSettings.GamePath)))
             {

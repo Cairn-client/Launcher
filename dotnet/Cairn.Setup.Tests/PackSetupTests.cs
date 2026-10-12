@@ -53,6 +53,28 @@ public class PackSetupTests : IDisposable
     }
 
     [Fact]
+    public async Task TheProgramsFoundLineGivesTheExecutableAndTheFolderItsOptionsBelongIn()
+    {
+        var p = Script(
+            "echo {\"step\":{\"id\":\"a\",\"title\":\"A\",\"status\":\"done\"}}\r\n" +
+            "echo {\"done\":true,\"ready\":true}\r\n" +
+            "echo {\"gameExeNote\":\"That is the wrong build.\"}\r\n" +
+            "echo {\"found\":{\"gameExe\":\"C:\\\\mt\\\\Bin\\\\k.exe\",\"gameDir\":\"C:\\\\mt\"}}");
+        var r = await PackSetup.CheckAsync(p, null);
+        Assert.Equal("C:\\mt\\Bin\\k.exe", r!.GameExe);
+        Assert.Equal("C:\\mt", r.GameDir);
+        Assert.Equal("That is the wrong build.", r.GameExeNote);
+    }
+
+    [Fact]
+    public async Task AProgramThatSaysNothingOfTheFolderOrTheExecutableLeavesThemOut()
+    {
+        var r = await PackSetup.CheckAsync(Script("echo {\"step\":{\"id\":\"a\",\"title\":\"A\",\"status\":\"done\"}}\r\necho {\"done\":true,\"ready\":true}"), null);
+        Assert.Null(r!.GameDir);
+        Assert.Null(r.GameExeNote);
+    }
+
+    [Fact]
     public async Task AllStepsDoneAndTheProgramSayingSoIsReady()
     {
         var p = Script("echo {\"step\":{\"id\":\"a\",\"title\":\"A\",\"status\":\"done\"}}\r\necho {\"step\":{\"id\":\"b\",\"title\":\"B\",\"status\":\"needs-you\",\"optional\":true}}\r\necho {\"done\":true,\"ready\":true,\"optionalNeedsYou\":true}");

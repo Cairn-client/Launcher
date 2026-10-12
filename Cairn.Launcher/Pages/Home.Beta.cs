@@ -92,78 +92,6 @@ namespace Cairn.Launcher.Pages
             foreach (var s in customServers) customServerKeys[s] = (s.Ip, s.Port);
         }
 
-        // ------------------------------------------------------------ Windows blocking the mod (Phase 7)
-        //
-        // Every program the launcher starts for the mod goes through StartChecked: Windows refusing it
-        // (Smart App Control / an App Control policy, a group policy, an antivirus verdict, a file an
-        // antivirus took) becomes one plain message naming the file, never its path, with Report a bug
-        // beside it, and one MP-LAUNCH line in the log. Before a launch, the files it needs are looked
-        // at first (LaunchBlocks.FromFileCheck): a quarantine is told before Windows' own error.
-
-        /// <summary>A start Windows refused; carries the classification to the caller's catch.</summary>
-        private sealed class LaunchBlockedException(LaunchBlock block, Exception inner) : Exception(block.LogLine, inner)
-        {
-            public LaunchBlock Block { get; } = block;
-        }
-
-        private Process? StartChecked(ProcessStartInfo psi)
-        {
-            try { return Process.Start(psi); }
-            catch (Exception ex) when (LaunchBlocks.FromStartFailure(ex, Path.GetFileName(psi.FileName), IsInstalledFile(psi.FileName)) is { } b)
-            {
-                throw new LaunchBlockedException(b, ex);
-            }
-        }
-
-        private void ShowBlocked(LaunchBlock b)
-        {
-            Log.Warning(b.LogLine);
-            Log.Information("MP-LAUNCH smart_app_control={State}", SmartAppControlState());
-            ShowMessage(b.Title, b.Message, b.NextStep, reportBug: true);
-        }
-
-        // install-manifest.txt (Setup's own list, beside the launcher): a file it lists was installed, so a
-        // missing one was taken (quarantine). A development build has no manifest: "missing" then.
-        private HashSet<string>? installedApp;
-        private List<string>? installedMod;
-        private Dictionary<string, Cairn.Setup.ManifestEntry>? installedEntries;   // sizes and hashes, by kind|rel
-
-        private void ReadInstallManifest()
-        {
-            if (installedApp is not null) return;
-            installedApp = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            installedMod = new List<string>();
-            installedEntries = new Dictionary<string, Cairn.Setup.ManifestEntry>(StringComparer.OrdinalIgnoreCase);
-            try
-            {
-                string manifest = Path.Combine(AppContext.BaseDirectory, Cairn.Setup.ModInstall.ManifestName);
-                if (!File.Exists(manifest)) return;
-                foreach (var e in Cairn.Setup.ModInstall.ReadManifest(manifest))
-                {
-                    installedEntries[e.Kind + "|" + e.Rel] = e;
-                    if (e.Kind == "APP") installedApp.Add(e.Rel);
-                    else if (e.Kind == "MOD") installedMod.Add(e.Rel);
-                }
-            }
-            catch (Exception ex) { Log.Warning("MP-LAUNCH install-manifest.txt could not be read ({Kind})", ex.GetType().Name); }
-        }
-
-        private bool IsInstalledFile(string fullPath)
-        {
-            ReadInstallManifest();
-            string baseDir = Path.GetFullPath(AppContext.BaseDirectory);
-            string full;
-            try { full = Path.GetFullPath(fullPath); } catch { return false; }
-            if (!full.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase)) return false;
-            return installedApp!.Contains(full[baseDir.Length..].TrimStart('\\', '/'));
-        }
-
-        private IReadOnlyList<string> InstalledModFiles()
-        {
-            ReadInstallManifest();
-            return installedMod!;
-        }
-
         // ------------------------------------------------------------ CONNECT waits until it can work (Phase 4.3)
         //
         // The rule is ConnectGateRule (Models/ConnectGate.cs): the host's button opens when the game's own
@@ -173,29 +101,9 @@ namespace Cairn.Launcher.Pages
 
         private bool connectGateOpen = true;
         private string connectGateReason = "";
-        private CancellationTokenSource? connectGateCts;
 
         /// <summary>The CONNECT button's state: always on with the ConnectGate setting off.</summary>
         private bool ConnectEnabled => !settings.ConnectGate || connectGateOpen;
 
-        // ------------------------------------------------------------ the relay's ports (Phase 7)
-
-        /// <summary>Smart App Control's state, for the log beside a block (HKLM\...\CI\Policy VerifiedAndReputablePolicyState).</summary>
-        private static string SmartAppControlState()
-        {
-            try
-            {
-                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\CI\Policy");
-                return key?.GetValue("VerifiedAndReputablePolicyState") switch
-                {
-                    0 => "off",
-                    1 => "on",
-                    2 => "evaluation",
-                    null => "not-present",
-                    var v => "value-" + v,
-                };
-            }
-            catch { return "unknown"; }
-        }
     }
 }

@@ -1,15 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    first-run setup, shared by the launcher and the installer.
-
-    One detection code for both: the launcher references this library
-    directly, and Setup runs it through CairnSetup.exe (dotnet\Cairn.SetupHost,
-    a NativeAOT build of this same code) before anything is installed. So the
-    two can never disagree about where Steam, the game, the Modding Tools and
-    the workspace are, or whether they are set up.
-
-    No UI types here: the launcher draws the checklist; this decides it.
+    what the launcher knows about games, with no UI in it: where Steam and the games are, the catalog, the pack store, and the clients of
+    a pack's program (setup, session, options, saves). What a game needs is the game's pack's to say; nothing here is about one game.
   -->
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
