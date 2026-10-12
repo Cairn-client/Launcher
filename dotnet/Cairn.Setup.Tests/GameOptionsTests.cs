@@ -110,3 +110,47 @@ public class OptionRunnerTests : IDisposable
         Assert.Contains("too long", r.Message);
     }
 }
+
+public class BetaCatalogTests : IDisposable
+{
+    private readonly string _cache = Path.Combine(Path.GetTempPath(), "cairn-cat-" + Guid.NewGuid().ToString("N")[..8]);
+    public void Dispose() { try { Directory.Delete(_cache, true); } catch { } }
+
+    private sealed class Fake : HttpMessageHandler
+    {
+        public readonly List<string> Asked = new();
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage r, CancellationToken ct)
+        {
+            string url = r.RequestUri!.ToString(); Asked.Add(url);
+            string? body = url switch
+            {
+                var u when u.EndsWith("/games.json") => """{ "schema": 1, "games": [ { "id": "kcd2", "repo": "Cairn-client/mod-kcd2" } ] }""",
+                var u when u.StartsWith("https://api.github.com/repos/Cairn-client/mod-kcd2/releases") => """[ { "tag_name": "0.2.5", "draft": false }, { "tag_name": "0.2.4", "draft": false } ]""",
+                var u when u.Contains("/releases/download/0.2.5/game.json") => GameJson(withOptions: true),
+                var u when u.Contains("/releases/latest/download/game.json") => GameJson(withOptions: false),
+                _ => null,
+            };
+            return Task.FromResult(body is null ? new HttpResponseMessage(System.Net.HttpStatusCode.NotFound) : new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(body) });
+        }
+        private static string GameJson(bool withOptions) =>
+            "{ \"schema\": 1, \"id\": \"kcd2\", \"name\": \"KCD2\", \"exe\": \"KingdomCome.exe\", \"accent\": \"#E8C872\"" + (withOptions ? ", \"options\": [ { \"id\": \"dlss5\", \"title\": \"DLSS 5\" } ]" : "") + " }";
+    }
+
+    [Fact]
+    public async Task APlayerOnTheBetaChannelReadsTheNewestReleasesGameJson()
+    {
+        var handler = new Fake();
+        var beta = await new CatalogClient(new HttpClient(handler), _cache) { FollowsBeta = id => id == "kcd2" }.LoadAsync();
+        Assert.Single(beta!.Games[0].Manifest.Options!);
+        Assert.EndsWith("/releases/download/0.2.5/", beta.Games[0].BaseUrl);   // its pictures come from there too
+    }
+
+    [Fact]
+    public async Task AStablePlayerReadsTheLatestStableReleasesAndNeverAsksForTheList()
+    {
+        var handler = new Fake();
+        var stable = await new CatalogClient(new HttpClient(handler), _cache).LoadAsync();
+        Assert.Empty(stable!.Games[0].Manifest.Options!);
+        Assert.DoesNotContain(handler.Asked, u => u.StartsWith("https://api.github.com/"));
+    }
+}

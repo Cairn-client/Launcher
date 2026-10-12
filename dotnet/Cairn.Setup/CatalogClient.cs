@@ -27,6 +27,9 @@ public sealed class CatalogClient
     private readonly string gamesBase;
     private readonly bool useRepoReleases;
 
+    /// <summary>For a game whose player follows the beta channel, its game.json is read from the newest release (a pre-release too), as its pack is: what a beta offers can be in its game.json.</summary>
+    public Func<string, bool> FollowsBeta { get; init; } = _ => false;
+
     /// <param name="gamesBase">Where games.json and <c>games/&lt;id&gt;/</c> are (a URL ending in '/').</param>
     /// <param name="useRepoReleases">False to read every game.json from <paramref name="gamesBase"/> (a local copy of the catalog, tests).</param>
     public CatalogClient(HttpClient http, string cacheDir, string? gamesBase = null, bool? useRepoReleases = null)
@@ -70,7 +73,11 @@ public sealed class CatalogClient
     private async Task<CatalogGame?> LoadGameAsync(GameEntry entry, CancellationToken ct)
     {
         var bases = new List<string>();
-        if (useRepoReleases && entry.Repo.Length > 0) bases.Add($"https://github.com/{entry.Repo}/releases/latest/download/");
+        if (useRepoReleases && entry.Repo.Length > 0)
+        {
+            if (FollowsBeta(entry.Id) && await PackChannels.NewestTagAsync(http, entry.Repo, ct).ConfigureAwait(false) is { } newest) bases.Add($"https://github.com/{entry.Repo}/releases/download/{newest}/");
+            bases.Add($"https://github.com/{entry.Repo}/releases/latest/download/");
+        }
         bases.Add($"{gamesBase}games/{entry.Id}/");
 
         foreach (var b in bases)
