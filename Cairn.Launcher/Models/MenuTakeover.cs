@@ -34,11 +34,11 @@ namespace Cairn.Launcher.Models
 
         public static MenuChoice? Parse(string line)
         {
-            const string pfx = "[CAIRN-EVT] v1 ";
+            string pfx = ModLua.EventPrefix;
             int at = line.IndexOf(pfx, StringComparison.Ordinal);
             if (at < 0) return null;
             var p = line[(at + pfx.Length)..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (p.Length < 3 || p[1] != "start_game" || !long.TryParse(p[0], NumberStyles.None, CultureInfo.InvariantCulture, out long seq)) return null;
+            if (p.Length < 3 || p[1] != ModLua.StartGameEvent || !long.TryParse(p[0], NumberStyles.None, CultureInfo.InvariantCulture, out long seq)) return null;
             switch (p[2])
             {
                 case "newadv" when p.Length >= 5 && Styles.Contains(p[3]) && p[4] is "skip" or "watch":
@@ -109,10 +109,10 @@ namespace Cairn.Launcher.Models
             b.Append(",recapMin=").Append(RecapMinutes.ToString(CultureInfo.InvariantCulture));
             string body = b.ToString();
             string sig = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(body)))[..12].ToLowerInvariant();
-            return "if Cairn_StartGameModel then Cairn_StartGameModel({sig=" + Lua(sig) + "," + body + "}) end";
+            return ModLua.Call(ModLua.StartGameModel, "{sig=" + Lua(sig) + "," + body + "}");
         }
 
-        public const string TickCall = "if Cairn_StartGameTick then Cairn_StartGameTick() end";
+        public static string TickCall => ModLua.Call(ModLua.StartGameTick);
 
         /// <summary>
         /// The prologue's rendered cutscenes up to where Hans and Henry part ways, in story order, with each one's length
@@ -137,8 +137,8 @@ namespace Cairn.Launcher.Models
 
         /// <summary>The recap's start, once the New adventure's world is loaded (cairn.lua Cairn_StartGameRecapStart).</summary>
         public static string RecapCall() =>
-            "if Cairn_StartGameRecapStart then Cairn_StartGameRecapStart(" +
-            Lua(string.Join(";", PrologueVideos.Select(v => ShortName(v.Path) + "|" + v.Seconds.ToString("0.0", CultureInfo.InvariantCulture)))) + ") end";
+            ModLua.Call(ModLua.StartGameRecapStart,
+            Lua(string.Join(";", PrologueVideos.Select(v => ShortName(v.Path) + "|" + v.Seconds.ToString("0.0", CultureInfo.InvariantCulture)))));
 
         /// <summary>"Videos/m01/x/x.bk2" -> "m01/x" (the Lua expands it back; one console call holds all nine).</summary>
         public static string ShortName(string path)
@@ -168,8 +168,8 @@ namespace Cairn.Launcher.Models
 
         /// <summary>A load from the menu (the join flow call, after the menu's video is stopped: beta hardening's freeze).</summary>
         public static string LoadCall(int playline, string name) =>
-            "if Cairn_StartGameDisarm then Cairn_StartGameDisarm(\"load\") end; if Cairn_JoinFlowLoadGame then Cairn_JoinFlowLoadGame(" +
-            playline.ToString(CultureInfo.InvariantCulture) + "," + Lua(name) + ",\"start_game\") end";
+            ModLua.Call(ModLua.StartGameDisarm, "\"load\"") + "; " +
+            ModLua.Call(ModLua.JoinFlowLoad, playline.ToString(CultureInfo.InvariantCulture) + "," + Lua(name) + "," + Lua(ModLua.StartGameEvent));
 
         /// <summary>The console's own limit (past about 2,100 encoded characters the rest is cut, silently).</summary>
         public const int MaxEncoded = 1900;

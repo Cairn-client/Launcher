@@ -105,6 +105,29 @@ public class PackContractTests
         Assert.Equal("KCD2MP_", c.LuaPrefix);
         Assert.Equal("bin/Agent.exe", c.Agent);
         Assert.Equal(new[] { "cairn" }, c.ReplacesFolders);
+        Assert.Equal("[TEST-EVT] v1 ", c.Lua!["eventPrefix"]);
+        Assert.Equal("Test_Model", c.Lua["startGameModel"]);
+    }
+
+    [Theory]
+    [InlineData("\"startGameModel\": \"evil(); os.exit()\"")]      // not a plain function name: it is put into a Lua call
+    [InlineData("\"startGameModel\": \"\"")]
+    [InlineData("\"unknownKey\": \"Test_Fn\"")]                      // only the names the launcher knows
+    [InlineData("\"eventPrefix\": \"has \\\"quote\"")]               // a prefix with a quote or backslash
+    [InlineData("\"startGameEvent\": \"a b\"")]
+    public void ALuaNameThatCouldBecomeCodeIsRefused(string entry)
+    {
+        var json = FakeSteam.ContractJson.Replace("\"lua\": {", "\"lua\": { " + entry + ",");
+        Assert.Null(PackContract.Parse(json));
+    }
+
+    [Fact]
+    public void AContractWithoutLuaNamesIsStillRead()
+    {
+        var json = System.Text.RegularExpressions.Regex.Replace(FakeSteam.ContractJson, @",\s*""lua"": \{[^}]*\}", "");
+        var c = PackContract.Parse(json);
+        Assert.NotNull(c);
+        Assert.True(c!.Lua is null || c.Lua.Count == 0);
     }
 
     [Theory]

@@ -329,7 +329,7 @@ namespace Cairn.Launcher.Pages
         private async Task<bool> StartGameLoadAsync(GameConsole console, int pl, string name, bool newAdventure)
         {
             if (!MenuTakeoverRule.IsSaveName(name) || pl is < 0 or > 4) return false;
-            await console.LuaAsync("if Cairn_StartGameDisarm then Cairn_StartGameDisarm(\"load\") end");
+            await console.LuaAsync(ModLua.Call(ModLua.StartGameDisarm, "\"load\""));
             await console.CommandAsync("wh_ui_StopMovie");
             await Task.Delay(StartGameStopVideoSettleMs);
             bool ok = await console.LuaAsync(MenuTakeoverRule.LoadCall(pl, name));

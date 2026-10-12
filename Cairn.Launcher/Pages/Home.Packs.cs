@@ -151,6 +151,7 @@ namespace Cairn.Launcher.Pages
             Log.Information("packs: {Game} {Version} {Outcome}: {Message}", gameId, info.Version, result.Ok ? "downloaded" : "FAILED", result.Message);
 
             installedPackCache.Remove(gameId);
+            ModLua.Reload();
             packBusyId = null;
             if (isSetupMod)
                 SetActivity(setupActivity with { DownloadingPack = false, PackProgress = null, PackFailure = result.Ok ? null : $"The mod could not be downloaded ({result.Message})." });
@@ -177,6 +178,7 @@ namespace Cairn.Launcher.Pages
             }
             await Task.Run(() => PackStore.Remove(PacksRoot, gameId));
             installedPackCache.Remove(gameId);
+            ModLua.Reload();
             Log.Information("packs: {Game} removed ({Note})", gameId, note ?? "download only");
             SetPackMessage($"{game.DisplayName} mod removed.", error: false);
             if (gameId == ModInstall.PackId) await CheckSetupAgainAsync();

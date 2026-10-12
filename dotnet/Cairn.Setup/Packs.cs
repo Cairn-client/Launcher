@@ -17,7 +17,7 @@ public sealed record PackInfo(string Id, string Game, string Version, string Fil
 public sealed record PackContract(
     string Id, string Version, string Upstream, string ModFolder, string LuaPrefix,
     string Agent, string Relay, string Native, string BrandPak, string AgentConfig, string LauncherMin,
-    IReadOnlyList<string> ReplacesFolders)
+    IReadOnlyList<string> ReplacesFolders, IReadOnlyDictionary<string, string>? Lua = null)
 {
     public const string FileName = "pack.json";
     public const int CurrentSchema = 2;
@@ -34,12 +34,21 @@ public sealed record PackContract(
             var replaces = new List<string>();
             if (r.TryGetProperty("replacesFolders", out var rf) && rf.ValueKind == JsonValueKind.Array)
                 foreach (var e in rf.EnumerateArray()) if (e.GetString() is { } f) replaces.Add(f);
+            var lua = new Dictionary<string, string>(StringComparer.Ordinal);
+            bool luaOk = true;
+            if (r.TryGetProperty("lua", out var lj) && lj.ValueKind == JsonValueKind.Object)
+                foreach (var p in lj.EnumerateObject())
+                {
+                    string v = p.Value.ValueKind == JsonValueKind.String ? p.Value.GetString() ?? "" : "";
+                    if (!LuaKeys.Contains(p.Name) || !(p.Name == "eventPrefix" ? IsEventPrefix(v) : p.Name == "startGameEvent" ? IsWord(v) : IsLuaName(v))) { luaOk = false; break; }
+                    lua[p.Name] = v;
+                }
             var c = new PackContract(S("id"), S("version"), S("upstream"), S("modFolder"), S("luaPrefix"),
-                S("agent"), S("relay"), S("native"), S("brandPak"), S("agentConfig"), S("launcherMin"), replaces);
+                S("agent"), S("relay"), S("native"), S("brandPak"), S("agentConfig"), S("launcherMin"), replaces, lua);
             bool ok = IsPlainName(c.Id) && c.Version.Length > 0 && IsPlainName(c.ModFolder) && c.LuaPrefix.Length is > 0 and <= 40
                       && IsPackPath(c.Agent) && IsPackPath(c.Relay) && IsPackPath(c.Native)
                       && (c.BrandPak.Length == 0 || IsPackPath(c.BrandPak)) && (c.AgentConfig.Length == 0 || IsFileName(c.AgentConfig))
-                      && replaces.All(IsPlainName);
+                      && replaces.All(IsPlainName) && luaOk;
             return ok ? c : null;
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or FormatException)
@@ -47,6 +56,19 @@ public sealed record PackContract(
             return null;
         }
     }
+
+    /// <summary>
+    /// The names the launcher uses to talk to the mod through the game's console and its log (the pack's <c>lua</c> object): the log line
+    /// prefix the mod's events carry, the word its start-game events use, and the mod's script functions the launcher calls.
+    /// </summary>
+    public static readonly IReadOnlySet<string> LuaKeys = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "eventPrefix", "startGameEvent", "startGameModel", "startGameTick", "startGameRecapStart", "startGameDisarm", "joinFlowLoad", "menuRequest",
+    };
+
+    private static bool IsLuaName(string s) => s.Length is > 0 and <= 60 && (char.IsAsciiLetter(s[0]) || s[0] == '_') && s.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
+    private static bool IsWord(string s) => s.Length is > 0 and <= 20 && s.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
+    private static bool IsEventPrefix(string s) => s.Length is >= 3 and <= 40 && s.All(c => c >= ' ' && c <= '~' && c != '"' && c != '\\');
 
     // everything here comes from the network: only plain names and paths that stay inside the pack are accepted
     private static bool IsPlainName(string s) => s.Length is > 0 and <= 40 && s.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_');

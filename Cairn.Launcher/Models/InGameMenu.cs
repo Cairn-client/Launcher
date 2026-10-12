@@ -39,7 +39,7 @@ namespace Cairn.Launcher.Models
         /// <summary>The menu_state line's payload from a kcd.log line, or null when the line is something else.</summary>
         public static MenuState? Parse(string line)
         {
-            const string pfx = "[CAIRN-EVT] v1 ";
+            string pfx = ModLua.EventPrefix;
             int at = line.IndexOf(pfx, StringComparison.Ordinal);
             if (at < 0) return null;
             string rest = line[(at + pfx.Length)..];
@@ -72,7 +72,7 @@ namespace Cairn.Launcher.Models
         /// </summary>
         public static (double Seconds, string Text)? ParseSubtitle(string line)
         {
-            const string pfx = "[CAIRN-EVT] v1 ";
+            string pfx = ModLua.EventPrefix;
             int at = line.IndexOf(pfx, StringComparison.Ordinal);
             if (at < 0) return null;
             string rest = line[(at + pfx.Length)..];
@@ -95,7 +95,7 @@ namespace Cairn.Launcher.Models
         /// </summary>
         public static (bool Show, string Text)? ParseNotice(string line)
         {
-            const string pfx = "[CAIRN-EVT] v1 ";
+            string pfx = ModLua.EventPrefix;
             int at = line.IndexOf(pfx, StringComparison.Ordinal);
             if (at < 0) return null;
             string rest = line[(at + pfx.Length)..];
@@ -117,17 +117,17 @@ namespace Cairn.Launcher.Models
         }
 
         /// <summary>The console call that asks the mod for its state (it answers with a menu_state line).</summary>
-        public const string AskState = "if Cairn_BetaOverlayRequest then Cairn_BetaOverlayRequest(\"state\") end";
+        public static string AskState => ModLua.Call(ModLua.MenuRequest, "\"state\"");
 
         /// <summary>Tells the mod the launcher draws the menu: the mod's own key handling steps aside.</summary>
-        public const string Attach = "if Cairn_BetaOverlayRequest then Cairn_BetaOverlayRequest(\"attach\") end";
+        public static string Attach => ModLua.Call(ModLua.MenuRequest, "\"attach\"");
 
         /// <summary>The console call for "do this to that item"; the id is the mod's own, kept to letters, digits and underscores.</summary>
         public static string? DoCall(string id, string verb)
         {
             if (id.Length is 0 or > 40 || !id.All(c => char.IsAsciiLetterOrDigit(c) || c == '_')) return null;
             if (verb is not ("enter" or "nudge")) return null;
-            return $"if Cairn_BetaOverlayRequest then Cairn_BetaOverlayRequest(\"do {id} {verb}\") end";
+            return ModLua.Call(ModLua.MenuRequest, $"\"do {id} {verb}\"");
         }
     }
 

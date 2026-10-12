@@ -108,7 +108,9 @@ public sealed class FakeSteam : IDisposable
     public const string ContractJson = """
         { "schema": 2, "id": "kcd2", "game": "kcd2", "version": "0.1.0", "upstream": "0.48.6", "modFolder": "kdcmp", "luaPrefix": "KCD2MP_",
           "agent": "bin/Agent.exe", "relay": "bin/Relay.exe", "native": "bin/Native.dll", "brandPak": "bin/brand.pak",
-          "agentConfig": "agent.json", "launcherMin": "0.1.0", "replacesFolders": ["cairn"] }
+          "agentConfig": "agent.json", "launcherMin": "0.1.0", "replacesFolders": ["cairn"],
+          "lua": { "eventPrefix": "[TEST-EVT] v1 ", "startGameEvent": "sg", "startGameModel": "Test_Model", "startGameTick": "Test_Tick",
+                   "startGameRecapStart": "Test_Recap", "startGameDisarm": "Test_Disarm", "joinFlowLoad": "Test_Load", "menuRequest": "Test_Menu" } }
         """;
 
     /// <summary>A downloaded, verified mod pack for the game, laid out the way <see cref="PackInstaller"/> leaves it.</summary>
