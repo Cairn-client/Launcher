@@ -554,7 +554,7 @@
 
 @* the first-run checklist (and "Check setup"); hidden whenever setup is complete *@
 <SetupChecklistModal IsVisible="@showSetup" SystemOnly="@setupSystemOnly"
-                     Steps="@setupSteps"
+                     Steps="@SetupView()"
                      Lines="@setupLines"
                      Busy="@setupBusy"
                      OnAction="@HandleSetupActionAsync"

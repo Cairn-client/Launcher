@@ -25,16 +25,16 @@
                 <ol class="setup-steps">
                     @foreach (var s in Shown)   @* Cairn: the closing "Ready!" row is not shown; the steps above say it all *@
                     {
-                        <li class="setup-step setup-@s.Status.ToString().ToLowerInvariant()">
+                        <li class="setup-step setup-@(StatusClass(s.Status))">
                             <span class="setup-icon">@Icon(s.Status)</span>
                             <div class="setup-body">
                                 <div class="setup-step-title">@s.Title</div>
                                 <div class="setup-detail">@s.Detail</div>
-                                @if (s.Progress is double p && s.Status == StepStatus.Working)
+                                @if (s.Progress is double p && s.Status == PackStepStatus.Working)
                                 {
                                     <div class="setup-bar"><div class="setup-bar-fill" style="width: @((p * 100).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%;"></div></div>
                                 }
-                                @if (s.Status == StepStatus.NeedsYou && s.Action != StepAction.None && s.ActionLabel is not null)
+                                @if (s.Status == PackStepStatus.NeedsYou && s.Action is not null && s.ActionLabel is not null)
                                 {
                                     <button class="cairn-btn setup-action" disabled="@Busy" @onclick="() => OnAction.InvokeAsync(s.Action)">@s.ActionLabel</button>
                                 }
@@ -65,24 +65,29 @@
 }
 
 @code {
-    [Parameter] public IReadOnlyList<StepView> Steps { get; set; } = Array.Empty<StepView>();
+    [Parameter] public IReadOnlyList<PackStep> Steps { get; set; } = Array.Empty<PackStep>();
     [Parameter] public IReadOnlyList<string> Lines { get; set; } = Array.Empty<string>();
     [Parameter] public bool Busy { get; set; }
-    [Parameter] public EventCallback<StepAction> OnAction { get; set; }
+    [Parameter] public EventCallback<string> OnAction { get; set; }
     [Parameter] public EventCallback OnCheckAgain { get; set; }
 
     /// <summary>Only the steps that concern every game (Steam, the runtimes) when opened from Home or Help; all of them when a game is about to start.</summary>
     [Parameter] public bool SystemOnly { get; set; }
 
-    private IEnumerable<StepView> Shown => Steps.Where(x => x.Id != StepId.Ready && (!SystemOnly || x.Id is StepId.Steam or StepId.VcRuntime));
+    private IEnumerable<PackStep> Shown => Steps.Where(x => !SystemOnly || x.System);
 
-    private bool Ready => Steps.Count > 0 && (SystemOnly ? Shown.Any() && Shown.All(x => x.Status == StepStatus.Done) : SetupChecklist.IsReady(Steps));
+    private bool Ready => Steps.Count > 0 && (SystemOnly ? Shown.Any() && Shown.All(x => x.Status == PackStepStatus.Done) : Steps.All(x => x.Optional || x.Status == PackStepStatus.Done));
 
-    private static string Icon(StepStatus s) => s switch
+    private static string Icon(PackStepStatus s) => s switch
     {
-        StepStatus.Done => "✅",
-        StepStatus.Working => "⏳",
-        StepStatus.NeedsYou => "❌",
+        PackStepStatus.Done => "✅",
+        PackStepStatus.Working => "⏳",
+        PackStepStatus.NeedsYou => "❌",
         _ => "·",
+    };
+
+    private static string StatusClass(PackStepStatus s) => s switch
+    {
+        PackStepStatus.Done => "done", PackStepStatus.Working => "working", PackStepStatus.NeedsYou => "needsyou", _ => "waiting",
     };
 }
