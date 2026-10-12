@@ -14,7 +14,7 @@
 @if (IsVisible || Inline)
 {
     var game = Scope == GeneralScope ? null : GameProfileRegistry.Get(Scope);
-    RenderFragment savesList = @<div class="cairn-input-group">
+    RenderFragment savesList = @<div class="cairn-input-group saves-fill">
         <label class="cairn-label">Saved games</label>
         @if (!SavesKnown)
         {
@@ -26,7 +26,7 @@
         }
         else
         {
-            <div class="save-list save-scroll">
+            <div class="save-list">
                 @foreach (var slot in Saves)
                 {
                     <div class="save-row">
@@ -66,6 +66,7 @@
                     </div>
                 }
 
+                <div class="settings-body @(onSaves ? "saves-page" : "")">
                 @if (game is null)
                 {
                     @* Cairn: the paths of the mod's own programs, the master server and the info port are not the player's to set (the installer puts them); they keep their saved values. *@
@@ -275,12 +276,13 @@
                             {
                                 <div class="cairn-hint" style="color: var(--cairn-warn);">Close the game first: this can only be changed while it is not running.</div>
                             }
-                            @if (status is not null && status.Note.Length > 0) { <div class="cairn-hint">@status.Note</div> }
+                            @if (status is not null && status.Note.Length > 0 && option.Hint.Length == 0) { <div class="cairn-hint">@status.Note</div> }
                             @if (option.Hint.Length > 0) { <div class="cairn-hint">@option.Hint</div> }
                         </div>
                     }
                 }
 
+                </div>
                 <div class="modal-actions">
                     <button class="cairn-btn primary" @onclick="OnSave">SAVE & CLOSE</button>
                     <button class="cairn-btn" @onclick="CloseModalAsync">CANCEL</button>
