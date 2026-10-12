@@ -276,7 +276,7 @@
                                     @if (packMessage.Length > 0) { <span class="mod-note @(packMessageIsError ? "err" : "")">@packMessage</span> }
                                 </dd>
                             </div>
-                        @if (externalMod && externalBridgeConnected)
+                        @if (BridgeConnectedFor(game))
                         {
                             <div class="wide mod-row req-row">
                                 <dt>Saves</dt>

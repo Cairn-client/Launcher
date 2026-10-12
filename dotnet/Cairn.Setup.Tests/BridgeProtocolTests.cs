@@ -139,4 +139,13 @@ public class BridgeProtocolTests
         Assert.Null(BridgeProtocol.DeleteSave("a b"));
         Assert.Null(BridgeProtocol.DeleteSave(""));
     }
+
+    [Fact]
+    public void AToastIsAShortMessageForThePlayer()
+    {
+        Assert.Equal(new BridgeToast("Deleted x.", false), BridgeProtocol.Parse("""{"t":"toast","text":"Deleted x."}"""));
+        Assert.Equal(new BridgeToast("No.", true), BridgeProtocol.Parse("""{"t":"toast","text":"No.","error":true}"""));
+        Assert.Null(BridgeProtocol.Parse("""{"t":"toast","text":""}"""));
+        Assert.Equal(200, ((BridgeToast)BridgeProtocol.Parse("{\"t\":\"toast\",\"text\":\"" + new string('x', 900) + "\"}")!).Text.Length);
+    }
 }

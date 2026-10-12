@@ -112,6 +112,9 @@ namespace Cairn.Launcher.Pages
         private string? deleteSaveAsked;
         private bool externalBridgeConnected;
 
+        /// <summary>The bridge of this game is connected (the game runs and its mod has a bridge): its saves are listed on the page.</summary>
+        private bool BridgeConnectedFor(GameProfile g) => externalBridge is { Connected: true } b && string.Equals(b.Game, g.Id, StringComparison.OrdinalIgnoreCase);
+
         private void EnsureExternalBridge()
         {
             if (externalBridge is not null) return;
@@ -125,6 +128,7 @@ namespace Cairn.Launcher.Pages
             };
             bridge.Received += msg =>
             {
+                if (msg is BridgeToast toast) { _ = InvokeAsync(() => ShowToast(toast.Text, toast.Error)); return; }
                 if (msg is not BridgeSaves saves) return;
                 externalSaves = saves.Slots;
                 deleteSaveAsked = null;
