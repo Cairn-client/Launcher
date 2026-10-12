@@ -619,7 +619,7 @@ else if (launchStage != LaunchStage.Idle && launchStage != LaunchStage.Connected
                 Addresses="@hostLanAddresses"
                 ShowAddress="@settings.ShowHostAddress"
                 ErrorMessage="@hostErrorMessage"
-                RelayRunning="@(hostedRelayProcess != null && !hostedRelayProcess.HasExited)"
+                RelayRunning="@HostRelayRunning"
                 AllowSteam="@settings.HostAllowSteam"
                 SteamState="@hostSteamState"
                 SteamMessage="@hostSteamMessage"

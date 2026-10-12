@@ -29,16 +29,12 @@ namespace Cairn.Launcher.Pages
         private readonly Dictionary<string, string> packLogged = new();
 
         /// <summary>The program of the setup game's pack when the pack does the setup; null otherwise.</summary>
-        private string? PackSetupProgram()
-        {
-            var root = PackStore.DefaultRoot;
-            if (PackStore.ReadContract(root, ModInstall.PackId) is not { Setup: true }) return null;
-            return ExternalInstall.OptionsProgramPath(root, ModInstall.PackId) is { } p && System.IO.File.Exists(p) ? p : null;
-        }
+        private string? PackSetupProgram() => ProgramCached(ref setupProgramCache, p => p is { Setup: true });
 
         /// <summary>Asks the pack's program for its checklist; false (and the launcher's own checklist is used) when the pack has none or it did not answer.</summary>
         private async Task<bool> RefreshPackSetupAsync()
         {
+            setupProgramCache = default; sessionProgramCache = default;   // the pack may have changed since the last look
             var program = PackSetupProgram();
             if (program is null) { packSetup = null; return false; }
             string? mt = !string.IsNullOrWhiteSpace(settings.GamePath) && System.IO.File.Exists(settings.GamePath) ? settings.GamePath : null;
@@ -102,6 +98,7 @@ namespace Cairn.Launcher.Pages
 
         private async Task RunPackActionAsync(string stepId, string action)
         {
+            setupProgramCache = default; sessionProgramCache = default;   // the pack may have changed since the last look
             var program = PackSetupProgram();
             if (program is null || setupBusy) return;
             string? mt = !string.IsNullOrWhiteSpace(settings.GamePath) && System.IO.File.Exists(settings.GamePath) ? settings.GamePath : null;

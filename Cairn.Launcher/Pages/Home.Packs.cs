@@ -225,6 +225,7 @@ namespace Cairn.Launcher.Pages
         {
             string gameId = item.GameId, name = item.GameName;
             bool isSetupMod = gameId == ModInstall.PackId && item.Info.Kind == PackKinds.Mod;
+            if (isSetupMod && !gameRunning) await InvokeAsync(ReleasePackSession);   // its program holds the mod's files open
             if (isSetupMod) await InvokeAsync(() => SetActivity(setupActivity with { DownloadingPack = true, PackProgress = 0, PackFailure = null }));
             await InvokeAsync(StateHasChanged);
 
@@ -312,6 +313,7 @@ namespace Cairn.Launcher.Pages
                 if (!r.Ok) { SetPackMessage($"Could not remove the mod from the game ({r.Message}).", error: true); return; }
                 note = r.Message;
             }
+            if (gameId == ModInstall.PackId) ReleasePackSession();
             await Task.Run(() => PackStore.Remove(PacksRoot, gameId));
             installedPackCache.Remove(gameId);
             ModLua.Reload();

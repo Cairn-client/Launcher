@@ -128,6 +128,7 @@ namespace Cairn.Launcher.Pages
         /// <summary>Closes the game executable and its helper programs, and waits a moment for them to exit.</summary>
         private void CloseGameAndTools()
         {
+            if (UsePackSession && packSession is { Alive: true } ps) { ps.CloseGame(); return; }   // the pack's program closes its game and the tools
             var names = new List<string>(ModdingToolsProcesses);
             string? gameExe = null;
             if (pendingGameProcess is { HasExited: false } pg)
