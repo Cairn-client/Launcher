@@ -137,7 +137,8 @@ namespace Cairn.Launcher.Pages
             RecordSession(launchedAs);   // the Continue card on Home
             gameRunning = true;          // the buttons grey out at once, not at the next look
             PublishPresenceStatus();
-            StartGameStartDriver(proc, g.Hosting, g.StartedLocal);   // the game's menu, and the start-game flow
+            StartInGameMenu(proc, g.StartedLocal);        // the mod's menu, drawn over the game
+            startGameTakeover = settings.MenuTakeover;     // the start-game flow itself is the pack's (the screens only need to know it is on)
             StateHasChanged();
         }
 
@@ -222,8 +223,6 @@ namespace Cairn.Launcher.Pages
             if (launchStage != LaunchStage.Idle && launchStage != LaunchStage.Failed) { UiService.ShowError("A launch is already in progress."); return; }
             var s = EnsurePackSession();
             if (s is null) { UiService.ShowError("The game couldn't be started: the mod's program is missing. Reinstall the mod from the game's page."); return; }
-            // the first-run pages (read only), the host's start save staged, the player's worlds listed
-            if (!await StartGameBeforeLaunchAsync(packRelayUp)) return;
             ConfigurePackSession();
             bool skip = skipModFileCheckOnce;
             skipModFileCheckOnce = false;
