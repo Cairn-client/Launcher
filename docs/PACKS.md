@@ -96,3 +96,35 @@ only the files Cairn listed in its `.cairn-pack` marker, then the folders that e
 
 `companionStartsGame: true` (external mods with a `companion`) says the companion starts the game itself (Noita Entangled Worlds' proxy hosts or
 joins and then starts Noita): **Play** then only opens the companion and does not start the game a second time.
+
+## The pack's program (`optionsProgram`)
+
+A pack can name one program of its own (`"optionsProgram": "bin/Tool.exe"`, a path inside the pack, carried in it). The launcher runs it
+with a **list of arguments** (never a command line it builds from text) and reads its standard output as JSON lines. It does three jobs; a game
+uses the ones it needs:
+
+| Arguments | Answer | What the launcher does with it |
+| --- | --- | --- |
+| `options check <id> --game-dir D` / `options apply <id> on\|off --game-dir D` | `{"available":bool,"on":bool,"note":"..."}` / `{"say":"..."}` lines then `{"ok":bool,"message":"..."}` | the game's option toggles in its settings window (`options` of `game.json`) |
+| `saves list` / `saves delete <id>` | a bridge `saves` message / a `toast` then the new list | the "Saved games" list in the settings window with the game closed |
+| `setup check [--mt-exe EXE]` / `setup do <action> [--mt-exe EXE]` | see below | the game's setup checklist, when the contract says `"setup": true` |
+
+### Setup from the pack (`"setup": true`)
+
+`setup check` prints one line per step, then the line that ends the list:
+
+```
+{"step":{"id":"workspace","title":"Game files linked","status":"working","detail":"...","action":"link-workspace","actionLabel":"Try again","progress":0.4,"optional":false,"system":false,"auto":"while"}}
+{"done":true,"ready":true,"optionalNeedsYou":false}
+{"found":{"moddingToolsExe":"C:\...\KingdomCome.exe"}}      (optional: a path the launcher may remember)
+```
+
+* `status` is `done`, `working` (nothing for the player to do), `needs-you` or `waiting` (an earlier step first). `action` is a word the program understands
+  (letters, digits, `-` and `_`); the launcher draws a button with `actionLabel` for a `needs-you` step and passes the word back. `system` steps concern the whole PC
+  and are the ones "System setup" shows. An `optional` step never holds a game's Host and Join back.
+* `auto` asks the launcher to start the action without a click: `once` per launcher session (it opens a window or starts a program), or `while` the step is the next
+  thing to do. A step whose last try failed waits for a click. The launcher decides *ready* from the steps itself: a program cannot say it over a step that is not done.
+
+`setup do <action>` works and prints `{"say":"..."}` and `{"progress":0..1}` lines while it does, and ends with `{"ok":bool,"message":"...","pending":seconds}`: `message`
+is shown with the step (or as the failure), `pending` says the PC needs that long to catch up (Steam starting) so the step shows as working meanwhile.
+A launcher that does not know a pack's `setup` (or a pack without it) uses the setup checklist the launcher has always had.

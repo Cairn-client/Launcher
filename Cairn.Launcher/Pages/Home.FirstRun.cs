@@ -57,8 +57,16 @@ namespace Cairn.Launcher.Pages
                 await InvokeAsync(async () =>
                 {
                     ApplySetupSnapshot(snap);
+                    if (await RefreshPackSetupAsync())
+                    {
+                        // the pack does the setup: the facial data is still linked by itself at start (hard links: no prompt, no copy), the rest waits for Host or Join
+                        await RunPackAutoActionsAsync(onlyFacials: true);
+                        snap = TakeSetupSnapshot();
+                        ApplySetupSnapshot(snap);
+                        await RefreshPackSetupAsync();
+                    }
                     // Cairn: NPC lip sync: the regular game's facial data is linked by itself at start (hard links: no prompt, no copy).
-                    if (setupSteps.FirstOrDefault(x => x.Id == StepId.Facials) is { Status: StepStatus.NeedsYou, Action: StepAction.LinkFacials })
+                    else if (setupSteps.FirstOrDefault(x => x.Id == StepId.Facials) is { Status: StepStatus.NeedsYou, Action: StepAction.LinkFacials })
                     {
                         await LinkFacialsAsync(snap);
                         snap = TakeSetupSnapshot();
@@ -89,7 +97,7 @@ namespace Cairn.Launcher.Pages
             setupSteps = SetupChecklist.Evaluate(snap, setupActivity);
             bool wasReady = setupReady;
             setupReady = SetupChecklist.IsReady(setupSteps);
-            LogStepChanges();
+            if (PackSetupProgram() is null) LogStepChanges();
             if (setupReady && !wasReady && setupLogged.Count > 0)
                 Log.Information("setup: Ready! Host and Join unlocked");
         }
@@ -123,7 +131,8 @@ namespace Cairn.Launcher.Pages
                             {
                                 ApplySetupSnapshot(snap);
                                 AdoptDetectedGamePath(snap);
-                                await RunSetupAutoActionsAsync();
+                                if (await RefreshPackSetupAsync()) await RunPackAutoActionsAsync();
+                                else await RunSetupAutoActionsAsync();
                                 StateHasChanged();
                             });
                             // Ready and the checklist closed: nothing left to watch.
@@ -180,8 +189,15 @@ namespace Cairn.Launcher.Pages
                 await PlaceModStepAsync();
         }
 
-        private async Task HandleSetupActionAsync(StepAction action)
+        private async Task HandleSetupActionAsync(string actionName)
         {
+            if (packSetup is not null)
+            {
+                Log.Information("setup: the player clicked {Action}", actionName);
+                if (packSetup.Steps.FirstOrDefault(x => x.Action == actionName) is { } step) await RunPackActionAsync(step.Id, actionName);
+                return;
+            }
+            var action = LegacyActionOf(actionName);
             var snap = setupSnapshot;
             if (snap is null) return;
             Log.Information("setup: the player clicked {Action}", action);
@@ -206,6 +222,7 @@ namespace Cairn.Launcher.Pages
             var snap = await Task.Run(TakeSetupSnapshot);
             ApplySetupSnapshot(snap);
             AdoptDetectedGamePath(snap);
+            await RefreshPackSetupAsync();
             if (!setupReady) StartSetupPoll();
             StateHasChanged();
         }
@@ -249,7 +266,7 @@ namespace Cairn.Launcher.Pages
                 StateHasChanged();
                 return false;
             }
-            if (SetupChecklist.OptionalNeedsYou(setupSteps) && !setupOptionalShown)
+            if (OptionalNeedsYouNow() && !setupOptionalShown)
             {
                 // ready, but an optional step (the Visual C++ 2013 runtime) asks for the player: shown once, the next click goes on.
                 Log.Information("setup: ready; an optional step needs the player, showing the checklist once");
@@ -395,7 +412,7 @@ namespace Cairn.Launcher.Pages
             if (setupSnapshot is not null)
             {
                 setupSteps = SetupChecklist.Evaluate(setupSnapshot, setupActivity);
-                LogStepChanges();
+                if (PackSetupProgram() is null) LogStepChanges();
             }
         }
 

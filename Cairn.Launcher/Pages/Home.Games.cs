@@ -29,9 +29,9 @@ namespace Cairn.Launcher.Pages
 
         /// <summary>The setup check has run and every step is done, the optional ones too: what "Ready to play" means.</summary>
         /// <summary>The part of setup that concerns every game: Steam is running and signed in.</summary>
-        private bool SystemSetupGood => setupSnapshot is not null && setupSteps.Where(s => s.Id == StepId.Steam).All(s => s.Status == StepStatus.Done);
+        private bool SystemSetupGood => setupSnapshot is not null && (packSetup is not null ? PackSystemGood : setupSteps.Where(s => s.Id == StepId.Steam).All(s => s.Status == StepStatus.Done));
 
-        private bool SetupAllGood => setupSnapshot is not null && setupSteps.Where(s => s.Id != StepId.Ready).All(s => s.Status == StepStatus.Done);
+        private bool SetupAllGood => setupSnapshot is not null && (packSetup is not null ? PackStepsAllDone : setupSteps.Where(s => s.Id != StepId.Ready).All(s => s.Status == StepStatus.Done));
 
         // ---- Host / Join, and stopping them ---------------------------------------------------------------------------------
         // While the game this launcher started is running, the Host button reads "Stop hosting" and the Join button "Leave game";
