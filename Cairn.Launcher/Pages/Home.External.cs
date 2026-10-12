@@ -55,6 +55,7 @@ namespace Cairn.Launcher.Pages
             if (GameFolderOf(game) is not { } folder) { SetPackMessage($"{game.DisplayName} was not found on this PC.", error: true); return; }
 
             var companion = ExternalInstall.CompanionPath(PacksRoot, game.Id);
+            bool companionWasOpen = companion is not null && IsRunning(companion);
             if (companion is not null) EnsureExternalBridge();   // the companion is the mod's bridge: it connects to this pipe
             if (companion is not null && !IsRunning(companion))
             {
@@ -71,6 +72,15 @@ namespace Cairn.Launcher.Pages
                     SetPackMessage($"The mod's own program did not start ({ex.Message}).", error: true);
                     return;
                 }
+            }
+
+            // a mod whose own program starts the game (Noita's proxy does: it hosts or joins, then starts Noita) is only opened here
+            if (companion is not null && PackStore.ReadContract(PacksRoot, game.Id) is { CompanionStartsGame: true })
+            {
+                SetPackMessage(companionWasOpen ? $"The mod's own window is already open: start {game.DisplayName} from it." : "", error: false);
+                _ = ShowExternalMenuWhenUpAsync(game, folder);
+                await InvokeAsync(StateHasChanged);
+                return;
             }
 
             try
@@ -143,6 +153,7 @@ namespace Cairn.Launcher.Pages
                 catch (InvalidOperationException) { }
             }
             if (proc is null) { Log.Information("games: {Game} did not show up, so no menu", game.Id); return; }
+            if (!bridge.Connected) { Log.Information("games: {Game} has no bridge connected, so no launcher menu", game.Id); return; }   // a companion that is not a bridge draws nothing
             try
             {
                 inGameMenu?.Stop();
