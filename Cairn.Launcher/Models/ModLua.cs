@@ -43,6 +43,9 @@ namespace Cairn.Launcher.Models
         public static string HelperFlag => Name("helperFlag", "--w159");
         public static string HelperTag => Name("helperTag", "W159");
 
+        /// <summary>The native plugin's own log, beside its DLL: the launcher reads it to see that the plugin attached to the game.</summary>
+        public static string NativeLog => Name("nativeLog", "kcdmp-native.log");
+
         public static string StartGameModel => Name("startGameModel", "KCD2MP_W159Model");
         public static string StartGameTick => Name("startGameTick", "KCD2MP_W159Tick");
         public static string StartGameRecapStart => Name("startGameRecapStart", "KCD2MP_W159RecapStart");

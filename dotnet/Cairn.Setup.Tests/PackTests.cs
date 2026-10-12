@@ -134,6 +134,14 @@ public class PackContractTests
     }
 
     [Fact]
+    public void ThePluginsLogNameIsReadAndMustBeAPlainFileName()
+    {
+        var ok = PackContract.Parse(FakeSteam.ContractJson.Replace("\"lua\": {", "\"lua\": { \"nativeLog\": \"kcdmp-native.log\","));
+        Assert.Equal("kcdmp-native.log", ok!.Lua!["nativeLog"]);
+        Assert.Null(PackContract.Parse(FakeSteam.ContractJson.Replace("\"lua\": {", "\"lua\": { \"nativeLog\": \"..\\\\x.log\",")));
+    }
+
+    [Fact]
     public void AContractWithoutLuaNamesIsStillRead()
     {
         var json = System.Text.RegularExpressions.Regex.Replace(FakeSteam.ContractJson, @",\s*""lua"": \{[^}]*\}", "");
