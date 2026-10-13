@@ -96,5 +96,35 @@ namespace Cairn.Launcher.Pages
             }
             WriteSettings("the profile page");
             await InvokeAsync(StateHasChanged);
-        }    }
+        }
+        // ---- the cards of Home that point at something to do ----
+        private IReadOnlyList<HomeAttention> HomeAttentionItems()
+        {
+            var list = new List<HomeAttention>();
+            if (updateInfo is { } up && !updateBusy)
+                list.Add(new($"Cairn {up.Tag} is out.", "Update", RunUpdateAsync));
+            foreach (var g in GameProfileRegistry.All().Where(g => g.ModRepo.Length > 0 && IsModDownloaded(g)))
+            {
+                string id = g.Id;
+                var offered = CatalogPackOf(g)?.Version;
+                var have = InstalledPackOf(g)?.Version;
+                if (BlockedReasonOfInstalled(g) is { } why)
+                    list.Add(new($"{g.DisplayName}: this mod version has a known problem. {why}", "Update", () => DownloadPackAsync(id)));
+                else if (HomeLogic.ModStateOf(offered, have, true) == ModState.UpdateAvailable)
+                    list.Add(new($"{g.DisplayName} mod {have} -> {offered}", "Update", () => DownloadPackAsync(id)));
+                else if (IsGameFound(g) && !IsModInstalled(g))
+                    list.Add(new($"{g.DisplayName} mod is downloaded but not in the game.", "Install", () => InstallModAsync(id)));
+            }
+            if (setupChecked && !SystemSetupGood)
+                list.Add(new("Something is missing on this PC (Steam, or a program the games need).", "Open setup", () => { _ = OpenSetupChecklist(); return Task.CompletedTask; }));
+            return list;
+        }
+
+        /// <summary>Games on this PC that Cairn has a mod for and the player has none of yet (three at most).</summary>
+        private IReadOnlyList<GameProfile> HomeSuggestions() =>
+            GameProfileRegistry.All().Where(g => g.IsSupported && g.ModRepo.Length > 0 && IsGameFound(g) && !IsModDownloaded(g) && packBusyId != g.Id)
+                .OrderBy(g => g.DisplayName, StringComparer.OrdinalIgnoreCase).Take(3).ToList();
+
+        private string HomeMostPlayed() =>
+            recent.Entries.OrderByDescending(e => e.Minutes).ThenByDescending(e => e.Sessions).Select(e => GameProfileRegistry.Get(e.GameId)?.DisplayName).FirstOrDefault(n => n is not null) ?? "-";    }
 }
