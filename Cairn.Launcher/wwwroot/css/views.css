@@ -1186,3 +1186,184 @@
 .profile-cols.one {
     grid-template-columns: minmax(0, 1fr);
 }
+
+/* ---- Recent activity on the account page, laid out like Steam's: a tinted header, then one wide panel per game ---- */
+.activity-panel {
+    border: 1px solid var(--cairn-oak);
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(var(--cairn-shadow-rgb, 20, 22, 26), 0.55);
+}
+
+.activity-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 22px;
+    background: linear-gradient(90deg, rgba(var(--cairn-gold-rgb), 0.22), rgba(var(--cairn-gold-rgb), 0.06));
+    font-size: 17px;
+}
+
+.activity-total {
+    font-size: 15px;
+    color: var(--cairn-parchment-dim, var(--cairn-muted));
+}
+
+.activity-empty {
+    padding: 18px 22px;
+    margin: 0;
+}
+
+.activity-item {
+    margin: 14px 16px;
+    padding: 14px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.32);
+}
+
+.activity-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.activity-art {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 276px;
+    height: 104px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    overflow: hidden;
+    background: linear-gradient(0deg, rgba(8, 8, 8, 0.55), rgba(8, 8, 8, 0.15)), var(--art, none) center / cover no-repeat;
+    color: var(--cairn-parchment);
+    font-family: var(--cairn-font-family);
+    cursor: pointer;
+}
+
+    .activity-art:hover {
+        outline: 2px solid var(--cairn-gold);
+    }
+
+    .activity-art img {
+        max-width: 78%;
+        max-height: 78%;
+        object-fit: contain;
+        filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.6));
+    }
+
+.activity-name {
+    flex: 1;
+    min-width: 0;
+    padding-top: 2px;
+    font-size: 16px;
+}
+
+.activity-meta {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    padding-top: 2px;
+    font-size: 15px;
+    text-align: right;
+}
+
+    .activity-meta .muted {
+        font-size: 14px;
+    }
+
+.activity-detail {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 28px;
+    margin-top: 14px;
+    padding: 16px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.activity-last {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--cairn-oak);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.activity-badge {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: 2px solid var(--cairn-gold);
+    color: var(--cairn-gold);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+    .activity-badge.join {
+        border-color: #6fb7ff;
+        color: #6fb7ff;
+    }
+
+.activity-last-text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    font-size: 15px;
+}
+
+.activity-progress {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+}
+
+.activity-progress-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.activity-bar {
+    height: 10px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.55);
+}
+
+    .activity-bar span {
+        display: block;
+        height: 100%;
+        border-radius: 6px;
+        background: linear-gradient(90deg, var(--cairn-gold), var(--cairn-gold-bright));
+    }
+
+@media (max-width: 900px) {
+    .activity-top {
+        flex-wrap: wrap;
+    }
+
+    .activity-detail {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.profile-side.wide {
+    display: grid;
+}
+

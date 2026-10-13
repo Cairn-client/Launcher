@@ -34,32 +34,53 @@
         <div><b>@ModsInstalled</b><span>@(ModsInstalled == 1 ? "mod installed" : "mods installed")</span></div>
     </div>
 
-    <div class="profile-cols @(Info is { Summary.Length: > 0 } ? "" : "one")">
+    <div class="profile-cols one">
         <div class="profile-main">
-            <section class="card">
-                <div class="card-head"><h2>Recent activity</h2></div>
+            <section class="activity-panel">
+                <header class="activity-head">
+                    <span>Recent activity</span>
+                    <span class="activity-total">@(Rows.Sum(r => r.Session.Minutes) > 0 ? HomeLogic.Played(Rows.Sum(r => r.Session.Minutes)) + " played on Cairn" : "")</span>
+                </header>
                 @if (Rows.Count == 0)
                 {
-                    <p class="muted">Nothing played yet. Host or join a game and it shows up here.</p>
+                    <p class="muted activity-empty">Nothing played yet. Host or join a game and it shows up here.</p>
                 }
                 else
                 {
-                    <div class="recent-cards">
-                        @foreach (var (game, s2) in Rows.Take(6))
-                        {
-                            <button class="recent-card" style="--art: url('@(game.BackgroundImage.Length > 0 ? game.BackgroundImage : game.PosterImage)');" @onclick="() => OnOpenGame.InvokeAsync(game.Id)">
-                                <span class="recent-logo">@if (game.LogoImage.Length > 0) { <img src="@game.LogoImage" alt="" /> } else { <strong>@game.DisplayName</strong> }</span>
-                                <span class="recent-line">@(s2.Minutes > 0 ? HomeLogic.Played(s2.Minutes) + " played" : s2.Sessions == 1 ? "1 session" : $"{s2.Sessions} sessions")</span>
-                                <span class="recent-sub">@(s2.Role == "host" ? "Hosted" : s2.With.Length > 0 ? "Joined " + s2.With : "Joined") @HomeLogic.Ago(s2.LastUtc, DateTime.UtcNow)</span>
-                            </button>
-                        }
-                    </div>
+                    int most = Math.Max(1, Rows.Max(r => r.Session.Sessions));
+                    @foreach (var (game, s2) in Rows.Take(8))
+                    {
+                        <article class="activity-item">
+                            <div class="activity-top">
+                                <button class="activity-art" style="--art: url('@(game.BackgroundImage.Length > 0 ? game.BackgroundImage : game.PosterImage)');" title="Open @game.DisplayName" @onclick="() => OnOpenGame.InvokeAsync(game.Id)">
+                                    @if (game.LogoImage.Length > 0) { <img src="@game.LogoImage" alt="" /> } else { <strong>@game.DisplayName</strong> }
+                                </button>
+                                <span class="activity-name">@game.DisplayName</span>
+                                <span class="activity-meta">
+                                    <span>@(s2.Minutes > 0 ? HomeLogic.Played(s2.Minutes) + " on record" : s2.Sessions == 1 ? "1 session" : $"{s2.Sessions} sessions")</span>
+                                    <span class="muted">last played on @s2.LastUtc.ToLocalTime().ToString("d MMM")</span>
+                                </span>
+                            </div>
+                            <div class="activity-detail">
+                                <div class="activity-last">
+                                    <span class="activity-badge @(s2.Role == "host" ? "host" : "join")">@(s2.Role == "host" ? "Host" : "Join")</span>
+                                    <span class="activity-last-text">
+                                        <strong>@(s2.Role == "host" ? "You hosted" : s2.With.Length > 0 ? "You joined " + s2.With : "You joined")</strong>
+                                        <span class="muted">@HomeLogic.Ago(s2.LastUtc, DateTime.UtcNow)</span>
+                                    </span>
+                                </div>
+                                <div class="activity-progress">
+                                    <div class="activity-progress-head"><span>Sessions</span><span>@s2.Sessions</span></div>
+                                    <div class="activity-bar"><span style="width: @((int)(100.0 * s2.Sessions / most))%"></span></div>
+                                </div>
+                            </div>
+                        </article>
+                    }
                 }
             </section>
-
         </div>
 
-        <div class="profile-side">
+        <div class="profile-side wide">
             @if (Info is { Summary.Length: > 0 } about)
             {
                 <section class="card">
