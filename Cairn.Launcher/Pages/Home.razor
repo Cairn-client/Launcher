@@ -26,6 +26,7 @@
         <nav class="nav" aria-label="Pages">
             <button class="nav-btn @(currentView == AppView.Home ? "active" : "")" aria-current="@(currentView == AppView.Home ? "page" : null)" @onclick="() => NavigateTo(AppView.Home)">Home</button>
             <button class="nav-btn @(currentView == AppView.Library ? "active" : "")" aria-current="@(currentView == AppView.Library ? "page" : null)" @onclick="() => NavigateTo(AppView.Library)">Library</button>
+            <button class="nav-btn @(currentView == AppView.Store ? "active" : "")" aria-current="@(currentView == AppView.Store ? "page" : null)" @onclick="() => OpenStore()">Store</button>
         </nav>
 
         <div class="topbar-right">
@@ -405,6 +406,7 @@
             <div class="library-empty">
                 <h2>@(LibraryGames().Count == 0 ? "Your library is empty" : "Pick a game")</h2>
                 <p class="muted">@(LibraryGames().Count == 0 ? "Games you add show up here, with their mods, settings and sessions." : "Choose one of your games on the left.")</p>
+                <div><button class="cairn-btn primary" @onclick="() => OpenStore()">BROWSE THE STORE</button></div>
             </div>
         }
     </main>
@@ -424,6 +426,10 @@
                               OnOpenAccount="@(() => NavigateTo(AppView.Profile))" OnOpenNews="@(() => NavigateTo(AppView.Versions))"
                               OnOpenGame="@OpenGameFromHome" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenVersions="@(() => NavigateTo(AppView.Versions))"
                               OnOpenHelp="@(() => NavigateTo(AppView.Help))" OnOpenSetup="@OpenSetupChecklist" />
+                    break;
+                case AppView.Store:
+                    <StoreView Games="@GameProfileRegistry.All()" InLibrary="@InLibrary" IsOnPc="@IsGameFound" Focus="@storeFocus"
+                               OnAdd="@AddFromStore" OnRemove="@RemoveFromStore" OnOpen="@OpenGameFromHome" />
                     break;
                 case AppView.Versions:
                     <VersionsView Releases="@changelog" UpdateTag="@updateInfo?.Tag" CheckingUpdates="@updateBusy" OnCheckUpdates="@CheckUpdatesAndChangelogAsync" OnReload="@ReloadChangelogAsync" />
