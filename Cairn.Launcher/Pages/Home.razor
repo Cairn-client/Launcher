@@ -151,6 +151,19 @@
                 }
                 <div class="page">
 
+                    @* favourite and remove, in the top right corner of the game's page *@
+                    <div class="page-corner">
+                        <button class="corner-btn fav-btn @(IsFavorite(game.Id) ? "on" : "")" aria-pressed="@(IsFavorite(game.Id) ? "true" : "false")"
+                                title="@(IsFavorite(game.Id) ? "Remove from favourites" : "Add to favourites")" @onclick="() => ToggleFavoriteWithToast(game)">
+                            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="@(IsFavorite(game.Id) ? "currentColor" : "none")"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+                            <span>@(IsFavorite(game.Id) ? "Favourited" : "Favourite")</span>
+                        </button>
+                        <button class="corner-btn remove-btn" title="Take this game out of your library (its mod stays on this PC)" disabled="@(hostRunning || joinRunning || gameRunning)" @onclick="() => RemoveFromLibrary(game.Id)">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+                            <span>Remove</span>
+                        </button>
+                    </div>
+
                     <div class="page-front">
                     <div class="hero-text">
                         @if (game.LogoImage.Length > 0)
@@ -230,11 +243,6 @@
                             <span>@(joinRunning ? "Leave game" : "Join a game")</span>
                         </button>
                         }
-                        <button class="action ghost fav-btn @(IsFavorite(game.Id) ? "on" : "")" aria-pressed="@(IsFavorite(game.Id) ? "true" : "false")"
-                                title="@(IsFavorite(game.Id) ? "Remove from favourites" : "Add to favourites")" @onclick="() => ToggleFavoriteWithToast(game)">
-                            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="@(IsFavorite(game.Id) ? "currentColor" : "none")"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
-                            <span>@(IsFavorite(game.Id) ? "Favourited" : "Favourite")</span>
-                        </button>
                         @if (true)
                         {
                         <button class="action ghost" title="Settings for this game" @onclick="OpenGameSettings">
@@ -242,10 +250,6 @@
                             <span>Settings</span>
                         </button>
                         }
-                        <button class="action ghost" title="Take this game out of your library (its mod stays on this PC)" disabled="@(hostRunning || joinRunning || gameRunning)" @onclick="() => RemoveFromLibrary(game.Id)">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                            <span>Remove</span>
-                        </button>
                     </div>
 
                     <dl class="details modbar">

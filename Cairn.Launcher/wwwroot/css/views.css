@@ -1485,3 +1485,144 @@
     flex-wrap: wrap;
     gap: 12px;
 }
+
+/* the Store, second pass: posters with their name below, a check when added, shelves */
+.store-shelf {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 30px 0 16px;
+    font-size: 20px;
+}
+
+    .store-shelf:first-of-type {
+        margin-top: 4px;
+    }
+
+    .store-shelf span {
+        color: var(--cairn-muted);
+        font-size: 14px;
+        font-weight: 400;
+    }
+
+.store-grid {
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 28px 24px;
+}
+
+.store-card {
+    width: auto;
+    gap: 0;
+}
+
+.store-poster {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--cairn-oak);
+    border-radius: 14px;
+    background: #0b0c0d;
+    cursor: pointer;
+    transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+}
+
+    .store-poster:hover {
+        transform: translateY(-4px);
+        border-color: var(--cairn-gold);
+        box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5);
+    }
+
+.store-art {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    transition: transform 0.35s;
+}
+
+.store-poster:hover .store-art {
+    transform: scale(1.05);
+}
+
+.store-tag {
+    position: absolute;
+    left: 10px;
+    bottom: 10px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #8fd18f;
+    font-size: 12px;
+}
+
+.store-check {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #8fd18f;
+    color: #0c0c0c;
+}
+
+    .store-check svg {
+        width: 15px;
+        height: 15px;
+    }
+
+.store-meta {
+    display: grid;
+    gap: 2px;
+    padding: 12px 2px 10px;
+}
+
+.store-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.store-dev {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--cairn-muted);
+    font-size: 13px;
+}
+
+.store-add {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--cairn-gold);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--cairn-gold);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+    .store-add:hover {
+        background: var(--cairn-gold);
+        color: var(--cairn-ink);
+    }
+
+    .store-add.in {
+        border-color: var(--cairn-oak-lit, var(--cairn-oak));
+        color: var(--cairn-muted);
+    }
+
+        .store-add.in:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--cairn-parchment);
+        }

@@ -1538,3 +1538,17 @@ dl.details.modbar dd {
     .tip span {
         color: var(--cairn-parchment-dim, var(--cairn-muted));
     }
+
+/* a toast: the words, then the button on the same line */
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: 440px;
+}
+
+    .toast .toast-action {
+        flex: none;
+        margin-left: 0;
+        white-space: nowrap;
+    }
