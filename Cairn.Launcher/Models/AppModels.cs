@@ -145,6 +145,9 @@ namespace Cairn.Launcher.Models
         // A mod with a newer version is downloaded and put in its game by itself (never while a game runs). Friends need the same version to play together.
         public bool AutoUpdateMods { get; set; } = true;
 
+        // game id -> the mod version the player went back from: the background updates do not install that one again (a manual Update still can).
+        public Dictionary<string, string> HeldBackMods { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
         // "Also allow Steam" in the Host window (the relay also listens on Steam P2P).
         public bool HostAllowSteam { get; set; } = true;
 

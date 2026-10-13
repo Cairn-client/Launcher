@@ -251,6 +251,27 @@ public class PackInstallerTests : IDisposable
     }
 
     [Fact]
+    public async Task AnUpdateKeepsTheEarlierVersionAndItCanBeRestored()
+    {
+        var first = BuildZip(Files);
+        await PackInstaller.DownloadAsync(InfoFor(first), AnyUrl, _root, Serving(first));
+        string before = PackStore.Read(_root, "kcd2")!.Version;
+        Assert.Null(PackStore.ReadPrevious(_root, "kcd2"));
+        var second = BuildZip(new Dictionary<string, string> { ["mod.manifest"] = "new manifest" }, version: "0.3.0");
+        Assert.True((await PackInstaller.DownloadAsync(InfoFor(second, version: "0.3.0"), AnyUrl, _root, Serving(second))).Ok);
+        Assert.Equal(before, PackStore.ReadPrevious(_root, "kcd2")!.Version);
+
+        var back = PackStore.Rollback(_root, "kcd2");
+        Assert.True(back.Ok, back.Message);
+        Assert.Equal(before, PackStore.Read(_root, "kcd2")!.Version);
+        Assert.Null(PackStore.ReadPrevious(_root, "kcd2"));   // nothing further back to go to
+        Assert.False(PackStore.Rollback(_root, "kcd2").Ok);
+
+        PackStore.Remove(_root, "kcd2");
+        Assert.False(Directory.Exists(PackStore.PreviousDir(_root, "kcd2")));
+    }
+
+    [Fact]
     public async Task AnUpdateGoesThroughWhileALogIsInUse()
     {
         var first = BuildZip(Files);

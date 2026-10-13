@@ -248,9 +248,11 @@ public static class PackStore
     public static string KindFolder(string kind) => string.Equals(kind, "BIN", StringComparison.OrdinalIgnoreCase) ? BinFolder : ModFolder;
 
     /// <summary>The downloaded pack, or null when there is none (or its manifest cannot be read).</summary>
-    public static InstalledPack? Read(string root, string id)
+    public static InstalledPack? Read(string root, string id) => ReadIn(Dir(root, id), id);
+
+    private static InstalledPack? ReadIn(string dir, string id)
     {
-        var path = ManifestPath(root, id);
+        var path = Path.Combine(dir, ManifestName);
         if (!File.Exists(path)) return null;
         try
         {
@@ -261,26 +263,53 @@ public static class PackStore
                 if (f.Length >= 3 && f[0] == "# pack") { version = f[2]; break; }
             }
             var files = ModInstall.ReadManifest(path);
-            return files.Count == 0 || version.Length == 0 ? null : new InstalledPack(id, version, files, ReadContract(root, id));
+            return files.Count == 0 || version.Length == 0 ? null : new InstalledPack(id, version, files, ReadContractIn(dir));
         }
         catch (IOException) { return null; }
     }
 
     /// <summary>The pack's contract; null when the pack has none (a pack built for an older launcher) or it cannot be read.</summary>
-    public static PackContract? ReadContract(string root, string id)
+    public static PackContract? ReadContract(string root, string id) => ReadContractIn(Dir(root, id));
+
+    private static PackContract? ReadContractIn(string dir)
     {
-        var path = ContractPath(root, id);
+        var path = Path.Combine(dir, PackContract.FileName);
         try { return File.Exists(path) ? PackContract.Parse(File.ReadAllText(path)) : null; }
         catch (IOException) { return null; }
     }
 
     public static bool IsDownloaded(string root, string id) => Read(root, id) is not null;
 
-    /// <summary>Deletes the downloaded pack (not the mod already placed in a game folder).</summary>
+    /// <summary>Deletes the downloaded pack, and the earlier version kept for a rollback (not the mod already placed in a game folder).</summary>
     public static void Remove(string root, string id)
     {
-        var dir = Dir(root, id);
-        if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        foreach (var dir in new[] { Dir(root, id), PreviousDir(root, id) })
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+    }
+
+    // ---- the version before the last update, kept so a bad update can be undone ----
+    public const string PreviousSuffix = ".previous";
+
+    public static string PreviousDir(string root, string id) => Dir(root, id) + PreviousSuffix;
+
+    /// <summary>The version the last update replaced, or null when there is none to go back to.</summary>
+    public static InstalledPack? ReadPrevious(string root, string id) => ReadIn(PreviousDir(root, id), id);
+
+    /// <summary>Puts the kept earlier version back in place of the current one (the current one is dropped). The caller puts it in the game again.</summary>
+    public static PackResult Rollback(string root, string id)
+    {
+        if (ReadPrevious(root, id) is not { } old) return new PackResult(false, "there is no earlier version to go back to");
+        try
+        {
+            var dir = Dir(root, id);
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+            Directory.Move(PreviousDir(root, id), dir);
+            return new PackResult(true, $"{id} {old.Version} restored");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return new PackResult(false, "a program of the mod is still running: close the game, then try again (" + ex.Message + ")");
+        }
     }
 }
 
@@ -335,7 +364,8 @@ public static class PackInstaller
             var finalDir = PackStore.Dir(root, pack.Id);
             // what the programs wrote beside themselves (their settings and logs) survives an update; the new pack's own files win
             CarryOver(Path.Combine(finalDir, PackStore.FilesFolder, PackStore.BinFolder), Path.Combine(work, PackStore.FilesFolder, PackStore.BinFolder));
-            if (!ReplaceDirectory(finalDir, work))
+            bool keepOld = PackStore.Read(root, pack.Id) is { } before && before.Version != pack.Version;
+            if (!ReplaceDirectory(finalDir, work, keepOld))
                 return new PackResult(false, "a program of the mod is still running: close the game, then try again");
             return new PackResult(true, $"{pack.Id} {pack.Version} downloaded");
         }
@@ -420,10 +450,26 @@ public static class PackInstaller
     /// folder) are stopped first. A file that is still in use (a log) is left where it is when the new pack does not replace it; a file
     /// the new pack does replace and cannot be (the plugin inside a running game) makes the update fail, plainly.
     /// </summary>
-    private static bool ReplaceDirectory(string finalDir, string work)
+    private static bool ReplaceDirectory(string finalDir, string work, bool keepOld = false)
     {
         if (!Directory.Exists(finalDir)) { Directory.Move(work, finalDir); return true; }
         StopProgramsRunningFrom(finalDir);
+        if (keepOld)
+        {
+            // the old version is kept beside the new one, so a bad update can be undone
+            string previous = finalDir + PackStore.PreviousSuffix;
+            try
+            {
+                if (Directory.Exists(previous)) Directory.Delete(previous, recursive: true);
+                Directory.Move(finalDir, previous);
+                Directory.Move(work, finalDir);
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (!Directory.Exists(finalDir) && Directory.Exists(previous)) { try { Directory.Move(previous, finalDir); } catch { } }
+            }
+        }
         for (int i = 0; i < 3; i++)
         {
             try

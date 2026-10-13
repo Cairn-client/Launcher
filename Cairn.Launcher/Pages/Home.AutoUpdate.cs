@@ -42,13 +42,14 @@ namespace Cairn.Launcher.Pages
                     if (gameRunning || Downloads.Active is not null) break;   // nothing is replaced under a running game, nor over another download
                     if (CatalogPackOf(g) is not { } offered || InstalledPackOf(g) is not { } have) continue;
                     if (HomeLogic.ModStateOf(offered.Version, have.Version, true) != ModState.UpdateAvailable) continue;
+                    if (settings.HeldBackMods.TryGetValue(g.Id, out var held) && held == offered.Version) continue;   // the player went back from this one
                     if (!PackCatalog.LauncherIsEnough(offered.LauncherMin, Globals.CairnVersion)) continue;   // a launcher update comes first
                     string from = have.Version;
                     Log.Information("updates: {Game} {From} -> {To}, downloading in the background", g.Id, from, offered.Version);
                     await DownloadPackAsync(g.Id);
                     installedPackCache.Remove(g.Id);
                     if (InstalledPackOf(g) is { } now && now.Version == offered.Version)
-                        ShowToast($"{g.DisplayName} mod updated to {offered.Version}.");
+                        ShowToast($"{g.DisplayName} mod updated to {offered.Version}.", error: false, action: PreviousPackOf(g) is null ? null : "Undo", onAction: () => RollbackPackAsync(g.Id), milliseconds: 20_000);
                 }
             }
             catch (Exception ex) { Log.Warning(ex, "updates: a background update failed"); }
