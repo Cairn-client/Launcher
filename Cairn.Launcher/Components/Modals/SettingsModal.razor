@@ -131,6 +131,17 @@
                     </div>
                     }
 
+                    @if (Show("updates"))
+                    {
+                    <div class="cairn-input-group">
+                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" @bind="Settings.AutoUpdateMods" />
+                            Keep my mods up to date by themselves
+                        </label>
+                        <div class="cairn-hint">A newer version of a mod you have is downloaded and put in the game in the background, never while a game is running. Friends need the same version to play together.</div>
+                    </div>
+                    }
+
                     @if (Show("logs"))
                     {
                     @* Cairn: the logs of this PC (the game's, the agent's, the launcher's) in one zip on the Desktop, to send with a bug report *@
@@ -367,6 +378,7 @@
         ["addr"] = ("hosting", "show ip address host window hidden stream share screen"),
         ["steamjoin"] = ("steam", "let friends join through steam when i host"),
         ["friends"] = ("steam", "friends online notifications invite presence"),
+        ["updates"] = ("support", "keep mods up to date automatically update download background version"),
         ["logs"] = ("support", "save the logs zip bug report desktop game agent launcher"),
         ["uninstall"] = ("support", "maintenance uninstall cairn remove launcher mod"),
     };
