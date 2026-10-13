@@ -1053,3 +1053,54 @@ button.chip {
         display: block;
     }
 
+
+/* favourite and remove: the top right corner of a game's page */
+.page-corner {
+    position: absolute;
+    top: 14px;
+    right: 22px;
+    z-index: 5;
+    display: flex;
+    gap: 10px;
+}
+
+.corner-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(6px);
+    color: var(--cairn-parchment);
+    font-family: inherit;
+    font-size: 13.5px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+    .corner-btn svg {
+        width: 17px;
+        height: 17px;
+    }
+
+    .corner-btn:hover:not(:disabled) {
+        background: rgba(0, 0, 0, 0.72);
+        border-color: var(--cairn-parchment);
+    }
+
+    .corner-btn:disabled {
+        opacity: 0.45;
+        cursor: default;
+    }
+
+    .corner-btn.fav-btn.on {
+        border-color: #e86a8a;
+        color: #ff8fab;
+    }
+
+    .corner-btn.remove-btn:hover:not(:disabled) {
+        border-color: #ff6b6b;
+        color: #ff8a8a;
+    }

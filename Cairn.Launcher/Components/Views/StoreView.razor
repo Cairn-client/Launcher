@@ -65,28 +65,51 @@
         }
         else
         {
-            <div class="store-grid">
-                @foreach (var card in shown)
+            @* with no word and no filter the games are in two shelves; otherwise it is one grid *@
+            bool shelves = query.Trim().Length == 0 && filter == "all";
+            var playable = shown.Where(x => x.IsSupported).ToList();
+            var soon = shown.Where(x => !x.IsSupported).ToList();
+            @if (shelves)
+            {
+                @if (playable.Count > 0)
                 {
-                    bool inLib = InLibrary(card.Id);
-                    <div class="store-card">
-                        <button class="poster" title="@card.DisplayName" @onclick="() => chosen = card.Id">
-                            <span class="poster-art" style="background-image: url('@(card.PosterImage.Length > 0 ? card.PosterImage : card.BackgroundImage)');"></span>
-                            <span class="poster-shade"></span>
-                            @if (inLib) { <span class="poster-flag">In your library</span> }
-                            else if (IsOnPc(card)) { <span class="poster-flag">On this PC</span> }
-                            <span class="poster-name">@card.DisplayName</span>
-                            <span class="poster-sub">@(card.IsSupported ? (card.Developer.Length > 0 ? card.Developer : "Playable now") : "Coming soon")</span>
-                        </button>
-                        <button class="cairn-btn store-add @(inLib ? "" : "primary")" @onclick="() => OnToggle(card)">@(inLib ? "IN LIBRARY" : "ADD")</button>
-                    </div>
+                    <h2 class="store-shelf">Playable now <span>@playable.Count</span></h2>
+                    @Grid(playable)
                 }
-            </div>
+                @if (soon.Count > 0)
+                {
+                    <h2 class="store-shelf">Coming soon <span>@soon.Count</span></h2>
+                    @Grid(soon)
+                }
+            }
+            else
+            {
+                @Grid(shown)
+            }
         }
     }
 </div>
 
 @code {
+    private RenderFragment Grid(IReadOnlyList<GameProfile> list) => @<div class="store-grid">
+        @foreach (var card in list)
+        {
+            bool inLib = InLibrary(card.Id);
+            <div class="store-card @(inLib ? "owned" : "")">
+                <button class="store-poster" title="@card.DisplayName" @onclick="() => chosen = card.Id">
+                    <span class="store-art" style="background-image: url('@(card.PosterImage.Length > 0 ? card.PosterImage : card.BackgroundImage)');"></span>
+                    @if (IsOnPc(card)) { <span class="store-tag">On this PC</span> }
+                    @if (inLib) { <span class="store-check" title="In your library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12 10 17 19 7"/></svg></span> }
+                </button>
+                <div class="store-meta">
+                    <span class="store-name">@card.DisplayName</span>
+                    <span class="store-dev">@(card.IsSupported ? (card.Developer.Length > 0 ? card.Developer : "Playable now") : "Coming soon")</span>
+                </div>
+                <button class="store-add @(inLib ? "in" : "")" @onclick="() => OnToggle(card)">@(inLib ? "In your library" : "+ Add to library")</button>
+            </div>
+        }
+    </div>;
+
     [Parameter] public IReadOnlyList<GameProfile> Games { get; set; } = Array.Empty<GameProfile>();
     [Parameter] public Func<string, bool> InLibrary { get; set; } = _ => false;
     [Parameter] public Func<GameProfile, bool> IsOnPc { get; set; } = _ => false;
