@@ -55,6 +55,9 @@ namespace Cairn.Launcher.Pages
             if (gameRunning) { SetPackMessage($"{game.DisplayName} is already running.", error: false); return; }
             if (GameFolderOf(game) is not { } folder) { SetPackMessage($"{game.DisplayName} was not found on this PC. Make sure it is installed, then locate it.", error: true); return; }
 
+            // a mod with a setup list of its own (Fallout 4: the script extender its launch program comes from) is checked first: what is missing is shown and done there
+            if (PackSetupProgram(game.Id) is not null && !await EnsureSetupReadyAsync()) return;
+
             var companion = ExternalInstall.CompanionPath(PacksRoot, game.Id);
             bool companionWasOpen = companion is not null && IsRunning(companion);
             if (companion is not null) EnsureExternalBridge();   // the companion is the mod's bridge: it connects to this pipe
@@ -89,7 +92,7 @@ namespace Cairn.Launcher.Pages
                 if (PackStore.ReadContract(PacksRoot, game.Id) is { Launch.Length: > 0 })
                 {
                     // the mod starts the game with a program of its own in the game's folder (a mod loader's launcher)
-                    if (ExternalInstall.LaunchPath(folder, PacksRoot, game.Id) is not { } launch) { SetPackMessage("The mod's launch program is not in the game's folder: install the mod again.", error: true); return; }
+                    if (ExternalInstall.LaunchPath(folder, PacksRoot, game.Id) is not { } launch) { SetPackMessage("The mod's launch program is not in the game's folder yet. Open Check setup (or press Play again) so the launcher can finish the setup.", error: true); return; }
                     Process.Start(new ProcessStartInfo(launch) { WorkingDirectory = Path.GetDirectoryName(launch)!, UseShellExecute = false })?.Dispose();
                 }
                 else if (game.SteamAppId != 0) UrlLauncher.Open($"steam://rungameid/{game.SteamAppId}");

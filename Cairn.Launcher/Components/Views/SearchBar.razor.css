@@ -200,3 +200,17 @@
     color: var(--cairn-gold);
     font-weight: 700;
 }
+
+/* second pass: it gives way to the buttons beside it on a narrow window, and looks like the Store's own search */
+.searchbar {
+    flex: 0 1 300px;
+    min-width: 150px;
+    width: auto;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+    .searchbar:focus-within {
+        border-color: var(--cairn-gold);
+        background: rgba(255, 255, 255, 0.08);
+    }

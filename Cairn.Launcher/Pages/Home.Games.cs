@@ -211,6 +211,7 @@ namespace Cairn.Launcher.Pages
             if (GameProfileRegistry.Get(id) is not null) selectedGameId = id;
             if (GameProfileRegistry.Get(id) is { } g) _ = LoadGameInfoAsync(g);
             _ = CheckSetupAgainAsync();   // the setup list is the selected game's
+            if (currentView == AppView.Library) PushNav();
         }
 
         /// <summary>A game whose executable is a setting of the launcher (Settings > Game executable path) because only its pack's setup can find it: the catalog says so (exeSetting). Every other game is found in Steam or where the player pointed.</summary>
