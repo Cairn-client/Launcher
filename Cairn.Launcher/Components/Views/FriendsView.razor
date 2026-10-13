@@ -1,0 +1,79 @@
+﻿@* Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+   GPLv3 section 7 additional terms: AUTHORS.md. Unofficial, free, not affiliated with or endorsed by the studios or publishers
+   of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md). *@
+@using Cairn.Launcher.Models
+@* Every Steam friend and what they are doing, with a search box and filters. A friend who hosts has Join; while you host, a friend on Cairn has Invite. *@
+<div class="view">
+    <header class="view-head">
+        <h1>Friends</h1>
+        <p class="lead">Your Steam friends and what they are playing. A friend who is hosting can be joined from here.</p>
+    </header>
+
+    <section class="card">
+        <div class="friends-bar">
+            <input class="cairn-input friends-search" placeholder="Search friends" @bind="query" @bind:event="oninput" />
+            <div class="filter-chips friends-chips">
+                @foreach (var (id, label) in Filters)
+                {
+                    <button class="filter-chip @(filter == id ? "on" : "")" aria-pressed="@(filter == id)" @onclick="() => filter = id">@label @Count(id)</button>
+                }
+            </div>
+        </div>
+
+        @if (!Loaded)
+        {
+            <div class="tile-loading" role="status" aria-label="Asking Steam"><span class="spinner"></span></div>
+        }
+        else if (Friends.Count == 0)
+        {
+            <p class="muted">No Steam friends were found. Make sure Steam is installed and you are signed in to it.</p>
+        }
+        else if (Shown().Count == 0)
+        {
+            <p class="muted">No friend matches.</p>
+        }
+        else
+        {
+            <ul class="friends-grid">
+                @foreach (var f in Shown())
+                {
+                    <FriendRow Friend="f" Hosting="HostingAs(f)" Cairn="OnCairn(f)" CanInvite="CanInvite" Invited="Invited.Contains(f.Id)" OnJoin="OnJoin" OnInvite="OnInvite" />
+                }
+            </ul>
+        }
+    </section>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<SteamFriendRow> Friends { get; set; } = Array.Empty<SteamFriendRow>();
+    [Parameter] public bool Loaded { get; set; }
+    [Parameter] public Func<SteamFriendRow, SteamFriendData?> HostingAs { get; set; } = _ => null;
+    [Parameter] public Func<SteamFriendRow, Cairn.Wire.PresenceFriend?> OnCairn { get; set; } = _ => null;
+    [Parameter] public bool CanInvite { get; set; }
+    [Parameter] public ISet<string> Invited { get; set; } = new HashSet<string>();
+    [Parameter] public EventCallback<SteamFriendData> OnJoin { get; set; }
+    [Parameter] public EventCallback<SteamFriendRow> OnInvite { get; set; }
+
+    private string query = "";
+    private string filter = "all";
+
+    private static readonly (string Id, string Label)[] Filters =
+    {
+        ("all", "All"), ("online", "Online"), ("playing", "In a game"), ("cairn", "On Cairn"), ("hosting", "Hosting"),
+    };
+
+    private bool Matches(SteamFriendRow f, string id) => id switch
+    {
+        "online" => f.State is "online" or "in-game" || OnCairn(f) is { Online: true },
+        "playing" => f.State == "in-game" || OnCairn(f) is { Online: true, Activity: "playing" or "hosting" },
+        "cairn" => OnCairn(f) is { Online: true },
+        "hosting" => HostingAs(f) is not null || OnCairn(f) is { Online: true, Activity: "hosting" },
+        _ => true,
+    };
+
+    private int Count(string id) => id == "all" ? Friends.Count : Friends.Count(f => Matches(f, id));
+
+    private IReadOnlyList<SteamFriendRow> Shown() => Friends
+        .Where(f => Matches(f, filter) && (query.Length == 0 || f.Name.Contains(query.Trim(), StringComparison.OrdinalIgnoreCase)))
+        .ToList();
+}

@@ -675,3 +675,52 @@
     margin: 0 auto;
     padding: 34px 40px 56px;
 }
+
+/* ---- the Friends page ---- */
+.friends-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.friends-search {
+    flex: 1;
+    min-width: 200px;
+    max-width: 320px;
+}
+
+.friends-chips {
+    display: flex;
+    gap: 6px;
+    margin: 0;
+}
+
+.friends-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 6px 14px;
+}
+
+    .friends-grid li.friend-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        font-size: 13.5px;
+        min-width: 0;
+    }
+
+        .friends-grid li.friend-row:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .friends-grid li.friend-row.away .friend-name {
+            color: var(--cairn-muted);
+            font-weight: 500;
+        }

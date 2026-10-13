@@ -19,6 +19,11 @@ namespace Cairn.Launcher.Models
         Settings,
         Versions,
         Help,
+        Friends,
+        Activity,
+        Saves,
+        News,
+        Profile,
     }
 
     /// <summary>One release and what changed in it (the bullet lines of its notes).</summary>
