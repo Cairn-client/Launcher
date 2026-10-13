@@ -8,7 +8,7 @@
     <button class="friends-btn @(open ? "active" : "")" aria-haspopup="true" aria-expanded="@open" title="Your Steam friends" @onclick="Toggle">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3zM8 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3zm0 2c-2.3 0-7 1.2-7 3.5V19h14v-2.5C15 14.2 10.3 13 8 13zm8 0c-.3 0-.6 0-1 .1 1.2.8 2 1.9 2 3.4V19h6v-2.5c0-2.3-4.7-3.5-7-3.5z"></path></svg>
         <span>Friends</span>
-        @if (Online > 0) { <span class="friends-count">@Online</span> }
+        @if (Online > 0) { <span class="friends-count"><i></i>@Online online</span> }
     </button>
 
     @if (open)
