@@ -33,6 +33,15 @@ public static class ExternalInstall
         return target.StartsWith(root, StringComparison.OrdinalIgnoreCase) && target.Length > root.Length ? target : null;
     }
 
+    /// <summary>The program of the game's folder the mod starts the game with (its contract's <c>launch</c>), when the contract names one and it is there; null otherwise.</summary>
+    public static string? LaunchPath(string gameRoot, string packsRoot, string packId)
+    {
+        if (ContractOf(packsRoot, packId) is not { Launch.Length: > 0 } c || !PackContract.IsGameRelativeProgram(c.Launch)) return null;
+        string root = Path.GetFullPath(gameRoot).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        string exe = Path.GetFullPath(Path.Combine(root, c.Launch.Replace('/', Path.DirectorySeparatorChar)));
+        return exe.StartsWith(root, StringComparison.OrdinalIgnoreCase) && File.Exists(exe) ? exe : null;
+    }
+
     /// <summary>What the marker says is placed: the pack's id and version and the files, or null when there is no marker.</summary>
     public static (string Id, string Version, IReadOnlyList<string> Files)? ReadMarker(string target)
     {

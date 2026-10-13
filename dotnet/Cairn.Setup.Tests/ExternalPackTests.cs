@@ -85,7 +85,7 @@ public class ExternalInstallTests : IDisposable
 
     private static string Hex(string t) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(t))).ToLowerInvariant();
 
-    private static byte[] Zip(Dictionary<string, string> modFiles, string version = "1.0.0", string installDir = "mods/quant.ew", string? companion = null, bool carryCompanion = true, string? installRoot = null)
+    private static byte[] Zip(Dictionary<string, string> modFiles, string version = "1.0.0", string installDir = "mods/quant.ew", string? companion = null, bool carryCompanion = true, string? installRoot = null, string? launch = null)
     {
         using var ms = new MemoryStream();
         using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
@@ -95,6 +95,7 @@ public class ExternalInstallTests : IDisposable
             if (companion is not null && carryCompanion) lines.Add($"BIN|{Path.GetFileName(companion)}|7|{Hex("proxy!!")}");
             Add("manifest.txt", string.Join("\n", lines) + "\n");
             Add("pack.json", "{ \"schema\": 2, \"id\": \"noita\", \"version\": \"" + version + "\", \"kind\": \"external\", \"installDir\": \"" + installDir + "\""
+                             + (launch is null ? "" : ", \"launch\": \"" + launch + "\"")
                              + (installRoot is null ? "" : ", \"installRoot\": \"" + installRoot + "\"")
                              + (companion is null ? "" : ", \"companion\": \"" + companion + "\"") + " }");
             foreach (var kv in modFiles) Add("mod/" + kv.Key, kv.Value);
@@ -272,6 +273,41 @@ public class ExternalInstallTests : IDisposable
     {
         await Download(Zip(new Dictionary<string, string> { ["CSM.dll"] = "x" }, installDir: AppDataDir, installRoot: "local-appdata"));
         Assert.False(ExternalInstall.Place(Path.Combine(_dir, "no-such-game"), Packs, "noita", Path.Combine(_dir, "appdata")).Ok);
+    }
+    // ---- a mod that starts the game with a program of its own in the game's folder -------------------------------------------
+
+    private const string LaunchExe = "coremod/core/host/startup/DeadCellsModding.exe";
+
+    [Fact]
+    public void AContractCanNameTheProgramOfTheGamesFolderThatStartsTheGame()
+    {
+        string Json(string launch, string kind = "external") => "{ \"schema\": 2, \"id\": \"dc\", \"version\": \"1.0.0\", \"kind\": \"" + kind + "\", \"installDir\": \".\", \"launch\": \"" + launch + "\" }";
+        Assert.Equal(LaunchExe, PackContract.Parse(Json(LaunchExe))!.Launch);
+        Assert.Null(PackContract.Parse(Json("../evil.exe")));
+        Assert.Null(PackContract.Parse(Json("C:/evil.exe")));
+        Assert.Null(PackContract.Parse(Json("/evil.exe")));
+        Assert.Null(PackContract.Parse(Json("tools/run.bat")));       // a program, not a script
+        Assert.Null(PackContract.Parse(Json(".hidden/run.exe")));
+        Assert.Null(PackContract.Parse(Json("a/b/c/d/e/f/g/h/run.exe")));
+        Assert.Null(PackContract.Parse("{ \"schema\": 2, \"id\": \"dc\", \"version\": \"1.0.0\", \"kind\": \"content\", \"launch\": \"run.exe\" }"));
+    }
+
+    [Fact]
+    public async Task TheLaunchProgramIsFoundInTheGamesFolderOnlyOnceTheModPlacedIt()
+    {
+        await Download(Zip(new Dictionary<string, string> { [LaunchExe] = "the launcher" }, installDir: ".", launch: LaunchExe));
+        Assert.Null(ExternalInstall.LaunchPath(Game, Packs, "noita"));   // not placed yet
+        Assert.True(ExternalInstall.Place(Game, Packs, "noita").Ok);
+        var exe = ExternalInstall.LaunchPath(Game, Packs, "noita");
+        Assert.Equal(Path.GetFullPath(Path.Combine(Game, "coremod", "core", "host", "startup", "DeadCellsModding.exe")), exe);
+    }
+
+    [Fact]
+    public async Task AModWithoutALaunchProgramHasNone()
+    {
+        await Download(Zip(LoaderFiles, installDir: "."));
+        ExternalInstall.Place(Game, Packs, "noita");
+        Assert.Null(ExternalInstall.LaunchPath(Game, Packs, "noita"));
     }
     [Fact]
     public async Task AFileOfTheGameWithTheSameNameAndOtherBytesIsNeverOverwritten()

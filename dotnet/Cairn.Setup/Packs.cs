@@ -38,7 +38,7 @@ public sealed record PackContract(
     string Agent, string Relay, string Native, string BrandPak, string AgentConfig, string LauncherMin,
     IReadOnlyList<string> ReplacesFolders, IReadOnlyDictionary<string, string>? Lua = null,
     string Kind = PackKinds.Mod, IReadOnlyList<PackDependency>? DependsOn = null, int MenuProtocol = 1, string InstallTo = "",
-    string InstallDir = "", string Companion = "", bool CompanionStartsGame = false, string OptionsProgram = "", bool Setup = false, bool Session = false, string InstallRoot = "")
+    string InstallDir = "", string Companion = "", bool CompanionStartsGame = false, string OptionsProgram = "", bool Setup = false, bool Session = false, string InstallRoot = "", string Launch = "")
 {
     public const string FileName = "pack.json";
     /// <summary>The version of the mod-menu messages (the launcher draws the menu; the mod sends its items) this launcher speaks; a pack that needs a newer one is refused.</summary>
@@ -81,14 +81,14 @@ public sealed record PackContract(
                 kind, deps, menuProtocol, S("installTo"), S("installDir"), S("companion"),
                 r.TryGetProperty("companionStartsGame", out var csg) && csg.ValueKind == JsonValueKind.True, S("optionsProgram"),
                 r.TryGetProperty("setup", out var su) && su.ValueKind == JsonValueKind.True,
-                r.TryGetProperty("session", out var se) && se.ValueKind == JsonValueKind.True, S("installRoot"));
+                r.TryGetProperty("session", out var se) && se.ValueKind == JsonValueKind.True, S("installRoot"), S("launch"));
             bool common = IsPlainName(c.Id) && c.Version.Length > 0 && PackKinds.IsKnown(kind) && deps is not null && menuProtocol >= 1
                           && (c.InstallTo.Length == 0 || c.InstallTo == StartSaveTarget) && replaces.All(IsPlainName) && luaOk;
             bool noPrograms = c.Agent.Length == 0 && c.Relay.Length == 0 && c.Native.Length == 0;
             // a game's mod names its programs and its mod folder (and may carry a companion: its bridge to the launcher, docs/BRIDGE.md); content is
             // only files; an external mod names a folder inside the game's own folder (and may carry a companion to start with the game); only
             // an external mod has an install folder, and content has no companion
-            bool ok = common && (c.InstallDir.Length == 0 || kind == PackKinds.External) && (c.Companion.Length == 0 || kind != PackKinds.Content) && (!c.CompanionStartsGame || kind == PackKinds.External) && (c.OptionsProgram.Length == 0 || (kind != PackKinds.Content && IsPackPath(c.OptionsProgram))) && (!c.Setup || c.OptionsProgram.Length > 0) && (!c.Session || (c.OptionsProgram.Length > 0 && kind == PackKinds.Mod)) && kind switch
+            bool ok = common && (c.InstallDir.Length == 0 || kind == PackKinds.External) && (c.Launch.Length == 0 || (kind == PackKinds.External && IsGameRelativeProgram(c.Launch))) && (c.Companion.Length == 0 || kind != PackKinds.Content) && (!c.CompanionStartsGame || kind == PackKinds.External) && (c.OptionsProgram.Length == 0 || (kind != PackKinds.Content && IsPackPath(c.OptionsProgram))) && (!c.Setup || c.OptionsProgram.Length > 0) && (!c.Session || (c.OptionsProgram.Length > 0 && kind == PackKinds.Mod)) && kind switch
             {
                 PackKinds.Content => noPrograms,
                 PackKinds.External => noPrograms && c.InstallTo.Length == 0 && InstallDirOk(c)
@@ -153,6 +153,9 @@ public sealed record PackContract(
         InstallRootLocalAppData => c.InstallDir != GameRoot && IsRelativeDir(c.InstallDir, 6),
         _ => false,
     };
+
+    /// <summary>A program inside the game's folder an external mod starts the game with (<c>launch</c>): a relative path with plain segments, ending in .exe.</summary>
+    internal static bool IsGameRelativeProgram(string s) => s.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) && IsRelativeDir(s, 8);
 
     internal static bool IsGameRelativeDir(string s) => s == GameRoot || IsRelativeDir(s, 4);   // the game's own folder (a loader such as BepInEx puts files there), or a folder inside it
 

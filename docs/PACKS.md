@@ -85,6 +85,9 @@ manifest.txt  MOD|<path>|<size>|<sha256> (placed in installDir) and BIN|<path>|.
 * `installRoot` (optional) -- where `installDir` is relative to. Empty is the game's own folder. `"local-appdata"` is the player's `%LOCALAPPDATA%`, for a game that looks for its mods there
   (Cities: Skylines: `installDir` `Colossal Order/Cities_Skylines/Addons/Mods/CSM`); the folder may then be up to six segments deep and is never `.`. A launcher older than the one that
   introduced it would place such a pack in the game's folder, so a pack that names a root must say `launcherMin` of that launcher (0.3.23).
+* `launch` (optional) -- a program the mod placed in the game's folder that starts the game: a relative path with plain segments, ending in `.exe` (a mod loader's launcher, such as
+  `coremod/core/host/startup/DeadCellsModding.exe`). **Play** then starts that program, with its own folder as the working directory, instead of the game through Steam. A launcher older than
+  the one that introduced it would start the game without the mod, so a pack that names one must say `launcherMin` of that launcher (0.3.24).
 * `companion` (optional) -- one program of the pack (a path inside it, carried in the pack) that is started with the game.
 * No `agent`, `relay`, `native`, `installTo` or `lua`: those belong to Cairn's own session (`kind: "mod"`).
 
