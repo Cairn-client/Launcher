@@ -84,6 +84,7 @@ class Program
                 .SetSize(restore ? windowPrefs!.Width : 1600, restore ? windowPrefs!.Height : 900)
                 .SetMaximized(!restore)
                 .SetResizable(true)
+                .SetMinSize(WindowPrefs.MinSize().Width, WindowPrefs.MinSize().Height)   // narrower than this the pages do not fit: the window stops there
                 .SetContextMenuEnabled(false);
             if (restore) app.MainWindow.SetLocation(new System.Drawing.Point(windowPrefs!.X, windowPrefs.Y));
             else app.MainWindow.Center();
