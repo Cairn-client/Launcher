@@ -27,6 +27,7 @@
             <button class="nav-btn @(currentView == AppView.Home ? "active" : "")" aria-current="@(currentView == AppView.Home ? "page" : null)" @onclick="() => NavigateTo(AppView.Home)">Home</button>
             <button class="nav-btn @(currentView == AppView.Library ? "active" : "")" aria-current="@(currentView == AppView.Library ? "page" : null)" @onclick="() => NavigateTo(AppView.Library)">Library</button>
             <button class="nav-btn @(currentView == AppView.Friends ? "active" : "")" aria-current="@(currentView == AppView.Friends ? "page" : null)" @onclick="() => NavigateTo(AppView.Friends)">Friends</button>
+            <button class="nav-btn @(currentView == AppView.Activity ? "active" : "")" aria-current="@(currentView == AppView.Activity ? "page" : null)" @onclick="() => NavigateTo(AppView.Activity)">Activity</button>
         </nav>
 
         <div class="topbar-right">
@@ -409,6 +410,9 @@
                 case AppView.Friends:
                     <FriendsView Friends="@homeSteamFriends" Loaded="@homeSteamFriendsLoaded" HostingAs="@HostingAs" OnCairn="@CairnFriend" CanInvite="@CanInviteNow" Invited="@invitedFriends"
                                  OnJoin="@JoinFriendFromHomeAsync" OnInvite="@InviteFromHomeAsync" />
+                    break;
+                case AppView.Activity:
+                    <ActivityView Rows="@ActivityRows()" OnOpenGame="@OpenGameFromHome" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" />
                     break;
                 case AppView.Help:
                     <HelpView Notices="@CurrentNotices()" OnReplayTour="@ReplayTour" OnOpenSetup="@OpenSetupChecklist" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenSettings="@(() => NavigateTo(AppView.Settings))" />
