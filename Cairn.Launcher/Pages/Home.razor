@@ -693,7 +693,11 @@ else if (launchStage != LaunchStage.Idle && launchStage != LaunchStage.Connected
                 OnToggleShowAllSaves="@ToggleShowAllSaves"
                 OnClose="@CancelGameSettings" />
 
-<TourModal IsVisible="@showTour" OnClose="@FinishTour" />
+<TourModal IsVisible="@showTour" OnClose="@FinishTour"
+           SteamRunning="@IsSteamRunning" OnStartSteam="@StartSteamFromGuide"
+           Games="@GuideGames()" SelectedId="@selectedGameId" SelectedName="@(SelectedProfile?.DisplayName ?? "")" OnPick="@PickFromGuide"
+           ModReady="@(SelectedProfile is { } gm && IsModInstalled(gm))" ModBusy="@(packBusyId is not null && packBusyId == selectedGameId)" ModProgress="@packProgressValue"
+           OnDownload="@DownloadFromGuide" FriendCount="@homeSteamFriends.Count" />
 
 <ReportBugModal IsVisible="@showReportBug"
                 PackLogs="@CollectPackLogsAsync"

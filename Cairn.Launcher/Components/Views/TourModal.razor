@@ -1,50 +1,124 @@
 @* Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
    GPLv3 section 7 additional terms: AUTHORS.md. Unofficial, free, not affiliated with or endorsed by the studios or publishers
    of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md). *@
-@* The welcome tour, shown once on first launch and again from Help: four short steps over the Home page. *@
+@* The welcome guide, shown once on first launch and again from Help: it walks through what a first session needs, and does each part with the player. *@
+@implements IDisposable
 @if (IsVisible)
 {
-    var s = Steps[step];
     <div class="tour-overlay" role="dialog" aria-modal="true" aria-label="Welcome to Cairn">
         <div class="tour-card">
-            <div class="tour-step">Step @(step + 1) of @Steps.Length</div>
-            <h2>@s.Title</h2>
-            <p>@s.Body</p>
+            <div class="tour-step">Step @(step + 1) of @Count</div>
+            @switch (step)
+            {
+                case 0:
+                    <h2>Welcome to Cairn</h2>
+                    <p>Cairn turns single-player games into shared ones. One of you hosts, a friend joins, and you play in the same world. First, Steam: Cairn finds your games and your friends through it.</p>
+                    <p class="tour-check @(SteamRunning() ? "ok" : "todo")">
+                        <span class="tour-mark">@(SteamRunning() ? "✓" : "!")</span>
+                        @(SteamRunning() ? "Steam is running." : "Steam is not running.")
+                        @if (!SteamRunning()) { <button class="cairn-btn" @onclick="OnStartSteam">START STEAM</button> }
+                    </p>
+                    break;
+                case 1:
+                    <h2>Pick your game</h2>
+                    @if (Games.Any(g => g.Found))
+                    {
+                        <p>These are the games Cairn found on this PC. Pick the one you want to play together.</p>
+                        <div class="tour-games">
+                            @foreach (var g in Games.Where(g => g.Found))
+                            {
+                                <button class="tour-game @(g.Id == SelectedId ? "on" : "")" @onclick="() => OnPick.InvokeAsync(g.Id)">@g.Name</button>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p>Cairn did not find a supported game on this PC yet. Install one from your Steam library (the Library page lists the games Cairn supports), then come back here from Help.</p>
+                    }
+                    break;
+                case 2:
+                    <h2>Get the mod</h2>
+                    @if (SelectedName.Length == 0)
+                    {
+                        <p>Pick a game in the step before, then its mod can be downloaded here.</p>
+                    }
+                    else
+                    {
+                        <p>The mod is a small download that installs itself in @SelectedName, once.</p>
+                        @if (ModBusy)
+                        {
+                            <p class="tour-check todo"><span class="tour-mark">…</span> Downloading (@((int)(ModProgress * 100))%)</p>
+                        }
+                        else if (ModReady)
+                        {
+                            <p class="tour-check ok"><span class="tour-mark">✓</span> The @SelectedName mod is installed.</p>
+                        }
+                        else
+                        {
+                            <p class="tour-check todo"><span class="tour-mark">!</span> Not installed yet. <button class="cairn-btn" @onclick="OnDownload">DOWNLOAD THE MOD</button></p>
+                        }
+                    }
+                    break;
+                case 3:
+                    <h2>Play with a friend</h2>
+                    <p>Press <strong>Host a game</strong> on the game's page and your friends see you in their list, or open <strong>Join a game</strong> and pick the friend who is hosting. Both of you need the same version of Cairn.</p>
+                    <p class="tour-check @(FriendCount > 0 ? "ok" : "todo")">
+                        <span class="tour-mark">@(FriendCount > 0 ? "✓" : "!")</span>
+                        @(FriendCount > 0 ? $"{FriendCount} Steam friends found." : "No Steam friends found yet. Add your friend on Steam first; they appear here by themselves.")
+                    </p>
+                    break;
+                default:
+                    <h2>Everything else is in the top bar</h2>
+                    <p>Settings holds your options, Versions shows what changed in each release, and Help has answers and a way to report a problem. This guide is in Help too.</p>
+                    break;
+            }
             <div class="tour-dots">
-                @for (int i = 0; i < Steps.Length; i++)
+                @for (int i = 0; i < Count; i++)
                 {
                     <span class="tour-dot @(i == step ? "on" : "")"></span>
                 }
             </div>
             <div class="tour-actions">
-                <button class="cairn-btn" @onclick="Skip">@(step == Steps.Length - 1 ? "CLOSE" : "SKIP")</button>
+                <button class="cairn-btn" @onclick="Skip">@(step == Count - 1 ? "CLOSE" : "SKIP")</button>
                 <span class="tour-spacer"></span>
                 @if (step > 0) { <button class="cairn-btn" @onclick="() => step--">BACK</button> }
-                <button class="cairn-btn primary" @onclick="Advance">@(step == Steps.Length - 1 ? "GET STARTED" : "NEXT")</button>
+                <button class="cairn-btn primary" @onclick="Advance">@(step == Count - 1 ? "GET STARTED" : "NEXT")</button>
             </div>
         </div>
     </div>
 }
 
 @code {
+    public sealed record GuideGame(string Id, string Name, bool Found);
+
     [Parameter] public bool IsVisible { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public Func<bool> SteamRunning { get; set; } = () => true;
+    [Parameter] public EventCallback OnStartSteam { get; set; }
+    [Parameter] public IReadOnlyList<GuideGame> Games { get; set; } = Array.Empty<GuideGame>();
+    [Parameter] public string SelectedId { get; set; } = "";
+    [Parameter] public string SelectedName { get; set; } = "";
+    [Parameter] public EventCallback<string> OnPick { get; set; }
+    [Parameter] public bool ModReady { get; set; }
+    [Parameter] public bool ModBusy { get; set; }
+    [Parameter] public double ModProgress { get; set; }
+    [Parameter] public EventCallback OnDownload { get; set; }
+    [Parameter] public int FriendCount { get; set; }
 
+    private const int Count = 5;
     private int step;
+    private System.Threading.Timer? ticker;
 
-    private sealed record TourStep(string Title, string Body);
-
-    private static readonly TourStep[] Steps =
+    protected override void OnParametersSet()
     {
-        new("Welcome to Cairn", "Cairn turns single-player games into shared ones. One of you hosts, a friend joins, and you play in the same world."),
-        new("Pick a game and get its mod", "Open the Library, choose a game and click Download mod on its page. The mod is a small download that installs itself, once per game."),
-        new("Host or join", "Press Host a game and share your game through Steam, or open Join a game and pick the friend who is hosting. Both of you need the same version of Cairn."),
-        new("Everything else is in the top bar", "Settings holds your options, Versions shows what changed in each release, and Help has answers and a way to report a problem."),
-    };
+        // Steam can be started, and a download finishes, while the guide is open: look again every couple of seconds
+        if (IsVisible && ticker is null) ticker = new System.Threading.Timer(_ => InvokeAsync(StateHasChanged), null, 2000, 2000);
+        else if (!IsVisible && ticker is not null) { ticker.Dispose(); ticker = null; }
+    }
 
     private async Task Advance()
     {
-        if (step < Steps.Length - 1) { step++; return; }
+        if (step < Count - 1) { step++; return; }
         await Finish();
     }
 
@@ -55,4 +129,6 @@
         step = 0;
         await OnClose.InvokeAsync();
     }
+
+    public void Dispose() => ticker?.Dispose();
 }

@@ -1322,3 +1322,48 @@ dl.details.modbar dd {
     margin-top: 10px;
 }
 
+
+/* the welcome guide: a line that checks something on this PC, and the games to pick from */
+.tour-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+    .tour-check.ok .tour-mark {
+        color: #8fd18f;
+    }
+
+    .tour-check.todo .tour-mark {
+        color: var(--cairn-gold);
+    }
+
+.tour-mark {
+    flex: none;
+    font-weight: 700;
+}
+
+.tour-games {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0;
+}
+
+.tour-game {
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--cairn-oak);
+    background: transparent;
+    color: var(--cairn-parchment);
+    font-family: var(--cairn-font-family);
+    cursor: pointer;
+}
+
+    .tour-game.on {
+        border-color: var(--cairn-gold);
+        background: rgba(255, 255, 255, 0.08);
+    }
