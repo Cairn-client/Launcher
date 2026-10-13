@@ -793,3 +793,38 @@
     .activity-stat b {
         font-size: 15px;
     }
+
+/* ---- the Saves page ---- */
+.saves {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 4px;
+}
+
+    .saves li {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 8px 10px;
+        border-radius: 10px;
+    }
+
+        .saves li:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+.save-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 13.5px;
+}
+
+.view .mini.danger {
+    border-color: #e06a6a;
+    color: #e06a6a;
+}

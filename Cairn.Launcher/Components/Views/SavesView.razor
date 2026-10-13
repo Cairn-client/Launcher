@@ -1,0 +1,59 @@
+﻿@* Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+   GPLv3 section 7 additional terms: AUTHORS.md. Unofficial, free, not affiliated with or endorsed by the studios or publishers
+   of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md). *@
+@using Cairn.Launcher.Models
+@using Cairn.Setup
+@* The saved games of every game whose mod can list them (its own program answers), in one place. Delete asks twice. *@
+<div class="view">
+    <header class="view-head">
+        <h1>Saves</h1>
+        <p class="lead">The saved games of your games, in one place. Close a game before deleting its saves.</p>
+    </header>
+
+    @if (Loading && Sections.Count == 0)
+    {
+        <section class="card"><div class="tile-loading" role="status" aria-label="Reading the saves"><span class="spinner"></span></div></section>
+    }
+    else if (Sections.Count == 0)
+    {
+        <section class="card">
+            <p class="muted">None of your games has saves to show yet. A game appears here once its mod is installed and the game has made a save.</p>
+            <button class="cairn-btn" @onclick="OnRefresh">LOOK AGAIN</button>
+        </section>
+    }
+    else
+    {
+        @foreach (var (game, slots) in Sections)
+        {
+            <section class="card">
+                <div class="card-head">
+                    <h2>@game.DisplayName</h2>
+                    <span class="muted">@(slots.Count == 1 ? "1 save" : $"{slots.Count} saves")</span>
+                </div>
+                <ul class="saves">
+                    @foreach (var s in slots)
+                    {
+                        string key = game.Id + ":" + s.Id;
+                        <li>
+                            <span class="save-main">
+                                <strong>@s.Name</strong>
+                                <span class="muted">@(s.Kind == "character" ? "Character" : "World")@(s.Detail.Length > 0 ? " · " + s.Detail : "")@(s.When is { } w ? " · " + HomeLogic.Ago(w, DateTime.UtcNow) : "")</span>
+                            </span>
+                            <button class="mini @(Asked == key ? "danger" : "")" disabled="@GameRunning" @onclick="() => OnDelete.InvokeAsync((game.Id, s.Id))">@(Asked == key ? "Press again to delete" : "Delete")</button>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+        <div class="row-actions"><button class="cairn-btn" @onclick="OnRefresh">REFRESH</button></div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<(GameProfile Game, IReadOnlyList<BridgeSaveSlot> Slots)> Sections { get; set; } = Array.Empty<(GameProfile, IReadOnlyList<BridgeSaveSlot>)>();
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public bool GameRunning { get; set; }
+    [Parameter] public string? Asked { get; set; }
+    [Parameter] public EventCallback<(string GameId, string SaveId)> OnDelete { get; set; }
+    [Parameter] public EventCallback OnRefresh { get; set; }
+}
