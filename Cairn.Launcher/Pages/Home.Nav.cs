@@ -105,6 +105,7 @@ namespace Cairn.Launcher.Pages
             StateHasChanged();
         }
 
+        [Microsoft.JSInterop.JSInvokable("ScaleJS")] public void ScaleJS(double ratio) => Cairn.Launcher.Services.WindowSizing.Apply(ratio);
         [Microsoft.JSInterop.JSInvokable] public void NavBackJS() => _ = InvokeAsync(() => GoNav(-1));
         [Microsoft.JSInterop.JSInvokable] public void NavForwardJS() => _ = InvokeAsync(() => GoNav(1));
 

@@ -246,6 +246,10 @@ namespace Cairn.Launcher.Pages
                         if (e.button === 3) { e.preventDefault(); ref.invokeMethodAsync('NavBackJS'); }
                         else if (e.button === 4) { e.preventDefault(); ref.invokeMethodAsync('NavForwardJS'); }
                     }, true);
+                    // the page tells the window how many screen pixels a page pixel is (it follows the monitor), so the window's smallest size is right on any screen
+                    let t = 0; const report = () => ref.invokeMethodAsync('ScaleJS', window.devicePixelRatio);
+                    window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(report, 250); });
+                    report();
                 };
             ");
                 await JSRuntime.InvokeVoidAsync("__cairnNav", objRef);
