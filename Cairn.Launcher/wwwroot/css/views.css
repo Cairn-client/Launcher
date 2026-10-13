@@ -1371,3 +1371,12 @@
     display: grid;
 }
 
+
+.library-empty {
+    display: grid;
+    place-content: center;
+    gap: 8px;
+    height: 100%;
+    padding: 48px;
+    text-align: center;
+}

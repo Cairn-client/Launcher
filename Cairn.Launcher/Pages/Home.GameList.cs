@@ -24,8 +24,43 @@ namespace Cairn.Launcher.Pages
 
         private HashSet<string> Collapsed => collapsedFolders ??= new HashSet<string>(listPrefs.Collapsed, StringComparer.OrdinalIgnoreCase);
 
+        // ---- the library: the games the player added from the Store -------------------------------------------------------------
+
+        /// <summary>
+        /// The library of a player who had Cairn before the Store is worked out once: the games that are on this PC, that have a mod downloaded, that are
+        /// favourites or that were played. A new player starts with nothing.
+        /// </summary>
+        private List<string> LibraryIds()
+        {
+            if (listPrefs.Library is { } have) return have;
+            var start = GameProfileRegistry.All()
+                .Where(g => IsModDownloaded(g) || IsFavorite(g.Id) || PlayedOf(g.Id) is not null || (g.IsSupported && IsGameFound(g)))
+                .Select(g => g.Id).ToList();
+            listPrefs.Library = start;
+            listPrefs.Save();
+            return start;
+        }
+
+        private bool InLibrary(string gameId) => LibraryIds().Contains(gameId, StringComparer.OrdinalIgnoreCase);
+
+        private IReadOnlyList<GameProfile> LibraryGames() => GameProfileRegistry.All().Where(g => InLibrary(g.Id)).ToList();
+
+        private void AddToLibrary(string gameId)
+        {
+            if (InLibrary(gameId)) return;
+            listPrefs.Library!.Add(gameId);
+            listPrefs.Save();
+        }
+
+        private void RemoveFromLibrary(string gameId)
+        {
+            LibraryIds().RemoveAll(x => string.Equals(x, gameId, StringComparison.OrdinalIgnoreCase));
+            listPrefs.Save();
+            if (string.Equals(selectedGameId, gameId, StringComparison.OrdinalIgnoreCase) && LibraryGames().FirstOrDefault() is { } next) SelectGame(next.Id);
+        }
+
         private IReadOnlyList<GameGroup> GameGroups() =>
-            GameListView.Build(GameProfileRegistry.All(), gameFilter, gameFilterMode, gameGrouping, IsGameFound, IsModInstalled, listDescending, g => IsFavorite(g.Id),
+            GameListView.Build(LibraryGames(), gameFilter, gameFilterMode, gameGrouping, IsGameFound, IsModInstalled, listDescending, g => IsFavorite(g.Id),
                 g => PlayedOf(g.Id)?.LastUtc, listPrefs.RecentFirst);
 
         /// <summary>While the player is searching, every folder with a match is shown open: a closed folder must not hide what was asked for.</summary>
@@ -76,7 +111,7 @@ namespace Cairn.Launcher.Pages
         private string EmptyListMessage() =>
             Searching ? $"No game matches \"{gameFilter.Trim()}\"."
             : gameFilterMode != GameFilter.All ? "No game fits the ticked filters. Untick one to see more."
-            : "No games.";
+            : "Your library is empty. Games you add show up here.";
 
     }
 }

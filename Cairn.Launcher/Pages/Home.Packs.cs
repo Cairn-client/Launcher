@@ -163,6 +163,7 @@ namespace Cairn.Launcher.Pages
         {
             var game = GameProfileRegistry.Get(packId);   // null for a pack that is not a game's mod
             string name = game?.DisplayName ?? packId;
+            if (game is not null) AddToLibrary(game.Id);   // a game whose mod is downloaded belongs to the library
             if (Downloads.ItemOf(packId) is { } queued) { await queued.Finished; return; }
             if (!packIndexTried || packIndex is null) await LoadPackIndexAsync();
             var info = await OfferedPackAsync(packId);

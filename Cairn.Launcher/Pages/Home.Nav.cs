@@ -103,6 +103,7 @@ namespace Cairn.Launcher.Pages
         /// <summary>Home's game cards: show the game in the Library.</summary>
         private void OpenGameFromHome(string gameId)
         {
+            AddToLibrary(gameId);   // until the Store opens it: a game opened from Home or Search is added
             SelectGame(gameId);
             NavigateTo(AppView.Library);
             StateHasChanged();

@@ -164,6 +164,9 @@ namespace Cairn.Launcher.Models
         /// <summary>Games the player pinned (the heart on a poster): they get their own shelf on Home.</summary>
         public List<string> Favorites { get; set; } = new();
 
+        /// <summary>The ids of the games the player added to their library (from the Store). Null until it has been worked out once, for a player who had the launcher before the Store.</summary>
+        public List<string>? Library { get; set; }
+
         /// <summary>The first-run tour has been seen (or skipped).</summary>
         public bool TourSeen { get; set; }
 
