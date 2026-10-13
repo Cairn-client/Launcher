@@ -81,6 +81,22 @@ namespace Cairn.Launcher.Components.Shared
         /// <summary>True when the last <see cref="CheckAsync"/> could not ask GitHub (offline, rate limit), so "nothing new" was not an answer.</summary>
         public static bool LastCheckFailed { get; private set; }
 
+        // the newest release publishes this file (its release workflow); a plain download is not held to the API's 60 requests an hour for one address
+        private const string ManifestUrl = "https://github.com/Cairn-client/launcher/releases/latest/download/update.json";
+
+        /// <summary>The newest release as the manifest says (same shape as the API's list); the API itself when the manifest is not there (an older release has none) or cannot be read.</summary>
+        private static async Task<string> ManifestOrReleasesAsync(HttpClient http)
+        {
+            try
+            {
+                string manifest = await http.GetStringAsync(ManifestUrl);
+                using var doc = JsonDocument.Parse(manifest);
+                if (doc.RootElement.ValueKind == JsonValueKind.Array && doc.RootElement.GetArrayLength() > 0) return manifest;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException) { Log.Debug("update check: no manifest ({Why}), asking the API", ex.GetType().Name); }
+            return await http.GetStringAsync(ReleasesUrl);
+        }
+
         public static async Task<UpdateInfo?> CheckAsync(string current)
         {
             try
@@ -89,7 +105,7 @@ namespace Cairn.Launcher.Components.Shared
                 using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(6) };
                 http.DefaultRequestHeaders.UserAgent.ParseAdd("Cairn-launcher");
                 http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
-                string json = await http.GetStringAsync(ReleasesUrl);
+                string json = await ManifestOrReleasesAsync(http);
                 var n = Newer(json, current);
                 Log.Information("update check: {Result}", n is null ? "this is the newest" : n.Tag + " is out");
                 return n;
