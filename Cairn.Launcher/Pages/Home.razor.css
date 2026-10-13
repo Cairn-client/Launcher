@@ -574,6 +574,7 @@
 
 /* the games' own logos: a wide tile in the list, the full logo on the page (the title stays in the markup for screen readers) */
 .game-logo {
+    position: relative;
     flex: none;
     display: grid;
     place-items: center;
@@ -592,6 +593,27 @@
         max-width: 100%;
         max-height: 100%;
         object-fit: contain;
+    }
+
+/* a favourite game: a small heart on the corner of its logo (in the list and in the search results) */
+.fav-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--cairn-ink);
+    border: 1px solid #ff6b81;
+    color: #ff6b81;
+}
+
+    .fav-badge svg {
+        width: 9px;
+        height: 9px;
     }
 
 .game-item.selected .game-logo {

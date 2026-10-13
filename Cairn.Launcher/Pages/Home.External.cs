@@ -38,7 +38,7 @@ namespace Cairn.Launcher.Pages
             if (gameRunning && (string.IsNullOrEmpty(launchedGameId) || launchedGameId == game.Id)) { SetPackMessage("Close the game first.", error: true); return; }
             if (GameFolderOf(game) is not { } folder)
             {
-                SetPackMessage($"{game.DisplayName} was not found on this PC. Locate it first.", error: true);
+                SetPackMessage($"{game.DisplayName} was not found on this PC. Make sure it is installed, then locate it.", error: true);
                 return;
             }
             var r = await Task.Run(() => ExternalInstall.Place(folder, PacksRoot, game.Id));
@@ -53,7 +53,7 @@ namespace Cairn.Launcher.Pages
             if (SelectedProfile is not { } game || !IsExternalMod(game)) return;
             if (!IsModInstalled(game)) { SetPackMessage("Install the mod before you play.", error: true); return; }
             if (gameRunning) { SetPackMessage($"{game.DisplayName} is already running.", error: false); return; }
-            if (GameFolderOf(game) is not { } folder) { SetPackMessage($"{game.DisplayName} was not found on this PC.", error: true); return; }
+            if (GameFolderOf(game) is not { } folder) { SetPackMessage($"{game.DisplayName} was not found on this PC. Make sure it is installed, then locate it.", error: true); return; }
 
             var companion = ExternalInstall.CompanionPath(PacksRoot, game.Id);
             bool companionWasOpen = companion is not null && IsRunning(companion);
