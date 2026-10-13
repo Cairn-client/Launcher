@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
 // GPLv3 section 7 additional terms: AUTHORS.md. Unofficial, free, not affiliated with or endorsed by the studios or publishers
 // of the games it supports.
 using System.Net.Http;
@@ -53,4 +53,45 @@ public static class SteamProfileStatus
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) { return NoStatus; }
     }
-}
+
+    /// <summary>One of the games a profile lists as most played: its name, its small picture, the hours in the last two weeks and in all.</summary>
+    public sealed record PlayedGame(string Name, string Icon, double Hours2Weeks, double HoursTotal);
+
+    /// <summary>What a public profile says about its owner (for the account page): the full avatar, status line, names, since when, and the most played games.</summary>
+    public sealed record ProfileInfo(string Avatar, string State, string StateMessage, string RealName, string Location, string Summary,
+        DateTime? MemberSince, IReadOnlyList<PlayedGame> MostPlayed);
+
+    public static ProfileInfo? ParseInfo(string xml)
+    {
+        try
+        {
+            var p = XDocument.Parse(xml).Root;
+            if (p is null || p.Name != "profile" || (string?)p.Element("steamID64") is null) return null;
+            string S(string name) => ((string?)p.Element(name) ?? "").Trim();
+            DateTime? since = DateTime.TryParse(S("memberSince"), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var d) ? d : null;
+            var games = new List<PlayedGame>();
+            foreach (var g in p.Element("mostPlayedGames")?.Elements("mostPlayedGame") ?? Enumerable.Empty<XElement>())
+            {
+                string name = ((string?)g.Element("gameName") ?? "").Trim();
+                if (name.Length == 0) continue;
+                double H(string e) => double.TryParse(((string?)g.Element(e) ?? "").Replace(",", ""), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0;
+                games.Add(new PlayedGame(name, ((string?)g.Element("gameIcon") ?? "").Trim(), H("hoursPlayed"), H("hoursOnRecord")));
+            }
+            return new ProfileInfo(S("avatarFull"), S("onlineState"), Plain(S("stateMessage")), S("realname"), S("location"), StripTags(S("summary")), since, games);
+        }
+        catch { return null; }
+    }
+
+    private static string StripTags(string s)
+    {
+        var sb = new System.Text.StringBuilder();
+        bool tag = false;
+        foreach (char c in s) { if (c == '<') tag = true; else if (c == '>') tag = false; else if (!tag) sb.Append(c); }
+        return System.Net.WebUtility.HtmlDecode(sb.ToString()).Trim();
+    }
+
+    public static async Task<ProfileInfo?> FetchInfoAsync(HttpClient http, string steamId, CancellationToken ct)
+    {
+        try { return ParseInfo(await http.GetStringAsync($"https://steamcommunity.com/profiles/{steamId}/?xml=1", ct)); }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) { return null; }
+    }}

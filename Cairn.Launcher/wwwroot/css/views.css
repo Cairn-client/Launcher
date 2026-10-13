@@ -891,3 +891,282 @@
         font-size: 15px;
     }
 
+
+/* ---- the account page, laid out like a Steam profile ---- */
+.profile-page {
+    max-width: 1120px;
+}
+
+.profile-banner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 26px;
+    padding: 28px 30px;
+    margin-bottom: 18px;
+    border: 1px solid var(--cairn-oak);
+    border-radius: 14px;
+    overflow: hidden;
+    background: linear-gradient(135deg, rgba(var(--cairn-gold-rgb), 0.16), rgba(12, 12, 12, 0.9));
+}
+
+    .profile-banner::before {
+        content: "";
+        position: absolute;
+        inset: -30px;
+        background: var(--banner, none) center / cover no-repeat;
+        filter: blur(34px) saturate(1.3);
+        opacity: 0.5;
+    }
+
+    .profile-banner::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, rgba(12, 12, 12, 0.15), rgba(12, 12, 12, 0.7));
+    }
+
+    .profile-banner > * {
+        position: relative;
+        z-index: 1;
+    }
+
+.profile-avatar {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 132px;
+    height: 132px;
+    box-sizing: border-box;
+    border: 4px solid #4b5160;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--cairn-ink);
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--cairn-muted);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+    .profile-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .profile-avatar.online {
+        border-color: #8fd18f;
+    }
+
+    .profile-avatar.in-game {
+        border-color: #6fb7ff;
+    }
+
+.profile-who {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+    .profile-who h1 {
+        margin: 0;
+        font-size: 34px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+.profile-status {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--cairn-muted);
+}
+
+    .profile-status.online {
+        color: #8fd18f;
+    }
+
+    .profile-status.in-game {
+        color: #6fb7ff;
+    }
+
+.profile-ids {
+    align-self: flex-start;
+    font-size: 12px;
+}
+
+.profile-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+    .profile-stats > div {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 14px 18px;
+        border: 1px solid var(--cairn-oak);
+        border-radius: 12px;
+        background: rgba(var(--cairn-shadow-rgb, 20, 22, 26), 0.55);
+    }
+
+    .profile-stats b {
+        font-size: 24px;
+        font-weight: 700;
+    }
+
+    .profile-stats small {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--cairn-muted);
+    }
+
+    .profile-stats span {
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--cairn-muted);
+    }
+
+.profile-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .profile-cols {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .profile-banner {
+        flex-wrap: wrap;
+    }
+}
+
+.profile-main, .profile-side {
+    display: grid;
+    gap: 16px;
+    min-width: 0;
+}
+
+.recent-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 12px;
+}
+
+.recent-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 3px;
+    min-height: 130px;
+    padding: 12px 14px;
+    border: 1px solid var(--cairn-oak);
+    border-radius: 12px;
+    overflow: hidden;
+    background: linear-gradient(0deg, rgba(8, 8, 8, 0.92), rgba(8, 8, 8, 0.25)), var(--art, none) center / cover no-repeat;
+    color: var(--cairn-parchment);
+    font-family: var(--cairn-font-family);
+    text-align: left;
+    cursor: pointer;
+}
+
+    .recent-card:hover {
+        border-color: var(--cairn-gold);
+    }
+
+.recent-logo {
+    display: flex;
+    align-items: center;
+    height: 44px;
+    margin-bottom: 4px;
+}
+
+    .recent-logo img {
+        max-height: 100%;
+        max-width: 80%;
+        object-fit: contain;
+    }
+
+.recent-line {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.recent-sub {
+    font-size: 12px;
+    color: var(--cairn-muted);
+}
+
+.friend-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+}
+
+.friend-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    width: 64px;
+}
+
+.friend-chip-name {
+    max-width: 100%;
+    font-size: 11.5px;
+    color: var(--cairn-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.friend-chip .friend-avatar {
+    width: 46px;
+    height: 46px;
+}
+
+.played {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 10px;
+}
+
+    .played li {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 13.5px;
+    }
+
+    .played img {
+        flex: none;
+        width: 36px;
+        height: 36px;
+        border-radius: 6px;
+    }
+
+.played-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.played-hours {
+    flex: none;
+    font-size: 12.5px;
+}
+

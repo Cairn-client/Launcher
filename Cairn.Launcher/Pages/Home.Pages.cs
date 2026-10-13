@@ -42,23 +42,26 @@ namespace Cairn.Launcher.Pages
         // ---- the Profile page ----
         private (string Id, string Name, string Avatar) steamSelf = ("", "", "");
 
+        private SteamProfileStatus.ProfileInfo? steamSelfInfo;
+        private DateTime steamSelfInfoAt = DateTime.MinValue;
+
+        /// <summary>What the player's own Steam profile page says (names, since when, most played games), read at most every ten minutes.</summary>
+        private async Task LoadSteamSelfInfoAsync()
+        {
+            if (steamSelf.Id.Length == 0 || DateTime.UtcNow - steamSelfInfoAt < TimeSpan.FromMinutes(10)) return;
+            steamSelfInfoAt = DateTime.UtcNow;
+            steamSelfInfo = await SteamProfileStatus.FetchInfoAsync(steamProfiles, steamSelf.Id, CancellationToken.None);
+            await InvokeAsync(StateHasChanged);
+        }
+
         private void LoadSteamSelf()
         {
             var me = SteamIdentity.Read(RealSetupHost.Instance.SteamRootFromRegistry());
             if (me is not null) steamSelf = (me.Id, me.Name, me.Avatar);
         }
 
-        private async Task SetProfileSwitchAsync(string which, bool on)
-        {
-            switch (which)
-            {
-                case "presence": settings.PresenceEnabled = on; break;
-                case "notify": settings.NotifyFriends = on; break;
-                case "update": settings.AutoUpdateMods = on; break;
-            }
-            WriteSettings("the profile page");
-            await InvokeAsync(StateHasChanged);
-        }
+        // ---- the cards and sections of Home that point at something ----
+
         /// <summary>Games on this PC that Cairn has a mod for and the player has none of yet (three at most).</summary>
         private IReadOnlyList<GameProfile> HomeSuggestions() =>
             GameProfileRegistry.All().Where(g => g.IsSupported && g.ModRepo.Length > 0 && IsGameFound(g) && !IsModDownloaded(g) && packBusyId != g.Id)
@@ -68,5 +71,6 @@ namespace Cairn.Launcher.Pages
             recent.Entries.OrderByDescending(e => e.LastUtc).Select(e => GameProfileRegistry.Get(e.GameId)).Where(g => g is not null && g.BackgroundImage.Length > 0).Select(g => g!).Take(8).ToList();
 
         private string HomeMostPlayed() =>
-            recent.Entries.OrderByDescending(e => e.Minutes).ThenByDescending(e => e.Sessions).Select(e => GameProfileRegistry.Get(e.GameId)?.DisplayName).FirstOrDefault(n => n is not null) ?? "-";    }
+            recent.Entries.OrderByDescending(e => e.Minutes).ThenByDescending(e => e.Sessions).Select(e => GameProfileRegistry.Get(e.GameId)?.DisplayName).FirstOrDefault(n => n is not null) ?? "-";
+    }
 }

@@ -416,12 +416,11 @@
                     <VersionsView Releases="@changelog" CheckingUpdates="@updateBusy" OnCheckUpdates="@CheckUpdatesAndChangelogAsync" OnReload="@ReloadChangelogAsync" />
                     break;
                 case AppView.Profile:
-                    <ProfileView SteamName="@steamSelf.Name" SteamId="@steamSelf.Id" Avatar="@steamSelf.Avatar"
+                    <ProfileView SteamName="@steamSelf.Name" SteamId="@steamSelf.Id" Avatar="@steamSelf.Avatar" Info="@steamSelfInfo"
                                  Sessions="@recent.Entries.Sum(e => e.Sessions)" Played="@(recent.Entries.Sum(e => e.Minutes) > 0 ? HomeLogic.Played(recent.Entries.Sum(e => e.Minutes)) : "-")"
                                  ModsInstalled="@HomeModsInstalled" Friends="@homeSteamFriends.Count" FriendsOnline="@homeSteamFriends.Count(f => f.State is "online" or "in-game")"
-                                 Presence="@settings.PresenceEnabled" Notify="@settings.NotifyFriends" AutoUpdate="@settings.AutoUpdateMods"
-                                 OnPresence="@(on => SetProfileSwitchAsync("presence", on))" OnNotify="@(on => SetProfileSwitchAsync("notify", on))" OnAutoUpdate="@(on => SetProfileSwitchAsync("update", on))"
-                                 OnOpenSettings="@(() => NavigateTo(AppView.Settings))" Rows="@ActivityRows()" OnOpenGame="@OpenGameFromHome" />
+                                 OnlineFriends="@homeSteamFriends.Where(f => f.State is "online" or "in-game").ToList()"
+                                 Rows="@ActivityRows()" OnOpenGame="@OpenGameFromHome" />
                     break;
                 case AppView.Help:
                     <HelpView Notices="@CurrentNotices()" OnReplayTour="@ReplayTour" OnOpenSetup="@OpenSetupChecklist" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenSettings="@(() => NavigateTo(AppView.Settings))" />
