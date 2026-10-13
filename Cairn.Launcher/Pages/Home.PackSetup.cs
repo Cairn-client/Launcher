@@ -59,8 +59,8 @@ namespace Cairn.Launcher.Pages
             }
             if (report is null)
             {
+                // the last good list stays on screen (an action that places files makes the program busy for a while)
                 Log.Warning("setup: the pack's program gave no checklist");
-                packSetup = null;
                 packProgramSilent = true;
                 return false;
             }
