@@ -25,6 +25,9 @@ namespace Cairn.Launcher.Pages
                     await DownloadPackAsync(g.Id);   // a download puts the mod in the game too
                     if (!IsModInstalled(g)) await InstallModAsync(g.Id);
                     break;
+                case PreflightFix.PlaceMod:
+                    await InstallModAsync(g.Id);
+                    break;
                 case PreflightFix.LocateGame:
                     LocateGame(g);
                     break;

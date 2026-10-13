@@ -268,8 +268,20 @@ namespace Cairn.Launcher.Pages
                 catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException) { }
             });
             var host = new ExternalSetupHost(steam, found, mod, apps, rel => folder is not null && File.Exists(Path.Combine(folder, rel.Replace('/', Path.DirectorySeparatorChar))), disk);
-            return GameSetup.Evaluate(rules, host).Select(r => new PreflightItem(r.Title,
-                r.State switch { SetupState.Ok => CheckStatus.Ok, SetupState.Warn => CheckStatus.Warn, _ => CheckStatus.Fail }, r.Detail, PreflightFix.ForRule(r.Kind))).ToList();
+            bool downloaded = IsModDownloaded(g);
+            return GameSetup.Evaluate(rules, host).Select(r =>
+            {
+                var status = r.State switch { SetupState.Ok => CheckStatus.Ok, SetupState.Warn => CheckStatus.Warn, _ => CheckStatus.Fail };
+                string fix = PreflightFix.ForRule(r.Kind);
+                string detail = r.Detail;
+                if (r.Kind == SetupKinds.ModInstalled && status != CheckStatus.Ok && downloaded)
+                {
+                    // the mod is on this PC already: what is missing is the game to put it in, not another download
+                    if (!found) { detail = "The mod is downloaded. Cairn puts it in the game's folder as soon as the game is found."; fix = ""; }
+                    else { detail = "The mod is downloaded but not in the game's folder yet."; fix = PreflightFix.PlaceMod; }
+                }
+                return new PreflightItem(r.Title, status, detail, fix);
+            }).ToList();
         }
 
         private sealed class ExternalSetupHost(bool steam, bool game, bool mod, HashSet<uint> apps, Func<string, bool> file, long? disk) : IGameSetupHost
