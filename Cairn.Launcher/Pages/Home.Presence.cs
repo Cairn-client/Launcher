@@ -101,6 +101,7 @@ namespace Cairn.Launcher.Pages
         {
             if (gameRunning) { ShowToast("The game is already running. Close it first, then accept the invitation again.", true); return; }
             Log.Information("presence: accepting an invitation to {Game}", i.Game);
+            joiningWith = i.Name;
             steamCodeInput = i.Code;
             await JoinThroughSteamAsync();
         }
