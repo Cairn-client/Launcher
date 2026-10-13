@@ -79,6 +79,7 @@ class Program
             var windowPrefs = WindowPrefs.Load();
             bool restore = windowPrefs is { Maximized: false } wp
                 && wp.IsUsable((x, y) => System.Windows.Forms.Screen.AllScreens.Any(s => s.WorkingArea.Contains(x, y)));
+            Cairn.Launcher.Services.WindowSizing.Window = app.MainWindow;
             app.MainWindow
                 .SetTitle("Cairn Client")   // the name players see (the log line above keeps its old tag)
                 .SetSize(restore ? windowPrefs!.Width : 1600, restore ? windowPrefs!.Height : 900)

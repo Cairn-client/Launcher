@@ -23,7 +23,7 @@ namespace Cairn.Launcher.Models
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Cairn", "window.json");
 
         /// <summary>The smallest the window can be made: the pages are laid out down to this size, and none is meant for less.</summary>
-        public const int MinWidth = 1100, MinHeight = 660;   // in layout pixels (what the page sees), not screen pixels
+        public const int MinWidth = 1200, MinHeight = 720;   // in layout pixels (what the page sees), not screen pixels
 
         [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern uint GetDpiForSystem();
 
