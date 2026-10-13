@@ -47,7 +47,6 @@
                 }
                 else
                 {
-                    int most = Math.Max(1, Rows.Max(r => r.Session.Sessions));
                     @foreach (var (game, s2) in Rows.Take(8))
                     {
                         <article class="activity-item">
@@ -60,19 +59,6 @@
                                     <span>@(s2.Minutes > 0 ? HomeLogic.Played(s2.Minutes) + " on record" : s2.Sessions == 1 ? "1 session" : $"{s2.Sessions} sessions")</span>
                                     <span class="muted">last played on @s2.LastUtc.ToLocalTime().ToString("d MMM")</span>
                                 </span>
-                            </div>
-                            <div class="activity-detail">
-                                <div class="activity-last">
-                                    <span class="activity-badge @(s2.Role == "host" ? "host" : "join")">@(s2.Role == "host" ? "Host" : "Join")</span>
-                                    <span class="activity-last-text">
-                                        <strong>@(s2.Role == "host" ? "You hosted" : s2.With.Length > 0 ? "You joined " + s2.With : "You joined")</strong>
-                                        <span class="muted">@HomeLogic.Ago(s2.LastUtc, DateTime.UtcNow)</span>
-                                    </span>
-                                </div>
-                                <div class="activity-progress">
-                                    <div class="activity-progress-head"><span>Sessions</span><span>@s2.Sessions</span></div>
-                                    <div class="activity-bar"><span style="width: @((int)(100.0 * s2.Sessions / most))%"></span></div>
-                                </div>
                             </div>
                         </article>
                     }
