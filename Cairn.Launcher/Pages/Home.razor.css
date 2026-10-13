@@ -1104,3 +1104,22 @@ button.chip {
         border-color: #ff6b6b;
         color: #ff8a8a;
     }
+
+/* ---- a narrower window: the bar gives up its words before it overflows (the window stops at 1100 layout pixels) ---- */
+@media (max-width: 1350px) {
+    .brand {
+        padding-right: 4px;
+    }
+
+    .brand-name {
+        display: none;
+    }
+
+    .nav-btn {
+        padding: 0 10px;
+    }
+
+    .topbar {
+        padding-right: 8px;
+    }
+}

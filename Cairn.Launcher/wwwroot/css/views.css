@@ -1932,3 +1932,14 @@
         color: var(--cairn-muted);
         font-size: 12px;
     }
+
+/* the Friends button keeps its icon and count when the bar is tight */
+@media (max-width: 1250px) {
+    .friends-btn > span:not(.friends-count) {
+        display: none;
+    }
+}
+
+.friends-count {
+    white-space: nowrap;
+}
