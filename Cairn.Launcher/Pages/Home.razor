@@ -418,8 +418,7 @@
                 case AppView.Profile:
                     <ProfileView SteamName="@steamSelf.Name" SteamId="@steamSelf.Id" Avatar="@steamSelf.Avatar" Info="@steamSelfInfo"
                                  Sessions="@recent.Entries.Sum(e => e.Sessions)" Played="@(recent.Entries.Sum(e => e.Minutes) > 0 ? HomeLogic.Played(recent.Entries.Sum(e => e.Minutes)) : "-")"
-                                 ModsInstalled="@HomeModsInstalled" Friends="@homeSteamFriends.Count" FriendsOnline="@homeSteamFriends.Count(f => f.State is "online" or "in-game")"
-                                 OnlineFriends="@homeSteamFriends.Where(f => f.State is "online" or "in-game").ToList()"
+                                 ModsInstalled="@HomeModsInstalled"
                                  Rows="@ActivityRows()" OnOpenGame="@OpenGameFromHome" />
                     break;
                 case AppView.Help:
