@@ -39,6 +39,7 @@ What a mod's pack carries beyond the mod itself, each under its own licence and 
 | Chairloader | Prey | <https://github.com/thelivingdiamond/Chairloader> | By thelivingdiamond (GPL-3.0). Not carried by the pack: the player installs it |
 | F4SE (Fallout 4 Script Extender) | Fallout 4 | <https://f4se.silverlock.org/> | By the Silverlock team. Not carried by the pack: Cairn downloads it from its authors' site on the player's PC, checked against a pinned hash, and the player can also install it by hand |
 | Starlight | Slime Rancher 2 | by ThatFinn | A requirement of that mod. Its licence forbids bundling it, so Cairn does not carry it: the player takes it from its author's page |
+
 ## Additional libraries and modules
 
 Not part of this repository's own code; each keeps its own license.
@@ -52,6 +53,7 @@ Not part of this repository's own code; each keeps its own license.
 | xunit, coverlet | Tests |
 | Steamworks | Steam networking and friends, through the installed Steam client |
 | DLSS 5 Autopilot by Kizzuwatnaa (MIT, <https://github.com/Kizzuwatnaa/DLSS5-Autopilot>) | The optional DLSS 5 setting downloads its release at run time and runs its command line; nothing of it ships with Cairn. The parts it fetches (ReShade, OptiScaler and its forks, the add-ons, NVIDIA's runtimes) keep their own licences |
+
 ## Terms that stay with the code
 
 - Keep the author credits above and in the source files' headers, and the link to the official repository
