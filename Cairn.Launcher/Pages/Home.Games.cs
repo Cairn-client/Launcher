@@ -213,8 +213,8 @@ namespace Cairn.Launcher.Pages
             _ = CheckSetupAgainAsync();   // the setup list is the selected game's
         }
 
-        /// <summary>The one game whose executable is a setting of the launcher (Settings > Game executable path): Kingdom Come II's Modding Tools build, which only its pack's setup can find. Every other game is found in Steam or where the player pointed.</summary>
-        private static bool GameExeIsSetting(string gameId) => gameId == GameProfileRegistry.Kcd2Id;
+        /// <summary>A game whose executable is a setting of the launcher (Settings > Game executable path) because only its pack's setup can find it: the catalog says so (exeSetting). Every other game is found in Steam or where the player pointed.</summary>
+        private static bool GameExeIsSetting(string gameId) => GameProfileRegistry.Get(gameId)?.ExeIsSetting == true;
 
         /// <summary>The game's executable as its pack is told: the setting for the game above, else the game's own file in the folder it was found in; null when it is not known.</summary>
         private string? GameExeOf(string gameId)

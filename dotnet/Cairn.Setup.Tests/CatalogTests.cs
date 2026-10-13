@@ -34,6 +34,14 @@ public class GameListTests
         Assert.True(l.Components["kcd2-game"].HasStorePage);
     }
 
+    [Fact]
+    public void AGameCanSayItsExecutableIsASetting()
+    {
+        var l = GameList.Parse("""{ "schema": 1, "games": [ { "id": "a", "repo": "o/a", "exeSetting": true }, { "id": "b", "repo": "o/b" } ] }""")!;
+        Assert.True(l.Games[0].ExeSetting);
+        Assert.False(l.Games[1].ExeSetting);
+    }
+
     [Theory]
     [InlineData("""{ "schema": 2, "games": [] }""")]
     [InlineData("""{ "schema": 1, "games": [ { "id": "../x" } ] }""")]
