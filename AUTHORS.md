@@ -13,7 +13,7 @@ packs it (and, for some games, the loader it runs on) and installs it. Each keep
 
 | Game | Mod | Upstream | Licence |
 | --- | --- | --- | --- |
-| Kingdom Come: Deliverance II | Kingdom Come: Together (the KD2M fork), which Cairn Client grew out of: the shared world, NPCs and fights, doors and weather, faces and voices, items and horses | DeepFriedDepp: <https://github.com/DeepFriedDepp/KingdomCome-Together> | GPL-3.0 |
+| Kingdom Come: Deliverance II | Kingdom Come: Together | DeepFriedDepp: <https://github.com/DeepFriedDepp/KingdomCome-Together> | GPL-3.0 |
 | Noita | Noita Entangled Worlds | IntQuant and contributors: <https://github.com/IntQuant/noita_entangled_worlds> | Apache-2.0 |
 | Dyson Sphere Program | Nebula Multiplayer Mod | NebulaModTeam: <https://github.com/NebulaModTeam/nebula> | GPL-3.0 |
 | Voices of the Void | Multivoid | Pelmentor and the VOTV-MP team: <https://github.com/VOTV-MP/Multivoid> | MIT |
@@ -28,27 +28,30 @@ packs it (and, for some games, the loader it runs on) and installs it. Each keep
 
 What a mod's pack carries beyond the mod itself, each under its own licence and credited to its authors:
 
-- BepInEx (Dyson Sphere Program), in the build Dyson Sphere Program mods use, from the Thunderstore package xiaoye97/BepInEx: <https://github.com/BepInEx/BepInEx>
-- UE4SS, in the build of the Thunderstore package Thunderstore/unreal_shimloader (Voices of the Void): <https://github.com/UE4SS-RE/RE-UE4SS>
-- Harmony, with the Luna Multiplayer client (Kerbal Space Program) and inside Prepatcher (RimWorld): <https://github.com/pardeike/Harmony>
-- Prepatcher by Zetrith (MIT, RimWorld): <https://github.com/Zetrith/Prepatcher>
-- MelonLoader (Apache-2.0, Slime Rancher 2): <https://github.com/LavaGang/MelonLoader>
-- Dead Cells Core Modding API (MIT, Dead Cells): <https://github.com/dead-cells-core-modding/core>
-- Chairloader by thelivingdiamond (GPL-3.0, Prey): <https://github.com/thelivingdiamond/Chairloader>. Prey's pack does not carry it: the player installs it.
-- F4SE, the Fallout 4 Script Extender, by the Silverlock team (Fallout 4): <https://f4se.silverlock.org/>. Fallout 4's pack does not carry it: Cairn downloads it from its authors' site on the player's PC, checked against a pinned hash, and the player can also install it by hand.
-- Starlight by ThatFinn (Slime Rancher 2) is a requirement of that mod. Its licence forbids bundling it, so Cairn does not carry it: the player takes it from its author's page.
+| Component | Game | Source | Notes |
+| --- | --- | --- | --- |
+| BepInEx | Dyson Sphere Program | <https://github.com/BepInEx/BepInEx> | The build Dyson Sphere Program mods use, from the Thunderstore package xiaoye97/BepInEx |
+| UE4SS | Voices of the Void | <https://github.com/UE4SS-RE/RE-UE4SS> | The build of the Thunderstore package Thunderstore/unreal_shimloader |
+| Harmony | Kerbal Space Program, RimWorld | <https://github.com/pardeike/Harmony> | With the Luna Multiplayer client, and inside Prepatcher |
+| Prepatcher | RimWorld | <https://github.com/Zetrith/Prepatcher> | By Zetrith (MIT) |
+| MelonLoader | Slime Rancher 2 | <https://github.com/LavaGang/MelonLoader> | Apache-2.0 |
+| Dead Cells Core Modding API | Dead Cells | <https://github.com/dead-cells-core-modding/core> | MIT |
+| Chairloader | Prey | <https://github.com/thelivingdiamond/Chairloader> | By thelivingdiamond (GPL-3.0). Not carried by the pack: the player installs it |
+| F4SE (Fallout 4 Script Extender) | Fallout 4 | <https://f4se.silverlock.org/> | By the Silverlock team. Not carried by the pack: Cairn downloads it from its authors' site on the player's PC, checked against a pinned hash, and the player can also install it by hand |
+| Starlight | Slime Rancher 2 | by ThatFinn | A requirement of that mod. Its licence forbids bundling it, so Cairn does not carry it: the player takes it from its author's page |
 ## Additional libraries and modules
 
 Not part of this repository's own code; each keeps its own license.
 
-- Photino.Blazor: native window host for the Blazor launcher UI
-- Serilog (with the Extensions, Settings.Configuration, Console and File sinks): logging
-- DiscordRichPresence: Discord presence
-- System.Text.Json: JSON
-- xunit, coverlet: tests
-- Steamworks (Steam networking and friends, through the installed Steam client)
-- DLSS 5 Autopilot by Kizzuwatnaa (MIT, <https://github.com/Kizzuwatnaa/DLSS5-Autopilot>): the optional DLSS 5 setting downloads its release at run time and runs its command line; nothing of it ships with Cairn. The parts it fetches (ReShade, OptiScaler and its forks, the add-ons, NVIDIA's runtimes) keep their own licences
-
+| Library | Used for |
+| --- | --- |
+| Photino.Blazor | Native window host for the Blazor launcher UI |
+| Serilog (with the Extensions, Settings.Configuration, Console and File sinks) | Logging |
+| DiscordRichPresence | Discord presence |
+| System.Text.Json | JSON |
+| xunit, coverlet | Tests |
+| Steamworks | Steam networking and friends, through the installed Steam client |
+| DLSS 5 Autopilot by Kizzuwatnaa (MIT, <https://github.com/Kizzuwatnaa/DLSS5-Autopilot>) | The optional DLSS 5 setting downloads its release at run time and runs its command line; nothing of it ships with Cairn. The parts it fetches (ReShade, OptiScaler and its forks, the add-ons, NVIDIA's runtimes) keep their own licences |
 ## Terms that stay with the code
 
 - Keep the author credits above and in the source files' headers, and the link to the official repository
