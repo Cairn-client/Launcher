@@ -1034,7 +1034,8 @@ dl.details.modbar dd {
 }
 
 .feature-pill.ready { color: #8fd7a3; border-color: rgba(143, 215, 163, 0.4); background: rgba(143, 215, 163, 0.08); }
-.feature-pill.test { color: var(--cairn-gold); border-color: rgba(var(--cairn-gold-rgb), 0.45); background: rgba(var(--cairn-gold-rgb), 0.08); }
+/* a status means the same on every game: amber for "in test", whatever the game's own accent colour is */
+.feature-pill.test { color: #e8b25a; border-color: rgba(232, 178, 90, 0.45); background: rgba(232, 178, 90, 0.08); }
 .feature-pill.planned { color: #8fb8e8; border-color: rgba(143, 184, 232, 0.4); background: rgba(143, 184, 232, 0.08); }
 
 .feature-tabs {
@@ -1097,7 +1098,7 @@ dl.details.modbar dd {
     background: #8fd7a3;
 }
 
-.feature-dot.test { background: var(--cairn-gold); }
+.feature-dot.test { background: #e8b25a; }
 .feature-dot.planned { background: #8fb8e8; }
 
 .feature-name {
