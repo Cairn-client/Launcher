@@ -61,8 +61,14 @@ public class SteamIdentityTests
     }
 
     [Fact]
-    public void No_most_recent_account_means_nobody() =>
-        Assert.Null(SteamIdentity.MostRecentUser("\"users\" { \"76561198000000010\" { \"PersonaName\" \"x\" \"MostRecent\" \"0\" } }"));
+    public void Without_a_most_recent_flag_the_newest_sign_in_is_the_account()
+    {
+        var u = SteamIdentity.MostRecentUser("\"users\" { \"76561198000000010\" { \"PersonaName\" \"old\" \"Timestamp\" \"100\" } \"76561198000000001\" { \"PersonaName\" \"new\" \"Timestamp\" \"200\" } }");
+        Assert.Equal("76561198000000001", u!.Value.Id);
+    }
+
+    [Fact]
+    public void No_accounts_means_nobody() => Assert.Null(SteamIdentity.MostRecentUser("\"users\" { }"));
 
     [Fact]
     public void Friends_are_the_numbered_sections_as_64_bit_ids()
