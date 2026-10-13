@@ -16,7 +16,8 @@ namespace Cairn.Setup;
 // that is looked up beside the file that names it, never a URL of its own.
 
 /// <summary>A game in games.json: its id and, when it has one, the repository ("owner/name") whose releases carry its mod and its game.json.</summary>
-public sealed record GameEntry(string Id, string Repo);
+/// <param name="ExeSetting">The game's executable is not found by looking in its folder (it is a build only the mod's setup finds, such as a game's modding tools): the launcher keeps its path as a setting.</param>
+public sealed record GameEntry(string Id, string Repo, bool ExeSetting = false);
 
 /// <summary>A pack that is not a game's mod (a shared core, content) and the repository that publishes it.</summary>
 public sealed record PackSource(string Id, string Repo);
@@ -87,7 +88,7 @@ public sealed record GameList(
             {
                 string id = Str(g, "id"), repo = Str(g, "repo");
                 if (!CatalogLimits.IsId(id) || (repo.Length > 0 && !PackCatalog.IsRepo(repo)) || games.Any(x => x.Id == id)) return null;
-                games.Add(new GameEntry(id, repo));
+                games.Add(new GameEntry(id, repo, g.TryGetProperty("exeSetting", out var es) && es.ValueKind == JsonValueKind.True));
             }
             var packs = new List<PackSource>();
             foreach (var p in Items(r, "packs"))

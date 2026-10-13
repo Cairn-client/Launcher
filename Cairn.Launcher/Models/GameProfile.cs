@@ -29,6 +29,9 @@ namespace Cairn.Launcher.Models
         public string DefaultExeName { get; set; } = string.Empty;
         /// <summary>Where the game's mod is published ("owner/name" on GitHub): its latest release carries the pack the launcher downloads.</summary>
         public string ModRepo { get; set; } = string.Empty;
+
+        /// <summary>The catalog says the game's executable is a setting of the launcher, not something found in the game's folder (Settings > Game executable path).</summary>
+        public bool ExeIsSetting { get; set; }
         public string BackgroundImage { get; set; } = string.Empty;
         public string DefaultServerApi { get; set; } = string.Empty;
         public bool IsInstalled { get; set; }

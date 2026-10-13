@@ -16,8 +16,6 @@ namespace Cairn.Launcher.Models
     /// </summary>
     public static class GameProfileRegistry
     {
-        public const string Kcd2Id = "kcd2";
-
         private static readonly object Gate = new();
         private static readonly Dictionary<string, GameProfile> Profiles = new(StringComparer.OrdinalIgnoreCase);
         private static GameList list = GameList.Empty;
@@ -96,6 +94,7 @@ namespace Cairn.Launcher.Models
                 StoreAppId = m.StoreAppId,
                 DefaultExeName = m.Exe,
                 ModRepo = g.Entry.Repo,
+                ExeIsSetting = g.Entry.ExeSetting,
                 BackgroundImage = g.Picture(m.Images.Background),
                 LogoImage = g.Picture(m.Images.Logo),
                 HeroImage = g.Picture(m.Images.Hero),
