@@ -248,6 +248,7 @@
                                         {
                                             <span class="mod-state ok">@pack.Version@(IsModInstalled(game) ? "" : " (not installed)")</span>
                                             <button class="link-btn" title="Remove the downloaded mod" @onclick="() => RemovePackAsync(game.Id)">Remove</button>
+                                            @if (PreviousPackOf(game) is { } prev) { <button class="link-btn" title="Put the version before the last update back" disabled="@(gameRunning)" @onclick="() => RollbackPackAsync(game.Id)">Go back to @prev.Version</button> }
                                             @if (!IsModInstalled(game) && IsPackRunGame(game.Id)) { <button class="link-btn strong" disabled="@(gameRunning)" @onclick="() => InstallModAsync(game.Id)">Install</button> }
                                             @if (offered is not null && HomeLogic.IsNewerPack(offered.Version, pack.Version)) { <button class="link-btn" @onclick="() => DownloadPackAsync(game.Id)">Update to @offered.Version</button> }
                                         }
