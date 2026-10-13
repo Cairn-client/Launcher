@@ -25,17 +25,16 @@
             }
             <span class="muted">@(Info?.MemberSince is { } since ? "Member of Steam since " + since.ToString("MMMM yyyy") + " · " : "")Cairn @Globals.CairnVersion</span>
         </div>
-        <div class="profile-ids muted">@(SteamId.Length > 0 ? "Steam id " + SteamId : "")</div>
+        <div class="profile-ids muted" title="Hover to show your Steam id">@if (SteamId.Length > 0) { <span>Steam id </span><span class="profile-id-value">@SteamId</span> }</div>
     </header>
 
     <div class="profile-stats">
         <div><b>@Sessions</b><span>@(Sessions == 1 ? "session" : "sessions")</span></div>
         <div><b>@Played</b><span>played on Cairn</span></div>
         <div><b>@ModsInstalled</b><span>@(ModsInstalled == 1 ? "mod installed" : "mods installed")</span></div>
-        <div><b>@FriendsOnline<small> / @Friends</small></b><span>friends online</span></div>
     </div>
 
-    <div class="profile-cols">
+    <div class="profile-cols @(Info is { Summary.Length: > 0 } ? "" : "one")">
         <div class="profile-main">
             <section class="card">
                 <div class="card-head"><h2>Recent activity</h2></div>
@@ -58,47 +57,9 @@
                 }
             </section>
 
-            <section class="card">
-                <div class="card-head"><h2>Friends online</h2><span class="muted">@FriendsOnline of @Friends</span></div>
-                @if (OnlineFriends.Count == 0)
-                {
-                    <p class="muted">None of your friends is online right now.</p>
-                }
-                else
-                {
-                    <div class="friend-strip">
-                        @foreach (var f in OnlineFriends.Take(14))
-                        {
-                            <span class="friend-chip" title="@f.Name">
-                                <span class="friend-avatar @f.State">
-                                    @if (f.Avatar.Length > 0) { <img src="https://avatars.steamstatic.com/@(f.Avatar)_medium.jpg" alt="" loading="lazy" /> }
-                                    else { <span>@(f.Name.Length > 0 ? f.Name[..1].ToUpperInvariant() : "?")</span> }
-                                </span>
-                                <span class="friend-chip-name">@f.Name</span>
-                            </span>
-                        }
-                    </div>
-                }
-            </section>
         </div>
 
         <div class="profile-side">
-            @if (Info is { MostPlayed.Count: > 0 } info)
-            {
-                <section class="card">
-                    <div class="card-head"><h2>Most played on Steam</h2></div>
-                    <ul class="played">
-                        @foreach (var g in info.MostPlayed.Take(5))
-                        {
-                            <li>
-                                @if (g.Icon.Length > 0) { <img src="@g.Icon" alt="" loading="lazy" /> }
-                                <span class="played-name">@g.Name</span>
-                                <span class="played-hours"><b>@Hours(g.HoursTotal)</b> h<span class="muted">@(g.Hours2Weeks > 0 ? $" · {Hours(g.Hours2Weeks)} h lately" : "")</span></span>
-                            </li>
-                        }
-                    </ul>
-                </section>
-            }
             @if (Info is { Summary.Length: > 0 } about)
             {
                 <section class="card">
@@ -119,12 +80,8 @@
     [Parameter] public int Sessions { get; set; }
     [Parameter] public string Played { get; set; } = "-";
     [Parameter] public int ModsInstalled { get; set; }
-    [Parameter] public int Friends { get; set; }
-    [Parameter] public int FriendsOnline { get; set; }
-    [Parameter] public IReadOnlyList<SteamFriendRow> OnlineFriends { get; set; } = Array.Empty<SteamFriendRow>();
     /// <summary>Every game played from Cairn, the latest first.</summary>
     [Parameter] public IReadOnlyList<(GameProfile Game, RecentSession Session)> Rows { get; set; } = Array.Empty<(GameProfile, RecentSession)>();
     [Parameter] public EventCallback<string> OnOpenGame { get; set; }
 
-    private static string Hours(double h) => h >= 100 ? ((int)h).ToString("N0") : h.ToString("0.#");
 }

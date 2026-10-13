@@ -1170,3 +1170,19 @@
     font-size: 12.5px;
 }
 
+
+/* the Steam id is shown only while the pointer is on it (it is not for a screen share) */
+.profile-ids .profile-id-value {
+    filter: blur(6px);
+    transition: filter 0.15s;
+    user-select: none;
+}
+
+.profile-ids:hover .profile-id-value {
+    filter: none;
+    user-select: text;
+}
+
+.profile-cols.one {
+    grid-template-columns: minmax(0, 1fr);
+}
