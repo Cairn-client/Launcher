@@ -106,9 +106,9 @@
                             {
                                 bool found = IsGameFound(profile);
                                 <button class="game-item @(profile.Id == selectedGameId ? "selected" : "")" @onclick="() => SelectGame(profile.Id)" @oncontextmenu="e => OpenGameMenu(profile.Id, e)" @oncontextmenu:preventDefault="true">
-                                    <span class="game-logo">@if (profile.LogoImage.Length > 0) { <img src="@profile.LogoImage" alt="" /> } else { <span>@profile.Id.ToUpperInvariant()</span> }</span>
+                                    <span class="game-logo">@if (profile.LogoImage.Length > 0) { <img src="@profile.LogoImage" alt="" /> } else { <span>@profile.Id.ToUpperInvariant()</span> }@if (IsFavorite(profile.Id)) { <span class="fav-badge" title="Favourite"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg></span> }</span>
                                     <span class="game-item-text">
-                                        <span class="game-item-name">@profile.DisplayName@if (IsFavorite(profile.Id)) { <span class="fav-mark" title="Favourite">&#9829;</span> }</span>
+                                        <span class="game-item-name">@profile.DisplayName</span>
                                         <span class="game-item-state @(!profile.IsSupported ? "soon" : found && !NeedsMod(profile) ? "ok" : "warn")">@(!profile.IsSupported ? "Coming soon" : !found ? "Not found" : NeedsMod(profile) ? "Mod needed" : "Ready")</span>
                                     </span>
                                 </button>
@@ -295,7 +295,7 @@
 
                     @if (!gameFound && game.IsSupported)
                     {
-                        <div class="notice warn">The game was not found on this PC. Set its path in <strong>Settings</strong>.</div>
+                        <div class="notice warn">The game was not found on this PC. Make sure it is installed (in your Steam library, or on this PC), then @(GameExeIsSetting(game.Id) ? "set its path in" : "use Locate game... or set its path in") <strong>Settings</strong>.</div>
                     }
 
                     <div class="glass info">

@@ -123,6 +123,7 @@
     }
 
 .sb-logo {
+    position: relative;
     flex: none;
     display: grid;
     place-items: center;
@@ -130,8 +131,28 @@
     height: 32px;
     border-radius: 5px;
     background: var(--cairn-track);
-    overflow: hidden;
 }
+
+/* a favourite game: a small heart on the corner of its logo */
+.fav-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--cairn-ink);
+    border: 1px solid #ff6b81;
+    color: #ff6b81;
+}
+
+    .fav-badge svg {
+        width: 8px;
+        height: 8px;
+    }
 
     .sb-logo img {
         max-width: 90%;

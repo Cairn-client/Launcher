@@ -33,9 +33,9 @@
                     @* mouse down selects immediately before blur can destroy the list, click is also handled *@
                     <button class="sb-item @(i == selected ? "on" : "")" role="option" aria-selected="@(i == selected ? "true" : "false")"
                             @onmousedown="() => Pick(g.Id)" @onclick="() => Pick(g.Id)" @onmouseenter="() => selected = row">
-                        <span class="sb-logo">@if (g.LogoImage.Length > 0) { <img src="@g.LogoImage" alt="" /> }</span>
+                        <span class="sb-logo">@if (g.LogoImage.Length > 0) { <img src="@g.LogoImage" alt="" /> }@if (Favorites.Contains(g.Id)) { <span class="fav-badge" title="Favourite"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg></span> }</span>
                         <span class="sb-text">
-                            <span class="sb-name">@g.DisplayName@if (Favorites.Contains(g.Id)) { <span class="fav-mark">&#9829;</span> }</span>
+                            <span class="sb-name">@g.DisplayName</span>
                             <span class="sb-sub">@(g.Developer.Length > 0 ? g.Developer : "")@(OnPc?.Invoke(g) == true ? " · On this PC" : "")@(g.IsSupported ? "" : " · Coming soon")</span>
                         </span>
                     </button>

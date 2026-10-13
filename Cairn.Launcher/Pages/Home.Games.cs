@@ -207,6 +207,7 @@ namespace Cairn.Launcher.Pages
 
         private void SelectGame(string id)
         {
+            if (id != selectedGameId) { packMessage = ""; packMessageIsError = false; }   // a note about one game's download is not about the next game
             if (GameProfileRegistry.Get(id) is not null) selectedGameId = id;
             if (GameProfileRegistry.Get(id) is { } g) _ = LoadGameInfoAsync(g);
             _ = CheckSetupAgainAsync();   // the setup list is the selected game's
