@@ -28,6 +28,7 @@
             <button class="nav-btn @(currentView == AppView.Library ? "active" : "")" aria-current="@(currentView == AppView.Library ? "page" : null)" @onclick="() => NavigateTo(AppView.Library)">Library</button>
             <button class="nav-btn @(currentView == AppView.Friends ? "active" : "")" aria-current="@(currentView == AppView.Friends ? "page" : null)" @onclick="() => NavigateTo(AppView.Friends)">Friends</button>
             <button class="nav-btn @(currentView == AppView.Activity ? "active" : "")" aria-current="@(currentView == AppView.Activity ? "page" : null)" @onclick="() => NavigateTo(AppView.Activity)">Activity</button>
+            <button class="nav-btn @(currentView == AppView.Saves ? "active" : "")" aria-current="@(currentView == AppView.Saves ? "page" : null)" @onclick="() => NavigateTo(AppView.Saves)">Saves</button>
         </nav>
 
         <div class="topbar-right">
@@ -413,6 +414,9 @@
                     break;
                 case AppView.Activity:
                     <ActivityView Rows="@ActivityRows()" OnOpenGame="@OpenGameFromHome" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" />
+                    break;
+                case AppView.Saves:
+                    <SavesView Sections="@allSaves" Loading="@allSavesLoading" GameRunning="@gameRunning" Asked="@allSavesAsked" OnDelete="@DeleteFromSavesPageAsync" OnRefresh="@LoadAllSavesAsync" />
                     break;
                 case AppView.Help:
                     <HelpView Notices="@CurrentNotices()" OnReplayTour="@ReplayTour" OnOpenSetup="@OpenSetupChecklist" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenSettings="@(() => NavigateTo(AppView.Settings))" />
