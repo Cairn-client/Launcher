@@ -102,6 +102,22 @@ namespace Cairn.Launcher.Models
             return cacheFile is null ? null : FromCache(cacheFile);
         }
 
+        /// <summary>The latest releases of one repository (a game's mod), newest first; null when they cannot be reached.</summary>
+        public static async Task<IReadOnlyList<ReleaseNote>?> FetchRepoAsync(HttpClient http, string repo, int count = 3, CancellationToken ct = default)
+        {
+            try
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Get, $"https://api.github.com/repos/{repo}/releases?per_page={count}");
+                req.Headers.UserAgent.ParseAdd("Cairn-launcher");
+                req.Headers.Accept.ParseAdd("application/vnd.github+json");
+                using var resp = await http.SendAsync(req, ct).ConfigureAwait(false);
+                if (!resp.IsSuccessStatusCode) return null;
+                var notes = Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+                return notes.Take(count).ToList();
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested) { return null; }
+        }
+
         private static IReadOnlyList<ReleaseNote>? FromCache(string file)
         {
             try

@@ -1,0 +1,23 @@
+﻿@using Cairn.Launcher.Models
+@* One release: its tag, its date and what changed (the same look as the Versions page). *@
+<article class="release">
+    <header>
+        <span class="rel-tag">@Note.Tag</span>
+        @if (Note.Prerelease) { <span class="badge muted">Pre-release</span> }
+        @if (Note.Published is { } when) { <span class="rel-date">@when.ToString("d MMM yyyy")</span> }
+    </header>
+    @if (Note.Items.Count == 0)
+    {
+        <p class="muted">Maintenance and stability improvements.</p>
+    }
+    else
+    {
+        <ul class="changes">
+            @foreach (var item in Note.Items.Take(6)) { <li>@item</li> }
+        </ul>
+    }
+</article>
+
+@code {
+    [Parameter, EditorRequired] public ReleaseNote Note { get; set; } = default!;
+}
