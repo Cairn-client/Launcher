@@ -323,10 +323,13 @@
                                 <div><dt>Franchise</dt><dd>@(game.Franchise.Length > 0 ? game.Franchise : "-")</dd></div>
                                 <div><dt>Released</dt><dd>@(info?.Released ?? "-")</dd></div>
                                 <div><dt>Genres</dt><dd title="@(info is null ? "" : string.Join(", ", info.Genres))">@(info is { Genres.Count: > 0 } ? string.Join(", ", info.Genres) : "-")</dd></div>
+                                @if (game.PageAppId != 0)   // a game that is not on Steam has no reviews and no library entry
+                                {
                                 <div><dt>Steam reviews</dt><dd class="@ReviewClass(info)">@ReviewText(info)</dd></div>
                                 <div><dt>Steam app</dt><dd>@game.SteamAppId
                                     <button class="link-btn" title="Open this game in your Steam library" @onclick="() => OpenSteamLibrary(game)">Library</button>
                                     </dd></div>
+                                }
                             </dl>
                         </div>
                         <div class="info-col">
@@ -433,8 +436,11 @@
         <div class="ctx-title">@mg.DisplayName</div>
         <button role="menuitem" @onclick="() => MenuAction(() => ToggleFavoriteWithToast(mg))">@(IsFavorite(mg.Id) ? "Remove from favourites" : "Add to favourites")</button>
         <button role="menuitem" @onclick="() => MenuAction(() => OpenGameFromHome(mg.Id))">Open the game page</button>
-        <button role="menuitem" @onclick="() => MenuAction(() => OpenSteamLibrary(mg))">Open in the Steam library</button>
-        <button role="menuitem" @onclick="() => MenuAction(() => OpenSteamStore(mg))">Open the Steam store page</button>
+        @if (mg.PageAppId != 0)
+        {
+            <button role="menuitem" @onclick="() => MenuAction(() => OpenSteamLibrary(mg))">Open in the Steam library</button>
+            <button role="menuitem" @onclick="() => MenuAction(() => OpenSteamStore(mg))">Open the Steam store page</button>
+        }
         <button role="menuitem" disabled="@(!IsGameFound(mg))" @onclick="() => MenuAction(() => OpenInstallFolder(mg))">Open the install folder</button>
         @if (IsModDownloaded(mg))
         {
