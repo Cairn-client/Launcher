@@ -105,7 +105,11 @@
                     <span class="store-name">@card.DisplayName</span>
                     <span class="store-dev">@(card.IsSupported ? (card.Developer.Length > 0 ? card.Developer : "Playable now") : "Coming soon")</span>
                 </div>
-                <button class="store-add @(inLib ? "in" : "")" @onclick="() => OnToggle(card)">@(inLib ? "In your library" : "+ Add to library")</button>
+                <button class="store-add @(inLib ? "in" : "")" @onclick="() => OnToggle(card)">
+                    @if (inLib) { <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12 10 17 19 7"/></svg> }
+                    else { <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> }
+                    <span>@(inLib ? "In your library" : "Add to library")</span>
+                </button>
             </div>
         }
     </div>;
