@@ -251,6 +251,21 @@ public class PackInstallerTests : IDisposable
     }
 
     [Fact]
+    public async Task APackThatLostFilesIsRemovedSoItIsDownloadedAgain()
+    {
+        var zip = BuildZip(Files);
+        await PackInstaller.DownloadAsync(InfoFor(zip), AnyUrl, _root, Serving(zip));
+        Assert.Equal(0, PackStore.MissingFiles(_root, "kcd2"));
+        Assert.Empty(PackStore.RemoveBroken(_root));   // a whole pack stays
+
+        var first = PackStore.Read(_root, "kcd2")!.Files.First();
+        File.Delete(PackStore.EntryPath(_root, "kcd2", first));   // what an installer sweep or an antivirus does
+        Assert.Equal(1, PackStore.MissingFiles(_root, "kcd2"));
+        Assert.Equal(new[] { "kcd2" }, PackStore.RemoveBroken(_root));
+        Assert.False(PackStore.IsDownloaded(_root, "kcd2"));
+    }
+
+    [Fact]
     public async Task AnUpdateKeepsTheEarlierVersionAndItCanBeRestored()
     {
         var first = BuildZip(Files);

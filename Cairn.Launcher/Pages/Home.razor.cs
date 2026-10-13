@@ -128,6 +128,12 @@ namespace Cairn.Launcher.Pages
             LoadSettings();
             if (string.Equals(settings.StartPage, "library", StringComparison.OrdinalIgnoreCase)) currentView = AppView.Library;   // Settings > General: the page Cairn opens on
             LoadCustomServers();
+            try
+            {
+                // a mod that lost files (an installer sweep, an antivirus) is not "downloaded": it is offered for download again instead of failing at Play
+                foreach (var id in PackStore.RemoveBroken(PacksRoot)) Log.Warning("packs: {Pack} had lost files, so it is downloaded again when asked", id);
+            }
+            catch (Exception ex) { Log.Debug(ex, "packs: the check for lost files failed"); }
             StartSetupCheck();   // in the background; replaces the old "open Settings when no game path" check
             _ = RefreshCatalogAndPacksAsync();   // which games there are, then which mods they offer
             StartAutoUpdateLoop();
@@ -230,6 +236,19 @@ namespace Cairn.Launcher.Pages
                     }
                 })
             ");
+                // the mouse's side buttons go back and forward through the pages, like a browser (4th = back, 5th = forward)
+                await JSRuntime.InvokeVoidAsync("eval", @"
+                window.__cairnNav = (ref) => {
+                    const swallow = (e) => { if (e.button === 3 || e.button === 4) { e.preventDefault(); e.stopPropagation(); } };
+                    window.addEventListener('mousedown', swallow, true);
+                    window.addEventListener('auxclick', swallow, true);
+                    window.addEventListener('mouseup', (e) => {
+                        if (e.button === 3) { e.preventDefault(); ref.invokeMethodAsync('NavBackJS'); }
+                        else if (e.button === 4) { e.preventDefault(); ref.invokeMethodAsync('NavForwardJS'); }
+                    }, true);
+                };
+            ");
+                await JSRuntime.InvokeVoidAsync("__cairnNav", objRef);
             }
         }
 

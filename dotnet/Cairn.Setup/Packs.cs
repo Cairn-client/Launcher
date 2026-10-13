@@ -280,6 +280,28 @@ public static class PackStore
 
     public static bool IsDownloaded(string root, string id) => Read(root, id) is not null;
 
+    /// <summary>How many files of the downloaded pack's manifest are not in the store (0 for a pack that is whole, or not downloaded). An installer that swept the folder, or an antivirus, leaves a pack with holes.</summary>
+    public static int MissingFiles(string root, string id) =>
+        Read(root, id) is { } p ? p.Files.Count(e => !File.Exists(EntryPath(root, id, e))) : 0;
+
+    /// <summary>Removes every downloaded pack that has lost files, so it is offered for download again instead of failing at Play. Returns the ids.</summary>
+    public static IReadOnlyList<string> RemoveBroken(string root)
+    {
+        var removed = new List<string>();
+        if (!Directory.Exists(root)) return removed;
+        foreach (var dir in Directory.GetDirectories(root))
+        {
+            string id = Path.GetFileName(dir);
+            if (id.EndsWith(PreviousSuffix, StringComparison.OrdinalIgnoreCase)) continue;
+            if (MissingFiles(root, id) > 0)
+            {
+                try { Directory.Delete(dir, recursive: true); removed.Add(id); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* in use: left as it is */ }
+            }
+        }
+        return removed;
+    }
+
     /// <summary>Deletes the downloaded pack, and the earlier version kept for a rollback (not the mod already placed in a game folder).</summary>
     public static void Remove(string root, string id)
     {
