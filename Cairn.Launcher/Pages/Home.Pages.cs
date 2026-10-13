@@ -54,5 +54,27 @@ namespace Cairn.Launcher.Pages
             ShowToast(message, !ok);
             allSavesLoading = false;
             await LoadAllSavesAsync();
+        }
+        // ---- the News page: the latest release of each mod the player has (or follows), kept for half an hour ----
+        private IReadOnlyList<(GameProfile Game, IReadOnlyList<ReleaseNote> Notes)> modNews = Array.Empty<(GameProfile, IReadOnlyList<ReleaseNote>)>();
+        private bool modNewsLoading;
+        private DateTime modNewsAt = DateTime.MinValue;
+
+        private async Task LoadModNewsAsync(bool force = false)
+        {
+            if (modNewsLoading || (!force && DateTime.UtcNow - modNewsAt < TimeSpan.FromMinutes(30))) return;
+            modNewsLoading = true;
+            await InvokeAsync(StateHasChanged);
+            try
+            {
+                var games = GameProfileRegistry.All().Where(g => g.ModRepo.Length > 0 && (IsModDownloaded(g) || HomeFavorites.Contains(g.Id) || recent.Entries.Any(e => e.GameId == g.Id)))
+                    .OrderBy(g => g.DisplayName, StringComparer.OrdinalIgnoreCase).Take(10).ToList();
+                var asks = games.Select(async g => (Game: g, Notes: await Changelog.FetchRepoAsync(PackHttp, g.ModRepo, 2))).ToList();
+                var done = await Task.WhenAll(asks);
+                modNews = done.Where(d => d.Notes is { Count: > 0 }).Select(d => (d.Game, d.Notes!)).ToList();
+                modNewsAt = DateTime.UtcNow;
+            }
+            catch (Exception ex) { Log.Debug(ex, "news: the mods'' releases could not be read"); }
+            finally { modNewsLoading = false; await InvokeAsync(StateHasChanged); }
         }    }
 }

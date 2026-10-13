@@ -828,3 +828,23 @@
     border-color: #e06a6a;
     color: #e06a6a;
 }
+
+/* ---- the News page ---- */
+.news-game {
+    margin-top: 14px;
+}
+
+.news-game-name {
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--cairn-gold);
+    font-family: var(--cairn-font-family);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+    .news-game-name:hover {
+        text-decoration: underline;
+    }

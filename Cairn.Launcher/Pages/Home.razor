@@ -36,6 +36,7 @@
 
             <nav class="nav" aria-label="Launcher">
                 <button class="nav-btn @(currentView == AppView.Versions ? "active" : "")" aria-current="@(currentView == AppView.Versions ? "page" : null)" @onclick="() => NavigateTo(AppView.Versions)">Versions</button>
+                <button class="nav-btn @(currentView == AppView.News ? "active" : "")" aria-current="@(currentView == AppView.News ? "page" : null)" @onclick="() => NavigateTo(AppView.News)">News</button>
                 <button class="nav-btn @(currentView == AppView.Help ? "active" : "")" aria-current="@(currentView == AppView.Help ? "page" : null)" @onclick="() => NavigateTo(AppView.Help)">Help</button>
                 <button class="nav-btn @(currentView == AppView.Settings ? "active" : "")" aria-current="@(currentView == AppView.Settings ? "page" : null)" title="Settings (F10)" @onclick="() => NavigateTo(AppView.Settings)">Settings</button>
             </nav>
@@ -417,6 +418,9 @@
                     break;
                 case AppView.Saves:
                     <SavesView Sections="@allSaves" Loading="@allSavesLoading" GameRunning="@gameRunning" Asked="@allSavesAsked" OnDelete="@DeleteFromSavesPageAsync" OnRefresh="@LoadAllSavesAsync" />
+                    break;
+                case AppView.News:
+                    <NewsView Notices="@CurrentNotices()" CairnReleases="@changelog" Mods="@modNews" Loading="@modNewsLoading" OnRefresh="@(() => LoadModNewsAsync(true))" OnOpenVersions="@(() => NavigateTo(AppView.Versions))" OnOpenGame="@OpenGameFromHome" />
                     break;
                 case AppView.Help:
                     <HelpView Notices="@CurrentNotices()" OnReplayTour="@ReplayTour" OnOpenSetup="@OpenSetupChecklist" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenSettings="@(() => NavigateTo(AppView.Settings))" />
