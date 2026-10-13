@@ -11,19 +11,6 @@
    left off, who is hosting, your mods, and shelves of posters. Opening a game goes to its page in the Library. *@
 <div class="home">
 
-    @if (UpdateTag is not null)
-    {
-        <div class="update-banner" role="status">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 11 12 16 17 11"/><path d="M5 21h14"/></svg>
-            <div class="update-text">
-                <strong>Cairn Client @UpdateTag is available.</strong>
-                @if (UpdateNotes.Count > 0) { <span>@UpdateNotes[0]@(UpdateNotes.Count > 1 ? $" and {UpdateNotes.Count - 1} more" : "")</span> }
-                <span class="muted">Both players need the same version to play together.</span>
-            </div>
-            <button class="update-btn" disabled="@UpdateBusy" @onclick="OnUpdate">@(UpdateBusy ? "Updating..." : "Update now")</button>
-        </div>
-    }
-
     @foreach (var n in Notices)
     {
         <div class="update-banner notice @(n.Kind == Cairn.Setup.Notice.KnownIssue ? "issue" : "news")" role="status">
@@ -321,10 +308,6 @@
     /// <summary>The setup checklist's verdict; null while it is still being checked.</summary>
     [Parameter] public bool? SetupReady { get; set; }
 
-    [Parameter] public string? UpdateTag { get; set; }
-    [Parameter] public IReadOnlyList<string> UpdateNotes { get; set; } = Array.Empty<string>();
-    [Parameter] public bool UpdateBusy { get; set; }
-    [Parameter] public EventCallback OnUpdate { get; set; }
     [Parameter] public IReadOnlyList<Cairn.Setup.Notice> Notices { get; set; } = Array.Empty<Cairn.Setup.Notice>();
     [Parameter] public EventCallback<string> OnDismissNotice { get; set; }
 
@@ -352,7 +335,7 @@
     private static readonly (string Title, string Text)[] Tips =
     {
         ("Same version, same world", "Everyone in a session needs the same mod version. Cairn keeps your mods up to date by itself, so you only have to check when a friend is on an older one."),
-        ("Something broke after an update?", "Open the game's page and press Go back: the version before the last update is restored, and it is not installed again by itself."),
+        ("Something broke after an update?", "Open the game's page and press Go back: the version before the last update is restored."),
         ("Favourites", "Press the heart on a game's poster and it comes first in the list and on this page."),
         ("Ready check", "Before you host or join, the ready check says what is missing and has a button for each problem."),
         ("Report a problem", "Save the logs from here, then attach the zip to your report: it holds the game's, the mod's and the launcher's logs."),

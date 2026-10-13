@@ -219,7 +219,7 @@ namespace Cairn.Launcher.Pages
                 await JSRuntime.InvokeVoidAsync("registerGlobalKeys", objRef);
                 await ApplyStyleProfile();
                 try { await JSRuntime.InvokeVoidAsync("cairnGamepad"); } catch (Exception) { /* controller support is a convenience */ }
-                _ = CheckForUpdateAsync(announce: true);   // Cairn: is a newer version out (the update window opens by itself if so)
+                _ = CheckForUpdateAsync();   // Cairn: is a newer version out (an orange dot shows it, nothing opens)
                 _ = WatchGameAsync();             // Cairn: is the game running
 
                 await JSRuntime.InvokeVoidAsync("eval", @"

@@ -120,7 +120,6 @@ namespace Cairn.Launcher.Pages
 
         private async Task OpenHostModal()
         {
-            if (await OfferUpdateBeforeAsync("host")) return;   // a newer version is offered once
             if (!await EnsureSetupReadyAsync()) return;          // before a relay is started
             await OpenHostModalViaPackAsync();
         }

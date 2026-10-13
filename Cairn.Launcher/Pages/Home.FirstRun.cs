@@ -175,6 +175,9 @@ namespace Cairn.Launcher.Pages
             if (setupPackDownloading)
                 return new[] { new PackStep("mod-pack", $"{ActiveGameName} mod downloaded", PackStepStatus.Working,
                     "Downloading the mod" + (setupPackProgress is double p ? $" ({p * 100:0}%)" : "") + "...", Progress: setupPackProgress, System: true) };
+            if (have && packProgramSilent && PackSetupProgram() is not null)
+                return new[] { new PackStep("mod-pack", $"{ActiveGameName} mod downloaded", PackStepStatus.NeedsYou,
+                    "The mod is installed, but its setup did not answer in time. Press Check again.", System: true) };
             return new[] { new PackStep("mod-pack", $"{ActiveGameName} mod downloaded", PackStepStatus.NeedsYou,
                 (setupPackFailure is null ? "" : setupPackFailure + " ") + detail, DownloadPackAction, setupPackFailure is null ? "Download the mod" : "Try again", System: true) };
         }

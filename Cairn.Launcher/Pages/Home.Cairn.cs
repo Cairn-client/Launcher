@@ -99,8 +99,8 @@ namespace Cairn.Launcher.Pages
             return Directory.Exists(dir) ? dir : null;
         }
         // ---- one-click update -------------------------------------------------------------------------------------------
-        // A window opens by itself at start when a newer release is out, and Host / Join look again and ask before they start when one is. Both open the
-        // update window: what is new, UPDATE NOW or LATER. UPDATE NOW downloads that release's installer from this repository's own
+        // Nothing opens by itself: an orange dot next to Versions says a newer release is out, and the player presses Check for updates there. The
+        // update window shows what is new, UPDATE NOW or LATER. UPDATE NOW downloads that release's installer from this repository's own
         // address (a progress bar in the same window), checks it against the SHA-256 GitHub lists for it, and runs it silently over this
         // install (same folder, the shortcut choices Setup remembered, the old shortcuts replaced); the new launcher opens when it is done.
         private UpdateInfo? updateInfo;
@@ -109,36 +109,12 @@ namespace Cairn.Launcher.Pages
         private string updateStage = "offer", updateStatus = "", updateReason = "";
         private double? updateProgress;
 
-        // The version the player was last told about by a pop-up: each new release is announced once, whenever it is found.
-        private string? announcedUpdateTag;
-
-        /// <param name="announce">Open the update window by itself when a release the player has not been told about is out
-        /// (at start).</param>
-        private async Task CheckForUpdateAsync(bool announce = false)
+        /// <summary>Asks GitHub whether a newer release is out. Only remembers the answer (an orange dot next to Versions); nothing opens.</summary>
+        private async Task CheckForUpdateAsync()
         {
             var n = await UpdateCheck.CheckAsync(Globals.CairnVersion);
             updateInfo = n;
             await InvokeAsync(StateHasChanged);
-            if (announce) await AnnounceUpdateAsync();
-        }
-
-        /// <summary>Opens the update window for a release not announced yet, unless the player is in the middle of something else (a launch,
-        /// Settings, the setup checklist, another update): the button stays, and the next check tries again.</summary>
-        private async Task AnnounceUpdateAsync()
-        {
-            var n = updateInfo;
-            if (n is null || n.Tag == announcedUpdateTag || updateBusy || showUpdate) return;
-            if (launchStage != LaunchStage.Idle || showSettings || showGameSettings || showSetup || showHostInfo || showJoinSteam) return;
-            announcedUpdateTag = n.Tag;
-            if (settings.AutoUpdateCairn && !gameRunning)
-            {
-                // seamless: no window to click through. The installer downloads and runs with nothing on screen, and the new launcher opens by itself.
-                Log.Information("update: {Tag} is out, installing it by itself", n.Tag);
-                ShowToast($"Updating Cairn to {n.Tag}... it reopens by itself.");
-                await RunUpdateAsync();
-                return;
-            }
-            await InvokeAsync(() => OpenUpdateModal("A new version of Cairn Client is available. Both players need the same version to play together."));
         }
 
 
@@ -172,17 +148,6 @@ namespace Cairn.Launcher.Pages
         private void UpdateClick() => OpenUpdateModal();
 
         private void UpdateLater() { declinedUpdateTag = updateInfo?.Tag; showUpdate = false; }
-
-        /// <summary>Host and Join: a newer version is checked for, and offered once. True = the window opened, the click goes no further.</summary>
-        private async Task<bool> OfferUpdateBeforeAsync(string what)
-        {
-            if (updateBusy) return false;
-            // a fresh look at GitHub at every Host and Join, not the answer from an earlier check; a release already put off with "later" is not offered again at each click, a newer one is
-            await CheckForUpdateAsync();
-            if (updateInfo is null || updateInfo.Tag == declinedUpdateTag) return false;
-            OpenUpdateModal($"Before you {what}: both players must be on the same version, and a newer one is out.");
-            return true;
-        }
 
         private void UpdateFailed(string text)
         {

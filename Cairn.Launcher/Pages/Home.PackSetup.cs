@@ -22,6 +22,7 @@ namespace Cairn.Launcher.Pages
         private string packSetupGameId = "";   // the game packSetup is about
         private readonly Dictionary<string, string> packExeNotes = new();   // what each game's pack said about the executable it was given ("" = nothing wrong)
         private readonly Dictionary<string, string> packGameDirs = new();   // the folder each game's pack said its options belong in (setup check, found.gameDir)
+        private bool packProgramSilent;   // the pack has a setup program that did not answer the last check (not the same as a pack too old to have one)
         private (string StepId, string Action)? packBusy;
         private string? packBusyLine;
         private double? packBusyProgress;
@@ -49,14 +50,21 @@ namespace Cairn.Launcher.Pages
             if (program is null) { packSetup = null; setupReady = false; return false; }
             string? mt = GameExeOf(gameId) is { } known && System.IO.File.Exists(known) ? known : null;
             PackSetupReport? report = null;
-            try { report = await PackSetup.CheckAsync(program, mt); }
-            catch (Exception ex) { Log.Warning(ex, "setup: the pack's checklist failed"); }
+            // the first run of a program right after an update is often slow (the new files are being scanned): one more try before giving up
+            for (int attempt = 0; attempt < 2 && report is null; attempt++)
+            {
+                if (attempt > 0) await Task.Delay(1500);
+                try { report = await PackSetup.CheckAsync(program, mt); }
+                catch (Exception ex) { Log.Warning(ex, "setup: the pack's checklist failed"); }
+            }
             if (report is null)
             {
                 Log.Warning("setup: the pack's program gave no checklist");
                 packSetup = null;
+                packProgramSilent = true;
                 return false;
             }
+            packProgramSilent = false;
             packSetup = report;
             if (!string.IsNullOrWhiteSpace(report.GameDir)) packGameDirs[gameId] = report.GameDir;
             packExeNotes[gameId] = report.GameExeNote ?? "";

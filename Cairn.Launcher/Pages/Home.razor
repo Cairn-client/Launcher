@@ -32,7 +32,7 @@
             <SearchBar @ref="searchBar" Games="@GameProfileRegistry.All()" OnPc="@IsGameFound" Favorites="@HomeFavorites" OnPick="@PickFromSearch" />
 
             <nav class="nav" aria-label="Launcher">
-                <button class="nav-btn @(currentView == AppView.Versions ? "active" : "")" aria-current="@(currentView == AppView.Versions ? "page" : null)" @onclick="() => NavigateTo(AppView.Versions)">Versions</button>
+                <button class="nav-btn @(currentView == AppView.Versions ? "active" : "")" aria-current="@(currentView == AppView.Versions ? "page" : null)" @onclick="() => NavigateTo(AppView.Versions)">Versions@if (updateInfo is not null) { <span class="update-dot" title="A new version of Cairn is out"></span> }</button>
                 <button class="nav-btn @(currentView == AppView.Help ? "active" : "")" aria-current="@(currentView == AppView.Help ? "page" : null)" @onclick="() => NavigateTo(AppView.Help)">Help</button>
                 <button class="nav-btn @(currentView == AppView.Settings ? "active" : "")" aria-current="@(currentView == AppView.Settings ? "page" : null)" title="Settings (F10)" @onclick="() => NavigateTo(AppView.Settings)">Settings</button>
             </nav>
@@ -254,6 +254,7 @@
                                         else if (pack is not null)
                                         {
                                             <span class="mod-state ok">@pack.Version@(IsModInstalled(game) ? "" : " (not installed)")</span>
+                                            @if (offered is not null && HomeLogic.IsNewerPack(offered.Version, pack.Version)) { <span class="update-dot" title="@offered.Version is available"></span> }
                                             <button class="link-btn" title="Remove the downloaded mod" @onclick="() => RemovePackAsync(game.Id)">Remove</button>
                                             @if (PreviousPackOf(game) is { } prev) { <button class="link-btn" title="Put the version before the last update back" disabled="@(gameRunning)" @onclick="() => RollbackPackAsync(game.Id)">Go back to @prev.Version</button> }
                                             @if (!IsModInstalled(game) && IsPackRunGame(game.Id)) { <button class="link-btn strong" disabled="@(gameRunning)" @onclick="() => InstallModAsync(game.Id)">Install</button> }
@@ -400,10 +401,8 @@
             @switch (currentView)
             {
                 case AppView.Home:
-                    var upd = HomeUpdate();
                     <HomeView AutoPlay="@(settings.SlideshowAuto && !settings.ReduceMotion)" Games="@GameProfileRegistry.All()" OnPc="@IsGameFound" GamesOnPc="@HomeGamesOnPc" ModsInstalled="@HomeModsInstalled"
                               Latest="@(changelog?.FirstOrDefault())" SetupReady="@(!setupChecked ? null : SystemSetupGood)"
-                              UpdateTag="@upd.Tag" UpdateNotes="@upd.Notes" UpdateBusy="@updateBusy" OnUpdate="@HomeUpdateClickAsync"
                               Last="@HomeLast" FriendsState="@homeFriendsState" Friends="@homeFriends" SteamFriends="@homeSteamFriends" SteamFriendsLoaded="@homeSteamFriendsLoaded" HostingAs="@HostingAs" CanInvite="@CanInviteNow" Invited="@invitedFriends" OnInvite="@InviteFromHomeAsync" OnCairn="@CairnFriend" OnJoinFriend="@JoinFriendFromHomeAsync" History="@HomeHistory()" Notices="@HomeNotices()" OnDismissNotice="@DismissNotice" 
                               Favorites="@HomeFavorites" OnToggleFavorite="@ToggleFavorite"
                               Suggestions="@HomeSuggestions()" ModNews="@modNews" RecentGames="@HomeRecentGames()" OnSaveLogs="@CollectMyLogs" OnReportBug="@(() => UrlLauncher.Open("https://github.com/Cairn-client/launcher/issues/new"))" OnReplayTour="@ReplayTour" OnDownloadMod="@(id => DownloadPackAsync(id))"
@@ -413,7 +412,7 @@
                               OnOpenHelp="@(() => NavigateTo(AppView.Help))" OnOpenSetup="@OpenSetupChecklist" />
                     break;
                 case AppView.Versions:
-                    <VersionsView Releases="@changelog" CheckingUpdates="@updateBusy" OnCheckUpdates="@CheckUpdatesAndChangelogAsync" OnReload="@ReloadChangelogAsync" />
+                    <VersionsView Releases="@changelog" UpdateTag="@updateInfo?.Tag" CheckingUpdates="@updateBusy" OnCheckUpdates="@CheckUpdatesAndChangelogAsync" OnReload="@ReloadChangelogAsync" />
                     break;
                 case AppView.Profile:
                     <ProfileView SteamName="@steamSelf.Name" SteamId="@steamSelf.Id" Avatar="@steamSelf.Avatar" Info="@steamSelfInfo"

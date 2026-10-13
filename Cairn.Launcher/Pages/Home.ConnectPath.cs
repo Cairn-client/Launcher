@@ -61,7 +61,6 @@ namespace Cairn.Launcher.Pages
 
         private async Task OpenJoinSteam()
         {
-            if (await OfferUpdateBeforeAsync("join")) return;   // Cairn: a newer version is offered once
             if (!await EnsureSetupReadyAsync()) return;   // Host and Join unlock at Ready!
             showJoinSteam = true;
             steamCodeInput = settings.LastSteamCode ?? "";

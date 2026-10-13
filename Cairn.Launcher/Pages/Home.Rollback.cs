@@ -57,7 +57,7 @@ namespace Cairn.Launcher.Pages
             if (left.Length > 0) { settings.HeldBackMods[gameId] = left; WriteSettings("a mod version held back"); }
             Log.Information("packs: {Game} went back from {From} to {To}", gameId, left, old.Version);
             await InstallModAsync(gameId);
-            SetPackMessage($"{game.DisplayName} mod is back to {old.Version}. {left} will not be installed by itself again.", error: false);
+            SetPackMessage($"{game.DisplayName} mod is back to {old.Version}.", error: false);
             if (gameId == ActiveGameId) await CheckSetupAgainAsync();
         }
     }
