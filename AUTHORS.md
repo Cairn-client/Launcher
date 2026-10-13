@@ -31,6 +31,7 @@ packs it (and, for some games, the loader it runs on) and installs it. Each keep
 | Dead Cells | Dead Cells Multiplayer Mod | vaiserYT: <https://github.com/vaiserYT/DeadCellsMultiplayerMod> | MIT |
 | Grand Theft Auto: San Andreas | CoopAndreas | Tornamic: <https://github.com/Tornamic/CoopAndreas> | GPL-3.0 |
 | Prey | CoopPrototype (prey-coop) | x0rp01s0n and contributors: <https://github.com/x0rp01s0n/prey-coop> | GPL-3.0 |
+| Fallout 4 | F4MP (Fallout 4 Multiplayer) | saywhy2me, from the F4MP of cokwa and its original authors: <https://github.com/saywhy2me/Fallout4Multiplayer> | GPL-3.0 |
 
 What a mod's pack carries beyond the mod itself, each under its own licence and credited to its authors:
 
@@ -41,6 +42,7 @@ What a mod's pack carries beyond the mod itself, each under its own licence and 
 - MelonLoader (Apache-2.0, Slime Rancher 2): <https://github.com/LavaGang/MelonLoader>
 - Dead Cells Core Modding API (MIT, Dead Cells): <https://github.com/dead-cells-core-modding/core>
 - Chairloader by thelivingdiamond (GPL-3.0, Prey): <https://github.com/thelivingdiamond/Chairloader>. Prey's pack does not carry it: the player installs it.
+- F4SE, the Fallout 4 Script Extender, by the Silverlock team (Fallout 4): <https://f4se.silverlock.org/>. Fallout 4's pack does not carry it: Cairn downloads it from its authors' site on the player's PC, checked against a pinned hash, and the player can also install it by hand.
 - Starlight by ThatFinn (Slime Rancher 2) is a requirement of that mod. Its licence forbids bundling it, so Cairn does not carry it: the player takes it from its author's page.
 ## Additional libraries and modules
 
