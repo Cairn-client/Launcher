@@ -13,7 +13,8 @@
 
     <section class="card now">
         <div class="facts">
-            <div><span class="k">Cairn Client</span><span class="v">@Globals.CairnVersion@if (UpdateTag is not null) { <span class="update-dot" title="@UpdateTag is available"></span> }</span></div>
+            <div><span class="k">Cairn Client</span><span class="v"><span>@Globals.CairnVersion</span>
+                @if (UpdateTag is not null) { <span class="update-dot" title="@UpdateTag is available"></span> }</span></div>
             @if (UpdateTag is not null)
             {
                 <div><span class="k">Newer version</span><span class="v">@UpdateTag</span></div>
