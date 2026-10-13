@@ -838,7 +838,12 @@ begin
       Full := Base + '\' + RelName;
 
       if (FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
+      begin
+        { the downloaded mods live in packs\ and their programs (.exe, .dll) are not the launcher's: never swept. Without this every
+          update deleted them, and each mod then asked to be downloaded again. }
+        if (Rel = '') and ((CompareText(FindRec.Name, 'packs') = 0) or (CompareText(FindRec.Name, 'cache') = 0)) then Continue;
         SweepDir(Base, RelName, Removed, Count)
+      end
       else if IsSweepCandidate(FindRec.Name) then
         if Pos('|' + Lowercase(RelName) + '|', AppIndex) = 0 then
         begin
