@@ -61,7 +61,7 @@ namespace Cairn.Launcher.Pages
             if (!settings.NotifyFriends) return;
             if (PresenceNotices.ForFriend(before, f) is { } text)
             {
-                if (f.Online && f.Activity == PresenceApi.Activity.Hosting) { TrayService.Notify("A friend is hosting", text); ShowToast(text, error: false, action: "Join", onAction: () => JoinHostingFriendAsync(f), milliseconds: 30_000); }
+                if (f.Online && f.Activity == PresenceApi.Activity.Hosting) { if (settings.TrayNotices) TrayService.Notify("A friend is hosting", text); ShowToast(text, error: false, action: "Join", onAction: () => JoinHostingFriendAsync(f), milliseconds: 30_000); }
                 else ShowToast(text);
             }
             _ = InvokeAsync(StateHasChanged);
@@ -93,7 +93,7 @@ namespace Cairn.Launcher.Pages
         {
             if (!settings.NotifyFriends) return;
             string text = PresenceNotices.ForInvite(i);
-            TrayService.Notify("Invitation", text + ". Open Cairn to join.");   // the window may be in the tray or behind the game
+            if (settings.TrayNotices) TrayService.Notify("Invitation", text + ". Open Cairn to join.");   // the window may be in the tray or behind the game
             ShowToast(text, error: false, action: "Join", onAction: () => AcceptInviteAsync(i), milliseconds: 60_000);
         }
 

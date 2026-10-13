@@ -334,6 +334,8 @@
     [Parameter] public int TotalMinutes { get; set; }
     [Parameter] public string MostPlayed { get; set; } = "";
     [Parameter] public EventCallback OnOpenAccount { get; set; }
+    /// <summary>The slides change by themselves (Settings > Appearance).</summary>
+    [Parameter] public bool AutoPlay { get; set; } = true;
     [Parameter] public EventCallback OnOpenNews { get; set; }
     /// <summary>The latest release of each mod the player has or follows.</summary>
     [Parameter] public IReadOnlyList<(GameProfile Game, IReadOnlyList<ReleaseNote> Notes)> ModNews { get; set; } = Array.Empty<(GameProfile, IReadOnlyList<ReleaseNote>)>();
@@ -448,7 +450,7 @@
             while (!token.IsCancellationRequested)
             {
                 await Task.Delay(7000, token);
-                if (token.IsCancellationRequested || Slides.Count < 2) continue;
+                if (token.IsCancellationRequested || Slides.Count < 2 || !AutoPlay) continue;
                 await InvokeAsync(() =>
                 {
                     index = (index + 1) % Math.Max(1, Slides.Count);

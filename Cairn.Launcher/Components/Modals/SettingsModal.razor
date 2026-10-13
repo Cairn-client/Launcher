@@ -87,11 +87,135 @@
                         <div class="settings-empty">No setting matches "@query".</div>
                     }
 
-                    @if (Show("port"))
+                    @* ---- General ---- *@
+                    @if (Show("startpage"))
                     {
                     <div class="cairn-input-group">
-                        <label class="cairn-label">Host Port</label>
-                        <input class="cairn-input" type="number" @bind="Settings.HostPort" />
+                        <label class="cairn-label">Page shown when Cairn starts</label>
+                        <select class="cairn-input" @bind="Settings.StartPage">
+                            <option value="home">Home</option>
+                            <option value="library">Library</option>
+                        </select>
+                    </div>
+                    }
+
+                    @if (Show("confirmquit"))
+                    {
+                    <div class="cairn-input-group">
+                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" @bind="Settings.ConfirmQuit" />
+                            Pressing Escape on a page asks whether to close Cairn
+                        </label>
+                        <div class="cairn-hint">Off: Escape does nothing there (it still closes a window or a menu that is open).</div>
+                    </div>
+                    }
+
+                    @if (Show("updates"))
+                    {
+                    <div class="cairn-input-group">
+                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" @bind="Settings.AutoUpdateCairn" />
+                            Install a new Cairn by itself when the launcher starts
+                        </label>
+                        <div class="cairn-hint">The installer runs with no windows and Cairn opens again. Off: a new version is announced and waits for you. Friends need the same version to play together.</div>
+                    </div>
+                    <div class="cairn-input-group">
+                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" @bind="Settings.AutoUpdateMods" />
+                            Keep my mods up to date by themselves
+                        </label>
+                        <div class="cairn-hint">A newer version of a mod you have is downloaded and put in the game in the background, never while a game is running. "Go back" on the game's page undoes an update.</div>
+                    </div>
+                    }
+
+                    @* ---- Appearance ---- *@
+                    @if (Show("accent"))
+                    {
+                    <div class="cairn-input-group">
+                        <label class="cairn-label">Accent colour</label>
+                        <div class="accent-choices">
+                            @foreach (var (id, name, color) in Accents)
+                            {
+                                <button type="button" class="accent-choice @(Settings.AccentColor == id ? "on" : "")" style="--swatch: @color;" title="@name" aria-label="@name" aria-pressed="@(Settings.AccentColor == id)" @onclick="() => Settings.AccentColor = id"></button>
+                            }
+                        </div>
+                        <div class="cairn-hint">The colour of buttons, rings and highlights. It shows when you save.</div>
+                    </div>
+                    }
+
+                    @if (Show("motion"))
+                    {
+                    <div class="cairn-input-group">
+                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" @bind="Settings.ReduceMotion" />
+                            Reduce motion
+                        </label>
+                        <div class="cairn-hint">Turns the animations off: the spinning rings, the slideshow's slides and the fades.</div>
+                    </div>
+                    }
+
+                    @if (Show("slideshow"))
+                    {
+                    <div class="cairn-input-group">
+                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" @bind="Settings.SlideshowAuto" />
+                            Change the slides on Home by themselves
+                        </label>
+                    </div>
+                    }
+
+                    @* ---- Notifications ---- *@
+                    @if (Show("notifyfriends"))
+                    {
+                    <div class="cairn-input-group">
+                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" @bind="Settings.NotifyFriends" />
+                            Tell me when a friend comes online, starts playing or invites me
+                        </label>
+                    </div>
+                    }
+
+                    @if (Show("traynotices"))
+                    {
+                    <div class="cairn-input-group">
+                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" @bind="Settings.TrayNotices" />
+                            Also show Windows notifications (when a friend hosts, or invites me)
+                        </label>
+                        <div class="cairn-hint">So you see them while the game is in front or Cairn is minimised.</div>
+                    </div>
+                    }
+
+                    @if (Show("notifyupdates"))
+                    {
+                    <div class="cairn-input-group">
+                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" @bind="Settings.NotifyUpdates" />
+                            Tell me when a mod was updated in the background
+                        </label>
+                    </div>
+                    }
+
+                    @* ---- Privacy ---- *@
+                    @if (Show("presence"))
+                    {
+                    <div class="cairn-input-group">
+                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" @bind="Settings.PresenceEnabled" />
+                            Let my Steam friends who use Cairn see when I am online and invite me
+                        </label>
+                        <div class="cairn-hint">Your Steam name and friend ids go to the Cairn server while the launcher is open. A friend is shown only when you both list each other. Takes effect the next time the launcher starts.</div>
+                    </div>
+                    }
+
+                    @if (Show("friendstatus"))
+                    {
+                    <div class="cairn-input-group">
+                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" @bind="Settings.FriendStatus" />
+                            Show what my Steam friends are doing, and their pictures
+                        </label>
+                        <div class="cairn-hint">Cairn asks each friend's public Steam profile page (steamcommunity.com) and loads their picture from Steam. Off: the friends list shows names only, and nothing is asked of Steam.</div>
                     </div>
                     }
 
@@ -106,6 +230,15 @@
                     </div>
                     }
 
+                    @* ---- Hosting ---- *@
+                    @if (Show("port"))
+                    {
+                    <div class="cairn-input-group">
+                        <label class="cairn-label">Host Port</label>
+                        <input class="cairn-input" type="number" @bind="Settings.HostPort" />
+                    </div>
+                    }
+
                     @if (Show("steamjoin"))
                     {
                     <div class="cairn-input-group">
@@ -116,29 +249,25 @@
                     </div>
                     }
 
-                    @if (Show("friends"))
+                    @if (Show("connectgate"))
                     {
                     <div class="cairn-input-group">
                         <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="checkbox" @bind="Settings.PresenceEnabled" />
-                            Let my Steam friends who use Cairn see when I am online and invite me
+                            <input type="checkbox" @bind="Settings.ConnectGate" />
+                            Wait until the world is loaded before the CONNECT button works
                         </label>
-                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="checkbox" @bind="Settings.NotifyFriends" />
-                            Tell me when a friend comes online, starts playing or invites me
-                        </label>
-                        <div class="cairn-hint">Your Steam name and friend ids go to the Cairn server while the launcher is open. The Friends tile on Home also asks each friend's public Steam profile page what they are doing, and loads their picture from Steam. A friend is shown only when you both list each other. Takes effect the next time the launcher starts.</div>
+                        <div class="cairn-hint">The button says why it waits. Off: it is always enabled.</div>
                     </div>
                     }
 
-                    @if (Show("updates"))
+                    @if (Show("takeover"))
                     {
                     <div class="cairn-input-group">
                         <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="checkbox" @bind="Settings.AutoUpdateMods" />
-                            Keep Cairn and my mods up to date by themselves
+                            <input type="checkbox" @bind="Settings.MenuTakeover" />
+                            Show Cairn's Start Game / Join Game on the game's main menu
                         </label>
-                        <div class="cairn-hint">A newer version of a mod you have is downloaded and put in the game in the background, never while a game is running. A new Cairn installs itself when the launcher starts, with no windows, and opens again. Friends need the same version to play together.</div>
+                        <div class="cairn-hint">For games Cairn starts. Off: the game's own menu, as it comes.</div>
                     </div>
                     }
 
@@ -362,23 +491,40 @@
         Settings.ModChannels.TryGetValue(gameId, out var c) && string.Equals(c, "beta", StringComparison.OrdinalIgnoreCase);
 
     // ---- the General settings are tabs; the search box looks across all of them ----
-    private string tab = "hosting";
+    private string tab = "general";
+
+    private static readonly (string Id, string Name, string Color)[] Accents =
+    {
+        ("gold", "Gold", "#E8A35A"), ("blue", "Blue", "#5AA9E8"), ("green", "Green", "#6FCF8A"),
+        ("pink", "Pink", "#E86AA8"), ("violet", "Violet", "#9B7BE8"), ("red", "Red", "#E8635A"),
+    };
     private string gameTab = "settings";   // a game with saves has two pages: "settings" and "saves"
     private string query = "";
 
     private static readonly (string Id, string Title)[] Tabs =
     {
-        ("hosting", "Hosting"), ("steam", "Steam"), ("support", "Support"),
+        ("general", "General"), ("appearance", "Appearance"), ("notifications", "Notifications"), ("privacy", "Privacy"), ("hosting", "Hosting"), ("support", "Support"),
     };
 
     // every setting: its tab, and the words it can be found by
     private static readonly Dictionary<string, (string Tab, string Words)> Index = new()
     {
+        ["startpage"] = ("general", "start page home library opens first launch"),
+        ["confirmquit"] = ("general", "escape key ask close quit exit confirm"),
+        ["updates"] = ("general", "update automatically install new version mods background keep up to date cairn"),
+        ["accent"] = ("appearance", "accent colour color theme gold blue green pink violet red"),
+        ["motion"] = ("appearance", "reduce motion animation animations fade spinner"),
+        ["slideshow"] = ("appearance", "slideshow slides home change automatically carousel"),
+        ["notifyfriends"] = ("notifications", "friends online notifications playing invite tell me"),
+        ["traynotices"] = ("notifications", "windows notifications tray toast hosting invite"),
+        ["notifyupdates"] = ("notifications", "mod updated background update notice"),
+        ["presence"] = ("privacy", "presence online invite friends cairn server see me"),
+        ["friendstatus"] = ("privacy", "friends status pictures avatars steam profile community"),
+        ["addr"] = ("privacy", "show ip address host window hidden stream share screen"),
         ["port"] = ("hosting", "host port network tcp address 7778 listen"),
-        ["addr"] = ("hosting", "show ip address host window hidden stream share screen"),
-        ["steamjoin"] = ("steam", "let friends join through steam when i host"),
-        ["friends"] = ("steam", "friends online notifications invite presence"),
-        ["updates"] = ("support", "keep mods up to date automatically update download background version"),
+        ["steamjoin"] = ("hosting", "let friends join through steam when i host"),
+        ["connectgate"] = ("hosting", "connect button wait world loaded gate"),
+        ["takeover"] = ("hosting", "main menu start game join game takeover"),
         ["logs"] = ("support", "save the logs zip bug report desktop game agent launcher"),
         ["uninstall"] = ("support", "maintenance uninstall cairn remove launcher mod"),
     };

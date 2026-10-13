@@ -401,7 +401,7 @@
             {
                 case AppView.Home:
                     var upd = HomeUpdate();
-                    <HomeView Games="@GameProfileRegistry.All()" OnPc="@IsGameFound" GamesOnPc="@HomeGamesOnPc" ModsInstalled="@HomeModsInstalled"
+                    <HomeView AutoPlay="@(settings.SlideshowAuto && !settings.ReduceMotion)" Games="@GameProfileRegistry.All()" OnPc="@IsGameFound" GamesOnPc="@HomeGamesOnPc" ModsInstalled="@HomeModsInstalled"
                               Latest="@(changelog?.FirstOrDefault())" SetupReady="@(!setupChecked ? null : SystemSetupGood)"
                               UpdateTag="@upd.Tag" UpdateNotes="@upd.Notes" UpdateBusy="@updateBusy" OnUpdate="@HomeUpdateClickAsync"
                               Last="@HomeLast" FriendsState="@homeFriendsState" Friends="@homeFriends" SteamFriends="@homeSteamFriends" SteamFriendsLoaded="@homeSteamFriendsLoaded" HostingAs="@HostingAs" CanInvite="@CanInviteNow" Invited="@invitedFriends" OnInvite="@InviteFromHomeAsync" OnCairn="@CairnFriend" OnJoinFriend="@JoinFriendFromHomeAsync" History="@HomeHistory()" Notices="@HomeNotices()" OnDismissNotice="@DismissNotice" 

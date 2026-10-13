@@ -158,7 +158,7 @@ namespace Cairn.Launcher.Pages
                     var friends = r.Friends.Select(f => new SteamFriendData { Name = f.Name, Code = f.Code, Release = f.Release }).ToList();
                     var fresh = HomeLogic.NewlyHosting(homeFriends?.Select(f => f.Name), friends.Select(f => f.Name));
                     homeFriends = friends; homeFriendsState = "ok";
-                    if (fresh.Count > 0) TrayService.Notify("A friend is hosting", string.Join(", ", fresh) + (fresh.Count == 1 ? " is" : " are") + " hosting a game. Open Cairn to join.");
+                    if (fresh.Count > 0 && settings.TrayNotices) TrayService.Notify("A friend is hosting", string.Join(", ", fresh) + (fresh.Count == 1 ? " is" : " are") + " hosting a game. Open Cairn to join.");
                 }
                 else homeFriendsState = "unavailable";
             }

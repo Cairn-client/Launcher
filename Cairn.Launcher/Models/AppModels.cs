@@ -145,6 +145,33 @@ namespace Cairn.Launcher.Models
         // A mod with a newer version is downloaded and put in its game by itself (never while a game runs). Friends need the same version to play together.
         public bool AutoUpdateMods { get; set; } = true;
 
+        // A new Cairn installs itself when the launcher starts (silently, then opens again). Off: it is announced and waits for the player.
+        public bool AutoUpdateCairn { get; set; } = true;
+
+        // "home" or "library": the page shown when Cairn starts.
+        public string StartPage { get; set; } = "home";
+
+        // Closing the launcher asks first.
+        public bool ConfirmQuit { get; set; } = true;
+
+        // The accent colour of the launcher: gold, blue, green, pink, violet or red.
+        public string AccentColor { get; set; } = "gold";
+
+        // No animations (spinners, fades, the slideshow's slides).
+        public bool ReduceMotion { get; set; } = false;
+
+        // The slides on Home change by themselves.
+        public bool SlideshowAuto { get; set; } = true;
+
+        // Windows notifications as well as the corner notices (a friend hosts, an invitation).
+        public bool TrayNotices { get; set; } = true;
+
+        // A notice when a mod was updated in the background.
+        public bool NotifyUpdates { get; set; } = true;
+
+        // The friends list asks each friend's public Steam profile page for what they do, and loads their picture. Off: names only.
+        public bool FriendStatus { get; set; } = true;
+
         // game id -> the mod version the player went back from: the background updates do not install that one again (a manual Update still can).
         public Dictionary<string, string> HeldBackMods { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 

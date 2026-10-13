@@ -126,6 +126,7 @@ namespace Cairn.Launcher.Pages
         protected override async Task OnInitializedAsync()
         {
             LoadSettings();
+            if (string.Equals(settings.StartPage, "library", StringComparison.OrdinalIgnoreCase)) currentView = AppView.Library;   // Settings > General: the page Cairn opens on
             LoadCustomServers();
             StartSetupCheck();   // in the background; replaces the old "open Settings when no game path" check
             _ = RefreshCatalogAndPacksAsync();   // which games there are, then which mods they offer
@@ -161,6 +162,13 @@ namespace Cairn.Launcher.Pages
             showVersionMismatch = true;
         }
 
+        // the accent colour choices of Settings > Appearance: id, the colour, the brighter one beside it
+        private static readonly (string Id, string Color, string Bright)[] Accents =
+        {
+            ("gold", "#E8A35A", "#F2BA80"), ("blue", "#5AA9E8", "#80C0F2"), ("green", "#6FCF8A", "#92DEA8"),
+            ("pink", "#E86AA8", "#F28FC0"), ("violet", "#9B7BE8", "#B7A0F2"), ("red", "#E8635A", "#F2857E"),
+        };
+
         private void OnStyleChanged() => _ = ApplyStyleProfile();
 
         /// <summary>
@@ -172,7 +180,17 @@ namespace Cairn.Launcher.Pages
         /// </summary>
         private async Task ApplyStyleProfile()
         {
-            try { await JSRuntime.InvokeVoidAsync("applyCairnTheme", Globals.CurrentStyleProfile.ToCssVariables()); }
+            try
+            {
+                var accent = Accents.FirstOrDefault(a => a.Id == settings.AccentColor);
+                if (accent.Id is not null)
+                {
+                    Globals.CurrentStyleProfile.ColorGold = accent.Color;
+                    Globals.CurrentStyleProfile.ColorGoldBright = accent.Bright;
+                }
+                await JSRuntime.InvokeVoidAsync("applyCairnTheme", Globals.CurrentStyleProfile.ToCssVariables());
+                await JSRuntime.InvokeVoidAsync("setCairnFlag", "reduce-motion", settings.ReduceMotion);
+            }
             catch (Exception ex) { Log.Debug(ex, "Could not apply the style profile"); }
         }
 
@@ -368,6 +386,7 @@ namespace Cairn.Launcher.Pages
             if (showSettings) { CancelSettings(); StateHasChanged(); return; }
             if (showGameSettings) { CancelGameSettings(); StateHasChanged(); return; }
             if (isFilterOpen) { isFilterOpen = false; StateHasChanged(); return; }
+            if (!settings.ConfirmQuit) return;   // Settings > General: Escape does not offer to close Cairn
             showExitConfirm = true;
             StateHasChanged();
         }
@@ -726,6 +745,7 @@ namespace Cairn.Launcher.Pages
         {
             WriteSettings("the settings window");
             showSettings = false;
+            _ = ApplyStyleProfile();   // the accent colour and reduce motion show at once
         }
 
 

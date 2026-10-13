@@ -34,6 +34,13 @@ namespace Cairn.Launcher.Pages
 
                 // the friends are on screen at once, from Steam's own files; each one's status fills in as its answer arrives
                 // (what was known from the last look stays until then), and a slow profile holds up nobody else
+                if (!settings.FriendStatus)
+                {
+                    // Settings > Privacy: names only. Nothing is asked of Steam, and no picture is shown.
+                    homeSteamFriends = named.Take(MaxFriendLookups).Select(f => new SteamFriendRow(f.Id, f.Name, "hidden", "", "", "")).OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ToList();
+                    homeSteamFriendsLoaded = true;
+                    return;
+                }
                 var known = homeSteamFriends.ToDictionary(x => x.Id);
                 var rows = named.Take(MaxFriendLookups)
                     .Select(f => known.TryGetValue(f.Id, out var old) ? old with { Name = f.Name, Avatar = f.Avatar } : new SteamFriendRow(f.Id, f.Name, "loading", "", "", f.Avatar))

@@ -197,3 +197,33 @@ input::-ms-clear {
     background: rgba(255, 255, 255, 0.25);
     border-color: rgba(255, 255, 255, 0.08);
 }
+
+/* Settings > Appearance > Reduce motion: nothing moves */
+html[reduce-motion] *, html[reduce-motion] *::before, html[reduce-motion] *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+}
+
+/* the accent colour choices in Settings */
+.accent-choices {
+    display: flex;
+    gap: 10px;
+    margin: 6px 0;
+}
+
+.accent-choice {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    background: var(--swatch);
+    cursor: pointer;
+    box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35);
+}
+
+    .accent-choice.on {
+        border-color: var(--cairn-parchment);
+    }
