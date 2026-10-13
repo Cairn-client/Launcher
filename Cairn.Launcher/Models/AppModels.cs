@@ -142,6 +142,9 @@ namespace Cairn.Launcher.Models
         // A corner notice when a friend comes online or starts playing, and when one invites you.
         public bool NotifyFriends { get; set; } = true;
 
+        // A mod with a newer version is downloaded and put in its game by itself (never while a game runs). Friends need the same version to play together.
+        public bool AutoUpdateMods { get; set; } = true;
+
         // "Also allow Steam" in the Host window (the relay also listens on Steam P2P).
         public bool HostAllowSteam { get; set; } = true;
 

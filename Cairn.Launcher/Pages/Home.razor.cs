@@ -129,6 +129,7 @@ namespace Cairn.Launcher.Pages
             LoadCustomServers();
             StartSetupCheck();   // in the background; replaces the old "open Settings when no game path" check
             _ = RefreshCatalogAndPacksAsync();   // which games there are, then which mods they offer
+            StartAutoUpdateLoop();
             _ = LoadChangelogAsync();   // the Versions page and Home show what changed
             StartHomeFriendsLoop();        // who is hosting, while Home is showing
             showTour = !listPrefs.TourSeen;   // the first-run tour
