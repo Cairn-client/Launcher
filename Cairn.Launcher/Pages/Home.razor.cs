@@ -447,9 +447,11 @@ namespace Cairn.Launcher.Pages
 
         private void CancelPendingConnect() => ResetLaunchState();
 
-        private Task LaunchAsHost()
+        private async Task LaunchAsHost()
         {
             showHostInfo = false;
+            // hosting needs its own relay: without it the pack's program would treat 127.0.0.1 as somebody else's host and start the game as a joiner
+            if (UsePackSession && !await StartHostRelayAsync()) return;
             var hostServer = new ServerInfo
             {
                 Name = "(Hosting)",
@@ -457,7 +459,7 @@ namespace Cairn.Launcher.Pages
                 Port = settings.HostPort,
                 Ping = 0
             };
-            return LaunchGame(hostServer);
+            await LaunchGame(hostServer);
         }
 
         /// <summary>

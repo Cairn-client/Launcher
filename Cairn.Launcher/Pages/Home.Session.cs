@@ -305,20 +305,32 @@ namespace Cairn.Launcher.Pages
         {
             hostErrorMessage = "";
             hostLanAddresses = NetService.GetLocalIPv4Addresses();
-            var s = EnsurePackSession();
-            if (s is null) { UiService.ShowError(ModTooOldText); return; }
-            if (!packRelayUp)
-            {
-                ConfigurePackSession();
-                packRelayProblem = false;
-                var tcs = relayWait = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                s.Relay();
-                await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(30)));
-                relayWait = null;
-                if (packRelayProblem) return;   // Windows refused it, or a file is gone: told
-            }
+            if (!await StartHostRelayAsync()) return;
             showHostInfo = true;
             StateHasChanged();
+        }
+
+        /// <summary>
+        /// The host's relay is up, started if it is not. "Up" is checked against the port itself: a relay the player closed from the ready check, or that
+        /// crashed, leaves packRelayUp set, and starting the game then would make it a joiner of a host that is not there.
+        /// </summary>
+        private async Task<bool> StartHostRelayAsync()
+        {
+            var s = EnsurePackSession();
+            if (s is null) { UiService.ShowError(ModTooOldText); return false; }
+            if (packRelayUp && PortIsFree(settings.HostPort))
+            {
+                Log.Warning("session: the host's relay was marked up but nothing listens on port {Port}; starting it again", settings.HostPort);
+                packRelayUp = false;
+            }
+            if (packRelayUp) return true;
+            ConfigurePackSession();
+            packRelayProblem = false;
+            var tcs = relayWait = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            s.Relay();
+            await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(30)));
+            relayWait = null;
+            return !packRelayProblem;   // Windows refused it, or a file is gone: told
         }
 
         private async Task LaunchGameViaPackAsync(ServerInfo server)

@@ -182,6 +182,7 @@ namespace Cairn.Launcher.Pages
         private async Task ClosePortOwnerAsync()
         {
             if (portOwner is not { } o) return;
+            if (HostRelayRunning) { ShowToast("That is your own host. Stop it from the Host window.", error: true); return; }
             if (PortOwnerFinder.IsProtected(o.Pid)) { ShowToast("That program cannot be closed from here.", error: true); return; }
             try
             {
@@ -222,7 +223,7 @@ namespace Cairn.Launcher.Pages
             await Task.Run(() =>
             {
                 steam = Process.GetProcessesByName("steam").Length > 0;
-                portFree = (gameRunning && launchedAs == "host") || PortIsFree(port);   // our own relay holds it while we host
+                portFree = HostRelayRunning || (gameRunning && launchedAs == "host") || PortIsFree(port);   // our own relay holds it while we host (the Host window is open, or the game runs)
             });
             portOwner = portFree ? null : await Task.Run(() => PortOwnerFinder.Find(port));
             var upd = HomeUpdate();
