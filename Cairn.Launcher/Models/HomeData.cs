@@ -82,6 +82,9 @@ namespace Cairn.Launcher.Models
         }
     }
 
+    /// <summary>One thing on Home that wants the player: what is wrong or new, and the button that deals with it.</summary>
+    public sealed record HomeAttention(string Text, string Label, Func<Task> Do);
+
     /// <summary>One line of the Home page's Mods card.</summary>
     public sealed record HomeModRow(GameProfile Game, ModState State, string? Version);
 

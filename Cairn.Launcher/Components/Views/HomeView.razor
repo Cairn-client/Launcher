@@ -165,6 +165,69 @@
                 }
             </section>
 
+            @* Needs attention: what is out of date or not in place, each with its button *@
+            @if (Attention.Count > 0)
+            {
+                <section class="tile attention-tile">
+                    <h2>Needs attention</h2>
+                    <ul class="attention">
+                        @foreach (var a in Attention)
+                        {
+                            <li><span class="attention-text">@a.Text</span><button class="mini" @onclick="a.Do">@a.Label</button></li>
+                        }
+                    </ul>
+                </section>
+            }
+
+            @* Your numbers *@
+            <section class="tile">
+                <h2>Your numbers</h2>
+                @if (TotalSessions == 0)
+                {
+                    <p class="muted">Your sessions and play time show up here once you host or join a game.</p>
+                }
+                else
+                {
+                    <ul class="stats">
+                        <li><span class="stat-n">@TotalSessions</span><span>@(TotalSessions == 1 ? "session" : "sessions")</span></li>
+                        <li><span class="stat-n">@(TotalMinutes > 0 ? HomeLogic.Played(TotalMinutes) : "-")</span><span>played</span></li>
+                        <li><span class="stat-n stat-text">@MostPlayed</span><span>most played</span></li>
+                    </ul>
+                    <div class="tile-actions"><button class="mini" @onclick="OnOpenActivity">Open Activity</button></div>
+                }
+            </section>
+
+            @* Games you have, with no mod yet *@
+            @if (Suggestions.Count > 0)
+            {
+                <section class="tile">
+                    <h2>Ready to set up</h2>
+                    <p class="muted">You have these games, and Cairn has a mod for each.</p>
+                    <ul class="attention">
+                        @foreach (var g in Suggestions)
+                        {
+                            <li><span class="attention-text">@g.DisplayName</span><button class="mini" @onclick="() => OnDownloadMod.InvokeAsync(g.Id)">Get the mod</button></li>
+                        }
+                    </ul>
+                </section>
+            }
+
+            @* What is new in Cairn *@
+            @if (Latest is { } news)
+            {
+                <section class="tile">
+                    <h2>New in @news.Tag</h2>
+                    @if (news.Items.Count == 0) { <p class="muted">Maintenance and stability improvements.</p> }
+                    else
+                    {
+                        <ul class="news-lines">
+                            @foreach (var line in news.Items.Take(3)) { <li>@line</li> }
+                        </ul>
+                    }
+                    <div class="tile-actions"><button class="mini" @onclick="OnOpenNews">All the news</button></div>
+                </section>
+            }
+
             @* Library: how much of it is ready *@
             <section class="tile">
                 <h2>Your library</h2>
@@ -241,6 +304,15 @@
     [Parameter] public EventCallback OnUpdate { get; set; }
     [Parameter] public IReadOnlyList<Cairn.Setup.Notice> Notices { get; set; } = Array.Empty<Cairn.Setup.Notice>();
     [Parameter] public EventCallback<string> OnDismissNotice { get; set; }
+
+    [Parameter] public IReadOnlyList<HomeAttention> Attention { get; set; } = Array.Empty<HomeAttention>();
+    [Parameter] public IReadOnlyList<GameProfile> Suggestions { get; set; } = Array.Empty<GameProfile>();
+    [Parameter] public EventCallback<string> OnDownloadMod { get; set; }
+    [Parameter] public int TotalSessions { get; set; }
+    [Parameter] public int TotalMinutes { get; set; }
+    [Parameter] public string MostPlayed { get; set; } = "";
+    [Parameter] public EventCallback OnOpenActivity { get; set; }
+    [Parameter] public EventCallback OnOpenNews { get; set; }
 
     [Parameter] public RecentSession? Last { get; set; }
     [Parameter] public string FriendsState { get; set; } = "idle";

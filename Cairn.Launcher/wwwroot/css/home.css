@@ -1394,3 +1394,40 @@ dl.details.modbar dd {
 @media (prefers-reduced-motion: reduce) {
     .spinner { animation-duration: 2.4s; }
 }
+
+/* the Home cards that point at something to do */
+.home .attention {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 10px;
+}
+
+    .home .attention li {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 13.5px;
+    }
+
+.attention-text {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.4;
+}
+
+.attention-tile {
+    border-color: rgba(232, 178, 90, 0.5);
+}
+
+.stat-text {
+    font-size: 15px;
+}
+
+.news-lines {
+    margin: 0 0 12px;
+    padding-left: 18px;
+    font-size: 13.5px;
+    line-height: 1.5;
+}

@@ -406,6 +406,9 @@
                               UpdateTag="@upd.Tag" UpdateNotes="@upd.Notes" UpdateBusy="@updateBusy" OnUpdate="@HomeUpdateClickAsync"
                               Last="@HomeLast" FriendsState="@homeFriendsState" Friends="@homeFriends" SteamFriends="@homeSteamFriends" SteamFriendsLoaded="@homeSteamFriendsLoaded" HostingAs="@HostingAs" CanInvite="@CanInviteNow" Invited="@invitedFriends" OnInvite="@InviteFromHomeAsync" OnCairn="@CairnFriend" OnJoinFriend="@JoinFriendFromHomeAsync" History="@HomeHistory()" Notices="@HomeNotices()" OnDismissNotice="@DismissNotice" 
                               Favorites="@HomeFavorites" OnToggleFavorite="@ToggleFavorite"
+                              Attention="@HomeAttentionItems()" Suggestions="@HomeSuggestions()" OnDownloadMod="@(id => DownloadPackAsync(id))"
+                              TotalSessions="@recent.Entries.Sum(e => e.Sessions)" TotalMinutes="@recent.Entries.Sum(e => e.Minutes)" MostPlayed="@HomeMostPlayed()"
+                              OnOpenActivity="@(() => NavigateTo(AppView.Activity))" OnOpenNews="@(() => NavigateTo(AppView.News))"
                               OnOpenGame="@OpenGameFromHome" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenVersions="@(() => NavigateTo(AppView.Versions))"
                               OnOpenHelp="@(() => NavigateTo(AppView.Help))" OnOpenSetup="@OpenSetupChecklist" />
                     break;
