@@ -54,7 +54,7 @@ namespace Cairn.Launcher.Pages
             if (view is AppView.Versions or AppView.Home) _ = RefreshChangelogIfStaleAsync();   // a release made while the launcher was open shows up
             if (view == AppView.Home) _ = RefreshHomeFriendsIfStaleAsync();
             if (view == AppView.Home) _ = LoadModNewsAsync();
-            if (view == AppView.Profile) { LoadSteamSelf(); _ = RefreshHomeFriendsIfStaleAsync(); }
+            if (view == AppView.Profile) { LoadSteamSelf(); _ = LoadSteamSelfInfoAsync(); _ = RefreshHomeFriendsIfStaleAsync(); }
             if (view == AppView.Library && SelectedProfile is { } shown) _ = LoadGameInfoAsync(shown);
         }
 

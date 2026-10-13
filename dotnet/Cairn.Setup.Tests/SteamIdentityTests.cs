@@ -98,6 +98,16 @@ public class SteamIdentityTests
     }
 
     [Fact]
+    public void An_own_profile_gives_the_status_names_and_most_played_games()
+    {
+        var i = SteamProfileStatus.ParseInfo("""<profile><steamID64>76561198000000001</steamID64><avatarFull>a.jpg</avatarFull><onlineState>online</onlineState><stateMessage><![CDATA[Online]]></stateMessage><realname>Ann</realname><location>Lyon</location><memberSince>May 30, 2017</memberSince><summary><![CDATA[Hi <b>there</b>]]></summary><mostPlayedGames><mostPlayedGame><gameName>Noita</gameName><gameIcon>n.jpg</gameIcon><hoursPlayed>1.5</hoursPlayed><hoursOnRecord>1,240</hoursOnRecord></mostPlayedGame></mostPlayedGames></profile>""")!;
+        Assert.Equal(("a.jpg", "online", "Ann", "Lyon", "Hi there"), (i.Avatar, i.State, i.RealName, i.Location, i.Summary));
+        Assert.Equal(2017, i.MemberSince!.Value.Year);
+        Assert.Equal(("Noita", 1.5, 1240.0), (i.MostPlayed[0].Name, i.MostPlayed[0].Hours2Weeks, i.MostPlayed[0].HoursTotal));
+        Assert.Null(SteamProfileStatus.ParseInfo("<response><error>no</error></response>"));
+    }
+
+    [Fact]
     public void A_config_without_friends_has_none() => Assert.Empty(SteamIdentity.FriendIds("\"UserLocalConfigStore\" { \"x\" \"y\" }"));
 
     [Fact]
