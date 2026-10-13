@@ -268,7 +268,7 @@ namespace Cairn.Launcher.Pages
             });
             var host = new ExternalSetupHost(steam, found, mod, apps, rel => folder is not null && File.Exists(Path.Combine(folder, rel.Replace('/', Path.DirectorySeparatorChar))), disk);
             return GameSetup.Evaluate(rules, host).Select(r => new PreflightItem(r.Title,
-                r.State switch { SetupState.Ok => CheckStatus.Ok, SetupState.Warn => CheckStatus.Warn, _ => CheckStatus.Fail }, r.Detail)).ToList();
+                r.State switch { SetupState.Ok => CheckStatus.Ok, SetupState.Warn => CheckStatus.Warn, _ => CheckStatus.Fail }, r.Detail, PreflightFix.ForRule(r.Kind))).ToList();
         }
 
         private sealed class ExternalSetupHost(bool steam, bool game, bool mod, HashSet<uint> apps, Func<string, bool> file, long? disk) : IGameSetupHost

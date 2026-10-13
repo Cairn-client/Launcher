@@ -456,6 +456,10 @@
                         <li class="pf-@item.Status.ToString().ToLowerInvariant()">
                             <span class="pf-mark" aria-hidden="true">@(item.Status == CheckStatus.Ok ? "✓" : item.Status == CheckStatus.Warn ? "!" : "✕")</span>
                             <span><strong>@item.Title</strong><br /><span class="pf-detail">@item.Detail</span>
+                                @if (item.Status != CheckStatus.Ok && item.Fix.Length > 0)
+                                {
+                                    <span class="pf-owner"><button class="cairn-btn pf-close" @onclick="() => ApplyPreflightFixAsync(item.Fix)">@PreflightFix.Label(item.Fix)</button></span>
+                                }
                                 @if (item.Title == "Host port" && item.Status != CheckStatus.Ok && portOwner is { } owner)
                                 {
                                     <span class="pf-owner">Held by <strong>@owner.Name</strong> (process @owner.Pid)
