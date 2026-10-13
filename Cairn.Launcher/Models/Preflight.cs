@@ -15,11 +15,13 @@ namespace Cairn.Launcher.Models
     /// <summary>What a line that is not fine can do about itself: the key of the action, and the words on its button.</summary>
     public static class PreflightFix
     {
+        public const string PlaceMod = "place-mod";
         public const string InstallMod = "install-mod", UpdateMod = "update-mod", StartSteam = "start-steam", LocateGame = "locate-game", UpdateLauncher = "update-launcher";
 
         public static string Label(string fix) => fix switch
         {
             InstallMod => "DOWNLOAD THE MOD",
+            PlaceMod => "PUT THE MOD IN THE GAME",
             UpdateMod => "UPDATE THE MOD",
             StartSteam => "START STEAM",
             LocateGame => "LOCATE THE GAME",
