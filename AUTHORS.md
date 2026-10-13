@@ -6,21 +6,14 @@ Cairn Client is free software under the GNU General Public License version 3 ([L
 
 - cmpnn-romain: architecture refactoring, multi-game abstraction, UI redesign
 
-## Kingdom Come: Deliverance II
+## The games' mods
 
-The KD2M fork of Kingdom Come: Together, which Cairn Client grew out of: the KCD2 co-op work (shared world, NPCs and fights, doors and weather, faces and voices, items and horses), the launcher's menus and setup checklist, the installer and releases.
-
-- cmpnn-romain: <https://github.com/cmpnn-romain/KD2M>
-- DeepFriedDepp: <https://github.com/DeepFriedDepp/KingdomCome-Together>
-- marczukmichal: <https://github.com/marczukmichal/kcd2-multiplayer>
-
-## The other games' mods
-
-Each game's mod lives in its own repository of the Cairn-client organisation, forked from the project below. The mod's code and credits are its authors'; Cairn only
+Each game's mod lives in its own repository of the Cairn-client organisation, forked from the project listed for it. The mod's code and credits are its authors'; Cairn only
 packs it (and, for some games, the loader it runs on) and installs it. Each keeps its own licence.
 
 | Game | Mod | Upstream | Licence |
 | --- | --- | --- | --- |
+| Kingdom Come: Deliverance II | Kingdom Come: Together (the KD2M fork), which Cairn Client grew out of: the shared world, NPCs and fights, doors and weather, faces and voices, items and horses | cmpnn-romain: <https://github.com/cmpnn-romain/KD2M>; DeepFriedDepp: <https://github.com/DeepFriedDepp/KingdomCome-Together>; marczukmichal: <https://github.com/marczukmichal/kcd2-multiplayer> | GPL-3.0 |
 | Noita | Noita Entangled Worlds | IntQuant and contributors: <https://github.com/IntQuant/noita_entangled_worlds> | Apache-2.0 |
 | Dyson Sphere Program | Nebula Multiplayer Mod | NebulaModTeam: <https://github.com/NebulaModTeam/nebula> | GPL-3.0 |
 | Voices of the Void | Multivoid | Pelmentor and the VOTV-MP team: <https://github.com/VOTV-MP/Multivoid> | MIT |
