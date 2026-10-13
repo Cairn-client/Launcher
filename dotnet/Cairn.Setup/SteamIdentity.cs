@@ -14,7 +14,7 @@ public static class SteamIdentity
     public const ulong IndividualBase = 76561197960265728UL;
 
     /// <summary>A friend as Steam's own files list them: the 64-bit id and the name the client last saw.</summary>
-    public sealed record Named(string Id, string Name);
+    public sealed record Named(string Id, string Name, string Avatar = "");
 
     public sealed record Local(string Id, string Name, IReadOnlyList<string> Friends, IReadOnlyList<Named>? Named = null);
 
@@ -49,13 +49,18 @@ public static class SteamIdentity
     {
         var root = Vdf.Parse(vdf);
         if (root.Child("users") is not { } users) return null;
+        // Newer Steam clients no longer write "MostRecent": then the account signed in last (the newest Timestamp) is the one.
+        (string Id, string Name)? newest = null;
+        long newestAt = long.MinValue;
         foreach (var u in users.Children)
         {
-            if (u.Value("MostRecent") != "1") continue;
             string name = u.Value("PersonaName") ?? "";
-            if (ulong.TryParse(u.Key, out _) && name.Length > 0) return (u.Key, name);
+            if (!ulong.TryParse(u.Key, out _) || name.Length == 0) continue;
+            if (u.Value("MostRecent") == "1") return (u.Key, name);
+            long.TryParse(u.Value("Timestamp"), out long at);
+            if (at > newestAt) { newestAt = at; newest = (u.Key, name); }
         }
-        return null;
+        return newest;
     }
 
     /// <summary>localconfig.vdf: the account ids under "friends" -> 64-bit Steam ids (a section that is not a friend entry, such as a count, is skipped).</summary>
@@ -84,7 +89,7 @@ public static class SteamIdentity
             if (f.Text is not null || !uint.TryParse(f.Key, out uint account) || account == 0) continue;
             string id = (IndividualBase + account).ToString();
             string name = f.Value("name") ?? "";
-            list.Add(new Named(id, name.Length > 0 ? name : id));
+            list.Add(new Named(id, name.Length > 0 ? name : id, f.Value("avatar") ?? ""));
         }
         return list;
     }

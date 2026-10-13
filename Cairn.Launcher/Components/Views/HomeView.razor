@@ -138,7 +138,7 @@
             </section>
 
             @* Friends: your Steam friends and what they are doing; a friend who is hosting has a Join button *@
-            <section class="tile">
+            <section class="tile friends-tile">
                 <h2>Friends</h2>
                 @if (SteamFriends.Count > 0)
                 {
@@ -148,16 +148,19 @@
                         @foreach (var f in SteamFriends)
                         {
                             var hosting = HostingAs(f);
-                            <li class="@(f.State == "offline" || f.State == "unknown" ? "away" : "")">
-                                <span class="dot-state @f.State"></span>
-                                <span class="friend-name">@f.Name</span>
+                            var (state, cls, line) = FriendView(f, hosting is not null, OnCairn(f));
+                            <li class="friend-row @(state is "offline" or "unknown" ? "away" : "")">
+                                <span class="friend-avatar @state">
+                                    @if (f.Avatar.Length > 0) { <img src="https://avatars.steamstatic.com/@(f.Avatar)_medium.jpg" alt="" loading="lazy" /> }
+                                    else { <span>@(f.Name.Length > 0 ? f.Name[..1].ToUpperInvariant() : "?")</span> }
+                                </span>
+                                <span class="friend-info">
+                                    <span class="friend-name">@f.Name</span>
+                                    <span class="friend-line @cls">@line</span>
+                                </span>
                                 @if (hosting is not null)
                                 {
-                                    <button class="mini" @onclick="() => OnJoinFriend.InvokeAsync(hosting)">Join</button>
-                                }
-                                else
-                                {
-                                    <span class="mod-state">@FriendLine(f)</span>
+                                    <button class="mini join-friend" @onclick="() => OnJoinFriend.InvokeAsync(hosting)">Join</button>
                                 }
                             </li>
                         }
@@ -254,6 +257,17 @@
     [Parameter] public string FriendsState { get; set; } = "idle";
     [Parameter] public IReadOnlyList<SteamFriendData>? Friends { get; set; }
     [Parameter] public EventCallback<SteamFriendData> OnJoinFriend { get; set; }
+    /// <summary>What a friend's row shows: the ring state, the line's style and its text. A friend on Cairn is known at once from the presence feature (hosting or playing a game, even with a private Steam profile); the rest comes from the Steam profile.</summary>
+    private static (string State, string Class, string Line) FriendView(SteamFriendRow f, bool hostingCode, Cairn.Wire.PresenceFriend? cairn)
+    {
+        string state = cairn is { Online: true } && f.State is "offline" or "unknown" ? "online" : f.State;
+        if (hostingCode || cairn is { Online: true, Activity: Cairn.Wire.PresenceApi.Activity.Hosting })
+            return (state, "hosting", cairn is { Game.Length: > 0 } ? "Hosting " + cairn.Game : f.Game.Length > 0 ? "Hosting " + f.Game : "Hosting a game");
+        if (cairn is { Online: true, Activity: Cairn.Wire.PresenceApi.Activity.Playing, Game.Length: > 0 })
+            return ("in-game", "in-game", "Playing " + cairn.Game);
+        return (state, state, FriendLine(f));
+    }
+
     private static string FriendLine(SteamFriendRow f) => f.State switch
     {
         "in-game" => f.Game,
@@ -265,6 +279,8 @@
     /// <summary>Every Steam friend and what they are doing; HostingAs finds the one hosting a session, when this friend is.</summary>
     [Parameter] public IReadOnlyList<SteamFriendRow> SteamFriends { get; set; } = Array.Empty<SteamFriendRow>();
     [Parameter] public bool SteamFriendsLoaded { get; set; }
+    /// <summary>The friend as the presence feature sees them (online with Cairn, and what they do), or null.</summary>
+    [Parameter] public Func<SteamFriendRow, Cairn.Wire.PresenceFriend?> OnCairn { get; set; } = _ => null;
     [Parameter] public Func<SteamFriendRow, SteamFriendData?> HostingAs { get; set; } = _ => null;
     /// <summary>The sessions before the last one, newest first.</summary>
     [Parameter] public IReadOnlyList<(GameProfile Game, RecentSession Session)> History { get; set; } = Array.Empty<(GameProfile, RecentSession)>();

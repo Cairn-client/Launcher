@@ -56,9 +56,25 @@ namespace Cairn.Launcher.Pages
         {
             friendSeen.TryGetValue(f.Id, out var before);
             if (f.Online) friendSeen[f.Id] = f; else friendSeen.Remove(f.Id);
+            // a friend who starts hosting: look for their code now rather than at the next minute, so the Join button is there at once
+            if (f.Online && f.Activity == PresenceApi.Activity.Hosting && before?.Activity != f.Activity) { homeFriendsAt = DateTime.MinValue; _ = RefreshHomeFriendsIfStaleAsync(); }
             if (!settings.NotifyFriends) return;
-            if (PresenceNotices.ForFriend(before, f) is { } text) ShowToast(text);
+            if (PresenceNotices.ForFriend(before, f) is { } text)
+            {
+                if (f.Online && f.Activity == PresenceApi.Activity.Hosting) ShowToast(text, error: false, action: "Join", onAction: () => JoinHostingFriendAsync(f), milliseconds: 30_000);
+                else ShowToast(text);
+            }
             _ = InvokeAsync(StateHasChanged);
+        }
+
+        /// <summary>The Join button of a "friend is hosting" notice: the friend's code is looked up again, then the Join window opens with it.</summary>
+        private async Task JoinHostingFriendAsync(PresenceFriend f)
+        {
+            homeFriendsAt = DateTime.MinValue;
+            await RefreshHomeFriendsIfStaleAsync();
+            var hosting = homeFriends?.FirstOrDefault(h => string.Equals(h.Name, f.Name, StringComparison.OrdinalIgnoreCase));
+            if (hosting is null) { ShowToast($"{f.Name}'s code is not ready yet. Try again in a moment.", true); return; }
+            await JoinFriendFromHomeAsync(hosting);
         }
 
         private void OnPresenceInvited(PresenceInvited i)

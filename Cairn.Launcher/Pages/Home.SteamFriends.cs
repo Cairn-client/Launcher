@@ -40,7 +40,7 @@ namespace Cairn.Launcher.Pages
                     try
                     {
                         var s = await SteamProfileStatus.FetchAsync(steamProfiles, f.Id, CancellationToken.None);
-                        lock (rows) rows.Add(new SteamFriendRow(f.Id, f.Name, s.State, s.Game, s.Message));
+                        lock (rows) rows.Add(new SteamFriendRow(f.Id, f.Name, s.State, s.Game, s.Message, f.Avatar));
                     }
                     finally { gate.Release(); }
                 });
@@ -66,6 +66,9 @@ namespace Cairn.Launcher.Pages
             SteamProfileStatus.Offline => 2,
             _ => 3,
         };
+
+        /// <summary>The friend as the presence feature sees them (online with Cairn, and what they do), or null.</summary>
+        private Cairn.Wire.PresenceFriend? CairnFriend(SteamFriendRow f) => friendSeen.TryGetValue(f.Id, out var p) ? p : null;
 
         /// <summary>The hosting friend (asked of the pack's program) whose name is this Steam friend's, or null.</summary>
         private SteamFriendData? HostingAs(SteamFriendRow f) =>

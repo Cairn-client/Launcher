@@ -43,7 +43,7 @@ namespace Cairn.Launcher.Models
     }
 
     /// <summary>A Steam friend on the Home tile: the name Steam shows, what the friend is doing (online, in-game, offline, unknown) and the game.</summary>
-    public sealed record SteamFriendRow(string Id, string Name, string State, string Game, string Message);
+    public sealed record SteamFriendRow(string Id, string Name, string State, string Game, string Message, string Avatar = "");
 
     public class DedicatedServerInfoData
     {
