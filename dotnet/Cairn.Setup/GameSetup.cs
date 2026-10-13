@@ -25,7 +25,7 @@ public sealed record SetupRule(string Kind, string Title, string Detail, uint Ap
 
 public enum SetupState { Ok, Warn, Fail }
 
-public sealed record SetupResult(string Title, SetupState State, string Detail);
+public sealed record SetupResult(string Title, SetupState State, string Detail, string Kind = "");
 
 /// <summary>What the checks ask of this PC; the launcher answers from Steam, the game's folder and the pack store, the tests from a fake.</summary>
 public interface IGameSetupHost
@@ -69,8 +69,8 @@ public static class GameSetup
             };
             if (!SetupKinds.IsKnown(r.Kind)) continue;   // a check this launcher does not know is skipped, not failed
             string shownTitle = r.Title.Length > 0 ? r.Title : title;
-            results.Add(ok ? new SetupResult(shownTitle, SetupState.Ok, good)
-                           : new SetupResult(shownTitle, r.Optional ? SetupState.Warn : SetupState.Fail, r.Detail.Length > 0 ? r.Detail : "Not so yet."));
+            results.Add(ok ? new SetupResult(shownTitle, SetupState.Ok, good, r.Kind)
+                           : new SetupResult(shownTitle, r.Optional ? SetupState.Warn : SetupState.Fail, r.Detail.Length > 0 ? r.Detail : "Not so yet.", r.Kind));
         }
         return results;
     }

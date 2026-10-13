@@ -10,7 +10,32 @@ namespace Cairn.Launcher.Models
     public enum CheckStatus { Ok, Warn, Fail }
 
     /// <summary>One line of the ready check: what was looked at, how it stands, and what to do about it.</summary>
-    public sealed record PreflightItem(string Title, CheckStatus Status, string Detail);
+    public sealed record PreflightItem(string Title, CheckStatus Status, string Detail, string Fix = "");
+
+    /// <summary>What a line that is not fine can do about itself: the key of the action, and the words on its button.</summary>
+    public static class PreflightFix
+    {
+        public const string InstallMod = "install-mod", UpdateMod = "update-mod", StartSteam = "start-steam", LocateGame = "locate-game", UpdateLauncher = "update-launcher";
+
+        public static string Label(string fix) => fix switch
+        {
+            InstallMod => "DOWNLOAD THE MOD",
+            UpdateMod => "UPDATE THE MOD",
+            StartSteam => "START STEAM",
+            LocateGame => "LOCATE THE GAME",
+            UpdateLauncher => "UPDATE CAIRN",
+            _ => "",
+        };
+
+        /// <summary>The fix for a rule of a game's own setup list, by its kind.</summary>
+        public static string ForRule(string kind) => kind switch
+        {
+            "steam-running" => StartSteam,
+            "game-found" => LocateGame,
+            "mod-installed" => InstallMod,
+            _ => "",
+        };
+    }
 
     /// <summary>What the launcher knows about this PC and this game when the ready check is asked for.</summary>
     public sealed record PreflightInput(
@@ -31,12 +56,12 @@ namespace Cairn.Launcher.Models
 
             list.Add(i.GameFound
                 ? new("The game", CheckStatus.Ok, "Found on this PC.")
-                : new("The game", CheckStatus.Fail, "Not found. Set its path in Settings, or use Locate game on its page."));
+                : new("The game", CheckStatus.Fail, "Not found. Set its path in Settings, or use Locate game on its page.", PreflightFix.LocateGame));
 
             list.Add(!i.ModInstalled
-                ? new("The mod", CheckStatus.Fail, "Not installed. Download it from the game's page.")
+                ? new("The mod", CheckStatus.Fail, "Not installed. Download it from the game's page.", PreflightFix.InstallMod)
                 : i.ModBlocked is not null
-                    ? new("The mod", CheckStatus.Warn, $"This version has a known problem: {i.ModBlocked} Update it from the game's page when a new one is out.")
+                    ? new("The mod", CheckStatus.Warn, $"This version has a known problem: {i.ModBlocked} Update it from the game's page when a new one is out.", PreflightFix.UpdateMod)
                     : new("The mod", CheckStatus.Ok, "Downloaded and installed."));
 
             list.Add(i.SetupOk
@@ -45,7 +70,7 @@ namespace Cairn.Launcher.Models
 
             list.Add(i.SteamRunning
                 ? new("Steam", CheckStatus.Ok, "Running.")
-                : new("Steam", CheckStatus.Warn, "Not running. Friends join through Steam, so start it first."));
+                : new("Steam", CheckStatus.Warn, "Not running. Friends join through Steam, so start it first.", PreflightFix.StartSteam));
 
             list.Add(i.PortFree
                 ? new("Host port", CheckStatus.Ok, "Free on this PC.")
@@ -57,7 +82,7 @@ namespace Cairn.Launcher.Models
 
             list.Add(i.NewerLauncher is null
                 ? new("Version", CheckStatus.Ok, "This is the newest Cairn.")
-                : new("Version", CheckStatus.Warn, $"Cairn {i.NewerLauncher} is out. Both players need the same version to play together."));
+                : new("Version", CheckStatus.Warn, $"Cairn {i.NewerLauncher} is out. Both players need the same version to play together.", PreflightFix.UpdateLauncher));
 
             return list;
         }
