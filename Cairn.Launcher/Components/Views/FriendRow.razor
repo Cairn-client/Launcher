@@ -1,0 +1,59 @@
+﻿@* Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+   GPLv3 section 7 additional terms: AUTHORS.md. Unofficial, free, not affiliated with or endorsed by the studios or publishers
+   of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md). *@
+@using Cairn.Launcher.Models
+@* One Steam friend: avatar ringed by what they are doing, the name over a line of status, and Join (hosting) or Invite (you host). Used on Home and on the Friends page. *@
+@{
+    var (state, cls, line) = View();
+}
+<li class="friend-row @(state is "offline" or "unknown" ? "away" : "")">
+    <span class="friend-avatar @state">
+        @if (Friend.Avatar.Length > 0) { <img src="https://avatars.steamstatic.com/@(Friend.Avatar)_medium.jpg" alt="" loading="lazy" /> }
+        else { <span>@(Friend.Name.Length > 0 ? Friend.Name[..1].ToUpperInvariant() : "?")</span> }
+    </span>
+    <span class="friend-info">
+        <span class="friend-name">@Friend.Name</span>
+        <span class="friend-line @cls">@line</span>
+    </span>
+    @if (Hosting is not null)
+    {
+        <button class="mini join-friend" @onclick="() => OnJoin.InvokeAsync(Hosting)">Join</button>
+    }
+    else if (CanInvite && Cairn is { Online: true })
+    {
+        <button class="mini join-friend" disabled="@Invited" @onclick="() => OnInvite.InvokeAsync(Friend)">@(Invited ? "Invited" : "Invite")</button>
+    }
+</li>
+
+@code {
+    [Parameter, EditorRequired] public SteamFriendRow Friend { get; set; } = default!;
+    /// <summary>The friend as the game's own check sees them when they host (with the code to join), or null.</summary>
+    [Parameter] public SteamFriendData? Hosting { get; set; }
+    /// <summary>The friend as the presence feature sees them (online with Cairn, and what they do), or null.</summary>
+    [Parameter] public Cairn.Wire.PresenceFriend? Cairn { get; set; }
+    [Parameter] public bool CanInvite { get; set; }
+    [Parameter] public bool Invited { get; set; }
+    [Parameter] public EventCallback<SteamFriendData> OnJoin { get; set; }
+    [Parameter] public EventCallback<SteamFriendRow> OnInvite { get; set; }
+
+    /// <summary>What the row shows: the ring state, the line's style and its text. A friend on Cairn is known at once from presence (hosting or playing a game, even with a private Steam profile); the rest comes from the Steam profile.</summary>
+    private (string State, string Class, string Line) View()
+    {
+        var f = Friend;
+        string state = Cairn is { Online: true } && f.State is "offline" or "unknown" ? "online" : f.State;
+        if (Hosting is not null || Cairn is { Online: true, Activity: global::Cairn.Wire.PresenceApi.Activity.Hosting })
+            return (state, "hosting", Cairn is { Game.Length: > 0 } ? "Hosting " + Cairn.Game : f.Game.Length > 0 ? "Hosting " + f.Game : "Hosting a game");
+        if (Cairn is { Online: true, Activity: global::Cairn.Wire.PresenceApi.Activity.Playing, Game.Length: > 0 })
+            return ("in-game", "in-game", "Playing " + Cairn.Game);
+        return (state, state, Line(f));
+    }
+
+    private static string Line(SteamFriendRow f) => f.State switch
+    {
+        "in-game" => f.Game,
+        "online" => f.Message.Length > 0 ? f.Message : "Online",
+        "loading" => "Checking...",
+        "offline" => f.Message.StartsWith("Last Online", StringComparison.OrdinalIgnoreCase) ? f.Message["Last ".Length..] : "Offline",
+        _ => "Private profile",
+    };
+}

@@ -26,6 +26,7 @@
         <nav class="nav" aria-label="Pages">
             <button class="nav-btn @(currentView == AppView.Home ? "active" : "")" aria-current="@(currentView == AppView.Home ? "page" : null)" @onclick="() => NavigateTo(AppView.Home)">Home</button>
             <button class="nav-btn @(currentView == AppView.Library ? "active" : "")" aria-current="@(currentView == AppView.Library ? "page" : null)" @onclick="() => NavigateTo(AppView.Library)">Library</button>
+            <button class="nav-btn @(currentView == AppView.Friends ? "active" : "")" aria-current="@(currentView == AppView.Friends ? "page" : null)" @onclick="() => NavigateTo(AppView.Friends)">Friends</button>
         </nav>
 
         <div class="topbar-right">
@@ -404,6 +405,10 @@
                     break;
                 case AppView.Versions:
                     <VersionsView Releases="@changelog" CheckingUpdates="@updateBusy" OnCheckUpdates="@CheckUpdatesAndChangelogAsync" OnReload="@ReloadChangelogAsync" />
+                    break;
+                case AppView.Friends:
+                    <FriendsView Friends="@homeSteamFriends" Loaded="@homeSteamFriendsLoaded" HostingAs="@HostingAs" OnCairn="@CairnFriend" CanInvite="@CanInviteNow" Invited="@invitedFriends"
+                                 OnJoin="@JoinFriendFromHomeAsync" OnInvite="@InviteFromHomeAsync" />
                     break;
                 case AppView.Help:
                     <HelpView Notices="@CurrentNotices()" OnReplayTour="@ReplayTour" OnOpenSetup="@OpenSetupChecklist" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenSettings="@(() => NavigateTo(AppView.Settings))" />
