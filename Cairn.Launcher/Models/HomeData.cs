@@ -17,6 +17,10 @@ namespace Cairn.Launcher.Models
         public string Role { get; set; } = "";
         public DateTime LastUtc { get; set; }
         public int Sessions { get; set; }
+        /// <summary>Minutes the game was running in the sessions started here, all together.</summary>
+        public int Minutes { get; set; }
+        /// <summary>The friend whose game the last session joined (empty when this player hosted, or joined by a code).</summary>
+        public string With { get; set; } = "";
     }
 
     /// <summary>
@@ -46,7 +50,7 @@ namespace Cairn.Launcher.Models
         public RecentSession? Last => Entries.OrderByDescending(e => e.LastUtc).FirstOrDefault();
 
         /// <summary>Notes that a session of <paramref name="gameId"/> was started now (best effort: history is not worth interrupting anyone for).</summary>
-        public void Record(string gameId, string role, DateTime? nowUtc = null)
+        public void Record(string gameId, string role, DateTime? nowUtc = null, string with = "")
         {
             if (string.IsNullOrWhiteSpace(gameId)) return;
             var e = Entries.FirstOrDefault(x => string.Equals(x.GameId, gameId, StringComparison.OrdinalIgnoreCase));
@@ -54,6 +58,21 @@ namespace Cairn.Launcher.Models
             e.Role = role;
             e.LastUtc = nowUtc ?? DateTime.UtcNow;
             e.Sessions++;
+            e.With = role == "join" ? with : "";
+            Save();
+        }
+
+        /// <summary>The game of a session closed after this many minutes: added to what the game has been played so far.</summary>
+        public void AddPlaytime(string gameId, int minutes)
+        {
+            var e = Entries.FirstOrDefault(x => string.Equals(x.GameId, gameId, StringComparison.OrdinalIgnoreCase));
+            if (e is null || minutes < 1) return;
+            e.Minutes += minutes;
+            Save();
+        }
+
+        private void Save()
+        {
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(_file)!);
@@ -96,6 +115,10 @@ namespace Cairn.Launcher.Models
             if (catalogVersion is not null && IsNewerPack(catalogVersion, downloadedVersion)) return ModState.UpdateAvailable;
             return installed ? ModState.Installed : ModState.NotInstalled;
         }
+
+        /// <summary>"45 min", "2 h 5 min", "13 h": the time a game has been played.</summary>
+        public static string Played(int minutes) =>
+            minutes < 60 ? $"{minutes} min" : minutes % 60 == 0 || minutes >= 600 ? $"{minutes / 60} h" : $"{minutes / 60} h {minutes % 60} min";
 
         /// <summary>"just now", "5 minutes ago", "yesterday", "3 days ago", "2 weeks ago", "4 months ago".</summary>
         public static string Ago(DateTime thenUtc, DateTime nowUtc)

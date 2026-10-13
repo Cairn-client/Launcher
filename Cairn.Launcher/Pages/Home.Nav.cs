@@ -110,7 +110,16 @@ namespace Cairn.Launcher.Pages
         private readonly RecentSessions recent = new();
 
         /// <summary>A session of the selected game was just started from here (Host or Join): remembered for the Continue card.</summary>
-        private void RecordSession(string role) => recent.Record(selectedGameId, role);
+        private void RecordSession(string role)
+        {
+            recent.Record(selectedGameId, role, with: joiningWith);
+            joiningWith = "";
+            sessionStartedUtc = DateTime.UtcNow;
+        }
+
+        // who the session being started joins (a friend picked from the list, or the sender of an invitation), and when the game started
+        private string joiningWith = "";
+        private DateTime? sessionStartedUtc;
 
         private RecentSession? HomeLast => recent.Last;
 
@@ -180,6 +189,7 @@ namespace Cairn.Launcher.Pages
         /// </summary>
         private async Task JoinFriendFromHomeAsync(SteamFriendData friend)
         {
+            joiningWith = friend.Name;
             if (FriendsGameId.Length > 0) SelectGame(FriendsGameId);
             if (gameRunning) { ShowToast("The game is already running. Close it first, or use Leave game on its page.", true); return; }
             if (SelectedProfile is { } g && NeedsMod(g))

@@ -246,6 +246,8 @@ namespace Cairn.Launcher.Pages
 
         private void OnPackGameExit()
         {
+            if (sessionStartedUtc is { } started && launchedGameId.Length > 0) recent.AddPlaytime(launchedGameId, (int)(DateTime.UtcNow - started).TotalMinutes);
+            sessionStartedUtc = null;
             gameRunning = false;
             launchedAs = "";
             launchedGameId = "";

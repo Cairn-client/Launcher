@@ -110,11 +110,15 @@
                         <span class="continue-art" style="background-image: url('@(rg.PosterImage.Length > 0 ? rg.PosterImage : rg.BackgroundImage)');"></span>
                         <span class="continue-text">
                             <strong>@rg.DisplayName</strong>
-                            <span>@(last.Role == "host" ? "You hosted" : "You joined") · @HomeLogic.Ago(last.LastUtc, DateTime.UtcNow)</span>
-                            <span class="muted">@(last.Sessions == 1 ? "1 session" : $"{last.Sessions} sessions") so far</span>
+                            <span>@(last.Role == "host" ? "You hosted" : last.With.Length > 0 ? "You joined " + last.With : "You joined") · @HomeLogic.Ago(last.LastUtc, DateTime.UtcNow)</span>
+                            <span class="muted">@(last.Sessions == 1 ? "1 session" : $"{last.Sessions} sessions")@(last.Minutes > 0 ? " · " + HomeLogic.Played(last.Minutes) + " played" : " so far")</span>
                         </span>
                         <span class="continue-go">Open</span>
                     </button>
+                    @if (last.Role == "join" && last.With.Length > 0 && Friends?.FirstOrDefault(f => string.Equals(f.Name, last.With, StringComparison.OrdinalIgnoreCase)) is { } again)
+                    {
+                        <button class="mini rejoin" @onclick="() => OnJoinFriend.InvokeAsync(again)">Rejoin @again.Name, hosting now</button>
+                    }
                     @if (History.Count > 0)
                     {
                         <ul class="history" aria-label="Earlier sessions">
@@ -123,7 +127,7 @@
                                 <li>
                                     <button class="history-row" @onclick="() => OnOpenGame.InvokeAsync(h.Game.Id)">
                                         <span class="friend-name">@h.Game.DisplayName</span>
-                                        <span class="mod-state">@(h.Session.Role == "host" ? "Hosted" : "Joined") @HomeLogic.Ago(h.Session.LastUtc, DateTime.UtcNow)</span>
+                                        <span class="mod-state">@(h.Session.Role == "host" ? "Hosted" : h.Session.With.Length > 0 ? "Joined " + h.Session.With : "Joined") @HomeLogic.Ago(h.Session.LastUtc, DateTime.UtcNow)@(h.Session.Minutes > 0 ? " · " + HomeLogic.Played(h.Session.Minutes) : "")</span>
                                     </button>
                                 </li>
                             }
