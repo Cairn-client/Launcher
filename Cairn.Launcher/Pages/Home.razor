@@ -32,6 +32,9 @@
         </nav>
 
         <div class="topbar-right">
+            <button class="nav-btn profile-btn @(currentView == AppView.Profile ? "active" : "")" title="Your profile" aria-label="Your profile" @onclick="() => NavigateTo(AppView.Profile)">
+                @if (steamSelf.Avatar.Length > 0) { <img src="https://avatars.steamstatic.com/@(steamSelf.Avatar).jpg" alt="" /> } else { <span>@(steamSelf.Name.Length > 0 ? steamSelf.Name[..1].ToUpperInvariant() : "?")</span> }
+            </button>
             <SearchBar @ref="searchBar" Games="@GameProfileRegistry.All()" OnPc="@IsGameFound" Favorites="@HomeFavorites" OnPick="@PickFromSearch" />
 
             <nav class="nav" aria-label="Launcher">
@@ -421,6 +424,14 @@
                     break;
                 case AppView.News:
                     <NewsView Notices="@CurrentNotices()" CairnReleases="@changelog" Mods="@modNews" Loading="@modNewsLoading" OnRefresh="@(() => LoadModNewsAsync(true))" OnOpenVersions="@(() => NavigateTo(AppView.Versions))" OnOpenGame="@OpenGameFromHome" />
+                    break;
+                case AppView.Profile:
+                    <ProfileView SteamName="@steamSelf.Name" SteamId="@steamSelf.Id" Avatar="@steamSelf.Avatar"
+                                 Sessions="@recent.Entries.Sum(e => e.Sessions)" Played="@(recent.Entries.Sum(e => e.Minutes) > 0 ? HomeLogic.Played(recent.Entries.Sum(e => e.Minutes)) : "-")"
+                                 ModsInstalled="@HomeModsInstalled" Friends="@homeSteamFriends.Count" FriendsOnline="@homeSteamFriends.Count(f => f.State is "online" or "in-game")"
+                                 Presence="@settings.PresenceEnabled" Notify="@settings.NotifyFriends" AutoUpdate="@settings.AutoUpdateMods"
+                                 OnPresence="@(on => SetProfileSwitchAsync("presence", on))" OnNotify="@(on => SetProfileSwitchAsync("notify", on))" OnAutoUpdate="@(on => SetProfileSwitchAsync("update", on))"
+                                 OnOpenSettings="@(() => NavigateTo(AppView.Settings))" />
                     break;
                 case AppView.Help:
                     <HelpView Notices="@CurrentNotices()" OnReplayTour="@ReplayTour" OnOpenSetup="@OpenSetupChecklist" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenSettings="@(() => NavigateTo(AppView.Settings))" />

@@ -130,6 +130,7 @@ namespace Cairn.Launcher.Pages
             StartSetupCheck();   // in the background; replaces the old "open Settings when no game path" check
             _ = RefreshCatalogAndPacksAsync();   // which games there are, then which mods they offer
             StartAutoUpdateLoop();
+            LoadSteamSelf();
             _ = RefreshSteamFriendStatusAsync();   // the Friends tile is filled as the launcher opens, not at the first minute's look
             _ = LoadChangelogAsync();   // the Versions page and Home show what changed
             StartHomeFriendsLoop();        // who is hosting, while Home is showing

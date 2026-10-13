@@ -1,0 +1,67 @@
+﻿@* Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+   GPLv3 section 7 additional terms: AUTHORS.md. Unofficial, free, not affiliated with or endorsed by the studios or publishers
+   of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md). *@
+@using Cairn.Launcher.Components.Shared
+@* You as Cairn knows you: the Steam account in use, what you have done, and the few switches that are about you (what friends see, what you are told). *@
+<div class="view">
+    <header class="view-head">
+        <h1>Profile</h1>
+        <p class="lead">Who you are on Cairn, and what your friends can see.</p>
+    </header>
+
+    <section class="card profile-card">
+        <span class="friend-avatar big @(SteamName.Length > 0 ? "online" : "")">
+            @if (Avatar.Length > 0) { <img src="https://avatars.steamstatic.com/@(Avatar)_full.jpg" alt="" /> }
+            else { <span>@(SteamName.Length > 0 ? SteamName[..1].ToUpperInvariant() : "?")</span> }
+        </span>
+        <div class="profile-who">
+            <strong>@(SteamName.Length > 0 ? SteamName : "Steam is not signed in")</strong>
+            <span class="muted">@(SteamId.Length > 0 ? "Steam id " + SteamId : "Start Steam and sign in: Cairn finds your friends through it.")</span>
+            <span class="muted">Cairn @Globals.CairnVersion</span>
+        </div>
+    </section>
+
+    <section class="card now">
+        <div class="facts">
+            <div><span class="k">Sessions</span><span class="v">@Sessions</span></div>
+            <div><span class="k">Time played</span><span class="v">@Played</span></div>
+            <div><span class="k">Mods installed</span><span class="v">@ModsInstalled</span></div>
+            <div><span class="k">Friends online</span><span class="v">@FriendsOnline / @Friends</span></div>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-head"><h2>Privacy and notices</h2></div>
+        <label class="profile-switch">
+            <input type="checkbox" checked="@Presence" @onchange="e => OnPresence.InvokeAsync((bool)e.Value!)" />
+            <span>Let my Steam friends who use Cairn see when I am online and invite me <span class="muted">(takes effect the next time Cairn starts)</span></span>
+        </label>
+        <label class="profile-switch">
+            <input type="checkbox" checked="@Notify" @onchange="e => OnNotify.InvokeAsync((bool)e.Value!)" />
+            <span>Tell me when a friend comes online, starts playing or invites me</span>
+        </label>
+        <label class="profile-switch">
+            <input type="checkbox" checked="@AutoUpdate" @onchange="e => OnAutoUpdate.InvokeAsync((bool)e.Value!)" />
+            <span>Keep Cairn and my mods up to date by themselves</span>
+        </label>
+        <div class="row-actions"><button class="cairn-btn" @onclick="OnOpenSettings">ALL SETTINGS</button></div>
+    </section>
+</div>
+
+@code {
+    [Parameter] public string SteamName { get; set; } = "";
+    [Parameter] public string SteamId { get; set; } = "";
+    [Parameter] public string Avatar { get; set; } = "";
+    [Parameter] public int Sessions { get; set; }
+    [Parameter] public string Played { get; set; } = "-";
+    [Parameter] public int ModsInstalled { get; set; }
+    [Parameter] public int Friends { get; set; }
+    [Parameter] public int FriendsOnline { get; set; }
+    [Parameter] public bool Presence { get; set; }
+    [Parameter] public bool Notify { get; set; }
+    [Parameter] public bool AutoUpdate { get; set; }
+    [Parameter] public EventCallback<bool> OnPresence { get; set; }
+    [Parameter] public EventCallback<bool> OnNotify { get; set; }
+    [Parameter] public EventCallback<bool> OnAutoUpdate { get; set; }
+    [Parameter] public EventCallback OnOpenSettings { get; set; }
+}
