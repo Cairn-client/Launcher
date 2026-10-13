@@ -56,7 +56,7 @@ public static class BridgeProtocol
     /// <summary>The newest version of these messages this launcher speaks; a bridge that needs a newer one is told so and the connection ends.</summary>
     public const int Version = 1;
     public const string PipeEnvironmentVariable = "CAIRN_BRIDGE_PIPE";
-    public const int MaxLine = 16 * 1024;
+    public const int MaxLine = 48 * 1024;   // 100 saves of the longest names and details fit
     public const int MaxItems = 64;
     public const int MaxSaves = 100;
 

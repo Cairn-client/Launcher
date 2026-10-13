@@ -110,7 +110,8 @@ public static class OptionRunner
                 string? line;
                 while ((line = await p.StandardOutput.ReadLineAsync(cts.Token).ConfigureAwait(false)) is not null)
                 {
-                    if (line.Length is 0 or > 4096) continue;
+                    // a list of saves is one line (a hundred saves is about 10 KB); the cap is the protocol's
+                    if (line.Length is 0 or > BridgeProtocol.MaxLine) continue;
                     last = line;
                     if (all.Count < 50) all.Add(line);
                     try

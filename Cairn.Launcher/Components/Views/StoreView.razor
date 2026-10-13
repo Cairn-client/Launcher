@@ -39,11 +39,28 @@
 
                     @if (groups.Count > 0)
                     {
-                        <h3 class="store-h">What the mod does</h3>
-                        @foreach (var group in groups)
-                        {
-                            <div class="store-feature-group">
-                                <div class="store-feature-title">@group.Title</div>
+                        @* the same card as on the game's page in the Library: a tab for each category, a count for each status *@
+                        var tab = groups.Any(x => x.Title == featureTab) ? featureTab : groups[0].Title;
+                        <div class="store-features">
+                            <div class="store-features-head">
+                                <h3 class="store-h">What the mod does</h3>
+                                <div class="store-legend">
+                                    @foreach (var st in new[] { FeatureStatus.Ready, FeatureStatus.InTest, FeatureStatus.Planned })
+                                    {
+                                        var n = GameFeatures.Count(groups, st);
+                                        if (n > 0) { <span class="store-pill @StatusClass(st)">@n @GameFeatures.Label(st)</span> }
+                                    }
+                                </div>
+                            </div>
+                            <div class="store-tabs" role="tablist">
+                                @foreach (var group in groups)
+                                {
+                                    var title = group.Title;
+                                    <button class="store-tab @(tab == title ? "on" : "")" role="tab" @onclick="() => featureTab = title">@title <span class="n">@group.Items.Count</span></button>
+                                }
+                            </div>
+                            @foreach (var group in groups.Where(x => x.Title == tab))
+                            {
                                 @foreach (var f in group.Items)
                                 {
                                     <div class="store-feature">
@@ -55,8 +72,8 @@
                                         <span class="store-pill @StatusClass(f.Status)">@GameFeatures.Label(f.Status)</span>
                                     </div>
                                 }
-                            </div>
-                        }
+                            }
+                        </div>
                     }
                 </div>
 
@@ -82,13 +99,6 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.5" y2="16.5"/></svg>
                 <input placeholder="Search games" @bind="query" @bind:event="oninput" />
             </label>
-            <div class="store-chips" role="group" aria-label="Show">
-                @foreach (var (id, label) in Filters)
-                {
-                    string key = id;
-                    <button class="store-chip @(filter == key ? "on" : "")" aria-pressed="@(filter == key ? "true" : "false")" @onclick="() => filter = key">@label</button>
-                }
-            </div>
         </div>
 
         var shown = Visible();
@@ -98,27 +108,7 @@
         }
         else
         {
-            @* with no word and no filter the games are in two shelves; otherwise it is one grid *@
-            bool shelves = query.Trim().Length == 0 && filter == "all";
-            var playable = shown.Where(x => x.IsSupported).ToList();
-            var soon = shown.Where(x => !x.IsSupported).ToList();
-            @if (shelves)
-            {
-                @if (playable.Count > 0)
-                {
-                    <h2 class="store-shelf">Playable now <span>@playable.Count</span></h2>
-                    @Grid(playable)
-                }
-                @if (soon.Count > 0)
-                {
-                    <h2 class="store-shelf">Coming soon <span>@soon.Count</span></h2>
-                    @Grid(soon)
-                }
-            }
-            else
-            {
-                @Grid(shown)
-            }
+            @Grid(shown)
         }
     }
 </div>
@@ -158,12 +148,7 @@
     [Parameter] public EventCallback<string> OnOpen { get; set; }
 
     private string query = "";
-    private string filter = "all";
-
-    private static readonly (string Id, string Label)[] Filters =
-    {
-        ("all", "All"), ("playable", "Playable now"), ("soon", "Coming soon"), ("pc", "On this PC"), ("mine", "In my library"), ("new", "Not added"),
-    };
+    private string? featureTab;   // the tab of the mod's features on a game's page
 
     private GameProfile? Current => string.IsNullOrEmpty(Chosen) ? null : Games.FirstOrDefault(g => string.Equals(g.Id, Chosen, StringComparison.OrdinalIgnoreCase));
 
@@ -174,15 +159,6 @@
         string q = query.Trim();
         return Games
             .Where(g => q.Length == 0 || g.DisplayName.Contains(q, StringComparison.OrdinalIgnoreCase) || g.Developer.Contains(q, StringComparison.OrdinalIgnoreCase) || g.Franchise.Contains(q, StringComparison.OrdinalIgnoreCase))
-            .Where(g => filter switch
-            {
-                "playable" => g.IsSupported,
-                "soon" => !g.IsSupported,
-                "pc" => IsOnPc(g),
-                "mine" => InLibrary(g.Id),
-                "new" => !InLibrary(g.Id),
-                _ => true,
-            })
             .OrderByDescending(g => g.IsSupported).ThenBy(g => g.DisplayName, StringComparer.OrdinalIgnoreCase).ToList();
     }
 

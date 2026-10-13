@@ -1867,3 +1867,68 @@
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+/* the Store, fourth pass: the mod's features as tabs, and a back button that stays in view */
+.store-back {
+    position: sticky;
+    top: 8px;
+    z-index: 6;
+    background: var(--cairn-ink, #1c1d1f);
+}
+
+.store-features {
+    display: grid;
+    gap: 8px;
+}
+
+.store-features-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+    .store-features-head .store-h {
+        margin: 0;
+    }
+
+.store-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.store-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 6px 0 4px;
+    border-bottom: 1px solid var(--cairn-hairline, rgba(255, 255, 255, 0.08));
+}
+
+.store-tab {
+    padding: 9px 14px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--cairn-muted);
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+    .store-tab:hover {
+        color: var(--cairn-parchment);
+    }
+
+    .store-tab.on {
+        border-bottom-color: var(--cairn-gold);
+        color: var(--cairn-parchment);
+    }
+
+    .store-tab .n {
+        margin-left: 4px;
+        color: var(--cairn-muted);
+        font-size: 12px;
+    }

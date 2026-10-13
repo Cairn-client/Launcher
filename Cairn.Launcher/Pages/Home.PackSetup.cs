@@ -45,6 +45,7 @@ namespace Cairn.Launcher.Pages
                 // another game: nothing of the last one's list, notes or failures applies
                 packSetup = null; packSetupGameId = gameId; setupReady = false;
                 packNotes.Clear(); packFailures.Clear(); packPendingUntil.Clear(); packAutoRan.Clear(); packLogged.Clear();
+                setupLines.Clear();   // the progress lines of the last game's action are not this game's
             }
             var program = PackSetupProgram(gameId);
             if (program is null) { packSetup = null; setupReady = false; return false; }
