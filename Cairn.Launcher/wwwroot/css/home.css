@@ -1368,3 +1368,29 @@ dl.details.modbar dd {
         border-color: var(--cairn-gold);
         background: rgba(255, 255, 255, 0.08);
     }
+
+/* a turning ring where something is loading, instead of a line of text */
+.spinner {
+    display: inline-block;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.12);
+    border-top-color: var(--cairn-gold);
+    animation: cairn-spin 0.8s linear infinite;
+}
+
+@keyframes cairn-spin {
+    to { transform: rotate(360deg); }
+}
+
+.tile-loading {
+    display: grid;
+    place-items: center;
+    flex: 1;
+    min-height: 90px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spinner { animation-duration: 2.4s; }
+}

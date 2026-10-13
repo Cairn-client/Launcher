@@ -130,6 +130,14 @@ namespace Cairn.Launcher.Pages
             if (n is null || n.Tag == announcedUpdateTag || updateBusy || showUpdate) return;
             if (launchStage != LaunchStage.Idle || showSettings || showGameSettings || showSetup || showHostInfo || showJoinSteam) return;
             announcedUpdateTag = n.Tag;
+            if (settings.AutoUpdateMods && !gameRunning)
+            {
+                // seamless: no window to click through. The installer downloads and runs with nothing on screen, and the new launcher opens by itself.
+                Log.Information("update: {Tag} is out, installing it by itself", n.Tag);
+                ShowToast($"Updating Cairn to {n.Tag}... it reopens by itself.");
+                await RunUpdateAsync();
+                return;
+            }
             await InvokeAsync(() => OpenUpdateModal("A new version of Cairn Client is available. Both players need the same version to play together."));
         }
 
@@ -179,6 +187,7 @@ namespace Cairn.Launcher.Pages
         private void UpdateFailed(string text)
         {
             updateBusy = false; updateStage = "error"; updateStatus = text; updateProgress = null;
+            if (!showUpdate) ShowToast(text, error: true);   // an update that ran with no window of its own still says why it did not finish
             _ = InvokeAsync(StateHasChanged);
         }
 
@@ -212,8 +221,8 @@ namespace Cairn.Launcher.Pages
                 }
                 updateProgress = 1; updateStatus = $"Installing {info.Tag}... the launcher closes and opens again by itself.";
                 await InvokeAsync(StateHasChanged);
-                Log.Information("update: starting {Path} /SILENT /RELAUNCH=1", path);
-                Process.Start(new ProcessStartInfo { FileName = path, Arguments = "/SILENT /RELAUNCH=1", UseShellExecute = true })?.Dispose();
+                Log.Information("update: starting {Path} /VERYSILENT /RELAUNCH=1", path);
+                Process.Start(new ProcessStartInfo { FileName = path, Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /RELAUNCH=1", UseShellExecute = true })?.Dispose();
                 await Task.Delay(1200);
                 ConfirmExit();   // the installer replaces the files this launcher runs from, then opens the new one
             }

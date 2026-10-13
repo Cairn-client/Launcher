@@ -25,7 +25,17 @@ namespace Cairn.Launcher.Pages
                 while (true)
                 {
                     await Task.Delay(AutoUpdatePeriod);
-                    try { await InvokeAsync(RefreshCatalogAndPacksAsync); }
+                    try
+                    {
+                        await InvokeAsync(RefreshCatalogAndPacksAsync);
+                        await CheckForUpdateAsync();
+                        // the launcher itself is not restarted under the player: it says so, and the click does the rest
+                        if (updateInfo is { } n && n.Tag != announcedUpdateTag && !updateBusy)
+                        {
+                            announcedUpdateTag = n.Tag;
+                            await InvokeAsync(() => ShowToast($"Cairn {n.Tag} is out.", error: false, action: "Update now", onAction: RunUpdateAsync, milliseconds: 0));
+                        }
+                    }
                     catch (Exception ex) { Log.Debug(ex, "updates: the periodic check failed"); }
                 }
             });
