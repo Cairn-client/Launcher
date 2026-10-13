@@ -432,7 +432,7 @@
                               OnOpenHelp="@(() => NavigateTo(AppView.Help))" OnOpenSetup="@OpenSetupChecklist" />
                     break;
                 case AppView.Store:
-                    <StoreView Games="@GameProfileRegistry.All()" InLibrary="@InLibrary" IsOnPc="@IsGameFound" Focus="@storeFocus"
+                    <StoreView Games="@GameProfileRegistry.All()" InLibrary="@InLibrary" IsOnPc="@IsGameFound" Chosen="@storeChosen" OnChoose="@ChooseStore"
                                OnAdd="@AddFromStore" OnRemove="@RemoveFromStore" OnOpen="@OpenGameFromHome" />
                     break;
                 case AppView.Versions:

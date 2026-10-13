@@ -4,60 +4,93 @@
 @using Cairn.Launcher.Models
 
 @* The Store: every game Cairn has a mod for (or will have), to add to your library. Nothing is downloaded here: adding a game only puts it in the Library,
-   where its mod is downloaded when you want it. *@
+   where its mod is downloaded when you want it. The game being looked at belongs to the launcher (Chosen), so the back button of the mouse can return to it. *@
 <div class="view store">
-    <header class="view-head">
-        <h1>Store</h1>
-        <p class="lead">Add the games you play to your library. Nothing is downloaded until you ask for the mod.</p>
-    </header>
-
-    <div class="store-bar">
-        <input class="cairn-input" placeholder="Search games" @bind="query" @bind:event="oninput" />
-        <div class="filter-chips" role="group" aria-label="Show">
-            @foreach (var (id, label) in Filters)
-            {
-                string key = id;
-                <button class="filter-chip @(filter == key ? "on" : "")" aria-pressed="@(filter == key ? "true" : "false")" @onclick="() => filter = key">@label</button>
-            }
-        </div>
-    </div>
-
-    @if (Chosen is { } g)
+    @if (Current is { } g)
     {
         bool owned = InLibrary(g.Id);
+        var groups = GameFeatures.For(g.Id);
+        <button class="store-back" @onclick="() => OnChoose.InvokeAsync(null)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 6 9 12 15 18"/></svg>
+            <span>Back to the store</span>
+        </button>
         <section class="store-detail" style="@(g.Accent.Length > 0 ? $"--cairn-gold: {g.Accent};" : "")">
             <div class="store-hero" style="background-image: url('@(g.BackgroundImage.Length > 0 ? g.BackgroundImage : g.HeroImage)');">
                 <div class="store-hero-shade"></div>
-                <button class="store-back" @onclick="() => chosen = null">&larr; All games</button>
                 <div class="store-hero-body">
                     @if (g.LogoImage.Length > 0) { <img class="store-logo" src="@g.LogoImage" alt="@g.DisplayName" /> } else { <h2>@g.DisplayName</h2> }
+                    <div class="store-hero-actions">
+                        @if (owned)
+                        {
+                            <button class="cairn-btn primary" @onclick="() => OnOpen.InvokeAsync(g.Id)">OPEN IN LIBRARY</button>
+                            <button class="cairn-btn" @onclick="() => OnRemove.InvokeAsync(g.Id)">REMOVE</button>
+                        }
+                        else
+                        {
+                            <button class="cairn-btn primary" @onclick="() => OnAdd.InvokeAsync(g.Id)">ADD TO LIBRARY</button>
+                        }
+                    </div>
                 </div>
             </div>
             <div class="store-detail-body">
-                <p class="store-desc">@(g.Description.Length > 0 ? g.Description : "Multiplayer for this game is on its way.")</p>
-                <dl class="details stack store-facts">
-                    @if (g.Developer.Length > 0) { <div><dt>Developer</dt><dd>@g.Developer</dd></div> }
-                    @if (g.Franchise.Length > 0) { <div><dt>Franchise</dt><dd>@g.Franchise</dd></div> }
-                    <div><dt>Multiplayer</dt><dd>@(g.IsSupported ? "Playable now" : "Coming soon")</dd></div>
-                    <div><dt>On this PC</dt><dd>@(IsOnPc(g) ? "Found" : "Not found")</dd></div>
-                </dl>
-                <div class="store-actions">
-                    @if (owned)
+                <div class="store-main">
+                    <p class="store-desc">@(g.Description.Length > 0 ? g.Description : "Multiplayer for this game is on its way.")</p>
+                    @if (!g.IsSupported) { <p class="muted">You can add it now: it stays in your library until its mod is out.</p> }
+
+                    @if (groups.Count > 0)
                     {
-                        <button class="cairn-btn primary" @onclick="() => OnOpen.InvokeAsync(g.Id)">OPEN IN LIBRARY</button>
-                        <button class="cairn-btn" @onclick="() => OnRemove.InvokeAsync(g.Id)">REMOVE FROM LIBRARY</button>
+                        <h3 class="store-h">What the mod does</h3>
+                        @foreach (var group in groups)
+                        {
+                            <div class="store-feature-group">
+                                <div class="store-feature-title">@group.Title</div>
+                                @foreach (var f in group.Items)
+                                {
+                                    <div class="store-feature">
+                                        <span class="store-feature-dot @StatusClass(f.Status)"></span>
+                                        <div class="store-feature-text">
+                                            <span class="store-feature-name">@f.Name</span>
+                                            <span class="store-feature-detail">@f.Detail</span>
+                                        </div>
+                                        <span class="store-pill @StatusClass(f.Status)">@GameFeatures.Label(f.Status)</span>
+                                    </div>
+                                }
+                            </div>
+                        }
                     }
-                    else
-                    {
-                        <button class="cairn-btn primary" @onclick="() => OnAdd.InvokeAsync(g.Id)">ADD TO LIBRARY</button>
-                    }
-                    @if (!g.IsSupported) { <span class="muted">Adding a game that is not playable yet keeps it in your library until its mod is out.</span> }
                 </div>
+
+                <aside class="store-side">
+                    <div class="store-fact"><span>Developer</span><b>@(g.Developer.Length > 0 ? g.Developer : "-")</b></div>
+                    <div class="store-fact"><span>Franchise</span><b>@(g.Franchise.Length > 0 ? g.Franchise : "-")</b></div>
+                    <div class="store-fact"><span>Multiplayer</span><b class="@(g.IsSupported ? "good" : "")">@(g.IsSupported ? "Playable now" : "Coming soon")</b></div>
+                    <div class="store-fact"><span>On this PC</span><b class="@(IsOnPc(g) ? "good" : "")">@(IsOnPc(g) ? "Found" : "Not found")</b></div>
+                    <div class="store-fact"><span>In your library</span><b class="@(owned ? "good" : "")">@(owned ? "Yes" : "No")</b></div>
+                </aside>
             </div>
         </section>
     }
     else
     {
+        <header class="view-head">
+            <h1>Store</h1>
+            <p class="lead">Add the games you play to your library. Nothing is downloaded until you ask for the mod.</p>
+        </header>
+
+        <div class="store-bar">
+            <label class="store-search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.5" y2="16.5"/></svg>
+                <input placeholder="Search games" @bind="query" @bind:event="oninput" />
+            </label>
+            <div class="store-chips" role="group" aria-label="Show">
+                @foreach (var (id, label) in Filters)
+                {
+                    string key = id;
+                    <button class="store-chip @(filter == key ? "on" : "")" aria-pressed="@(filter == key ? "true" : "false")" @onclick="() => filter = key">@label</button>
+                }
+            </div>
+        </div>
+
         var shown = Visible();
         @if (shown.Count == 0)
         {
@@ -96,7 +129,7 @@
         {
             bool inLib = InLibrary(card.Id);
             <div class="store-card @(inLib ? "owned" : "")">
-                <button class="store-poster" title="@card.DisplayName" @onclick="() => chosen = card.Id">
+                <button class="store-poster" title="@card.DisplayName" @onclick="() => OnChoose.InvokeAsync(card.Id)">
                     <span class="store-art" style="background-image: url('@(card.PosterImage.Length > 0 ? card.PosterImage : card.BackgroundImage)');"></span>
                     @if (IsOnPc(card)) { <span class="store-tag">On this PC</span> }
                     @if (inLib) { <span class="store-check" title="In your library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12 10 17 19 7"/></svg></span> }
@@ -117,30 +150,24 @@
     [Parameter] public IReadOnlyList<GameProfile> Games { get; set; } = Array.Empty<GameProfile>();
     [Parameter] public Func<string, bool> InLibrary { get; set; } = _ => false;
     [Parameter] public Func<GameProfile, bool> IsOnPc { get; set; } = _ => false;
-    /// <summary>A game to show in full when the Store opens (picked from search or Home).</summary>
-    [Parameter] public string? Focus { get; set; }
+    /// <summary>The game shown in full (null: the list). Kept by the launcher, so going back returns to it.</summary>
+    [Parameter] public string? Chosen { get; set; }
+    [Parameter] public EventCallback<string?> OnChoose { get; set; }
     [Parameter] public EventCallback<string> OnAdd { get; set; }
     [Parameter] public EventCallback<string> OnRemove { get; set; }
     [Parameter] public EventCallback<string> OnOpen { get; set; }
 
     private string query = "";
     private string filter = "all";
-    private string? chosen;
-    private string? lastFocus;
 
     private static readonly (string Id, string Label)[] Filters =
     {
         ("all", "All"), ("playable", "Playable now"), ("soon", "Coming soon"), ("pc", "On this PC"), ("mine", "In my library"), ("new", "Not added"),
     };
 
-    protected override void OnParametersSet()
-    {
-        if (Focus is { Length: > 0 } f && f != lastFocus) { chosen = f; lastFocus = f; }
-        else if (Focus == "" && lastFocus != "") { chosen = null; lastFocus = ""; }   // the Store button pressed again: back to the list
-        else if (Focus is null) lastFocus = null;
-    }
+    private GameProfile? Current => string.IsNullOrEmpty(Chosen) ? null : Games.FirstOrDefault(g => string.Equals(g.Id, Chosen, StringComparison.OrdinalIgnoreCase));
 
-    private GameProfile? Chosen => chosen is null ? null : Games.FirstOrDefault(g => string.Equals(g.Id, chosen, StringComparison.OrdinalIgnoreCase));
+    private static string StatusClass(FeatureStatus s) => s switch { FeatureStatus.Ready => "ready", FeatureStatus.InTest => "test", _ => "planned" };
 
     private IReadOnlyList<GameProfile> Visible()
     {

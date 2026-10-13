@@ -43,6 +43,7 @@ namespace Cairn.Launcher.Pages
         /// <summary>Goes to a page. Leaving Settings without saving puts the unsaved edits back, as closing the old window did.</summary>
         private void NavigateTo(AppView view)
         {
+            EnsureNavStart();
             if (view == currentView)
             {
                 if (view == AppView.Library && SelectedProfile is { } alreadyShown) _ = LoadGameInfoAsync(alreadyShown);
@@ -56,7 +57,56 @@ namespace Cairn.Launcher.Pages
             if (view == AppView.Home) _ = LoadModNewsAsync();
             if (view == AppView.Profile) { LoadSteamSelf(); _ = LoadSteamSelfInfoAsync(); _ = RefreshHomeFriendsIfStaleAsync(); }
             if (view == AppView.Library && SelectedProfile is { } shown) _ = LoadGameInfoAsync(shown);
+            PushNav();
         }
+
+        // ---- back and forward: the pages the player went through, like a browser (the mouse's side buttons) ------------------------
+
+        private sealed record NavState(AppView View, string Game, string? Store);
+        private readonly List<NavState> navHistory = new();
+        private int navIndex = -1;
+        private bool navRestoring;
+
+        private NavState NavNow() => new(currentView, selectedGameId, storeChosen);
+
+        private void EnsureNavStart()
+        {
+            if (navHistory.Count == 0) { navHistory.Add(NavNow()); navIndex = 0; }
+        }
+
+        /// <summary>The state after a change is remembered, unless it is the one already there; whatever was ahead of it is dropped.</summary>
+        private void PushNav()
+        {
+            if (navRestoring) return;
+            EnsureNavStart();
+            var now = NavNow();
+            if (navHistory[navIndex] == now) return;
+            if (navIndex < navHistory.Count - 1) navHistory.RemoveRange(navIndex + 1, navHistory.Count - navIndex - 1);
+            navHistory.Add(now);
+            if (navHistory.Count > 60) navHistory.RemoveAt(0);
+            navIndex = navHistory.Count - 1;
+        }
+
+        private void GoNav(int step)
+        {
+            int to = navIndex + step;
+            if (to < 0 || to >= navHistory.Count) return;
+            navIndex = to;
+            var s = navHistory[to];
+            navRestoring = true;
+            try
+            {
+                if (GameProfileRegistry.Get(s.Game) is not null && s.Game != selectedGameId) SelectGame(s.Game);
+                storeChosen = s.Store;
+                NavigateTo(s.View);
+                currentView = s.View;
+            }
+            finally { navRestoring = false; }
+            StateHasChanged();
+        }
+
+        [Microsoft.JSInterop.JSInvokable] public void NavBackJS() => _ = InvokeAsync(() => GoNav(-1));
+        [Microsoft.JSInterop.JSInvokable] public void NavForwardJS() => _ = InvokeAsync(() => GoNav(1));
 
         // ---- Versions: the changelog ----------------------------------------------------------------------------------------
 
@@ -111,14 +161,23 @@ namespace Cairn.Launcher.Pages
 
         // ---- the Store: games to add to the library ------------------------------------------------------------------------------
 
-        private string? storeFocus;
+        private string? storeChosen;   // the game whose page the Store shows; null: the list of games
 
-        /// <summary>The Store page, on one game's page when asked for one (from Search or Home), else on the whole list.</summary>
+        /// <summary>The Store page, on one game's page when asked for one (from Search or Home), else on the whole list: pressing Store while a game's page is open goes back to the list.</summary>
         private void OpenStore(string? gameId = null)
         {
-            storeFocus = gameId;
-            if (currentView == AppView.Store && gameId is null) storeFocus = "";   // pressing Store again goes back to the list
+            EnsureNavStart();
+            storeChosen = gameId;
             NavigateTo(AppView.Store);
+            PushNav();
+            StateHasChanged();
+        }
+
+        private void ChooseStore(string? gameId)
+        {
+            EnsureNavStart();
+            storeChosen = string.IsNullOrEmpty(gameId) ? null : gameId;
+            PushNav();
             StateHasChanged();
         }
 
