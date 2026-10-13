@@ -16,7 +16,7 @@ namespace Cairn.Launcher.Pages
     public partial class Home
     {
         private const int MaxFriendLookups = 60;
-        private static readonly HttpClient steamProfiles = new() { Timeout = TimeSpan.FromSeconds(10) };
+        private static readonly HttpClient steamProfiles = new() { Timeout = TimeSpan.FromSeconds(6) };
 
         private List<SteamFriendRow> homeSteamFriends = new();
         private bool homeSteamFriendsLoaded;
@@ -32,22 +32,39 @@ namespace Cairn.Launcher.Pages
                 var me = await Task.Run(() => SteamIdentity.Read(RealSetupHost.Instance.SteamRootFromRegistry()));
                 if (me?.Named is not { Count: > 0 } named) { homeSteamFriendsLoaded = true; homeSteamFriends = new(); return; }
 
-                var rows = new List<SteamFriendRow>();
-                using var gate = new SemaphoreSlim(4);
-                var work = named.Take(MaxFriendLookups).Select(async f =>
+                // the friends are on screen at once, from Steam's own files; each one's status fills in as its answer arrives
+                // (what was known from the last look stays until then), and a slow profile holds up nobody else
+                var known = homeSteamFriends.ToDictionary(x => x.Id);
+                var rows = named.Take(MaxFriendLookups)
+                    .Select(f => known.TryGetValue(f.Id, out var old) ? old with { Name = f.Name, Avatar = f.Avatar } : new SteamFriendRow(f.Id, f.Name, "loading", "", "", f.Avatar))
+                    .ToList();
+                homeSteamFriends = SortedFriends(rows);
+                homeSteamFriendsLoaded = true;
+                await InvokeAsync(StateHasChanged);
+
+                using var gate = new SemaphoreSlim(8);
+                DateTime painted = DateTime.MinValue;
+                var work = rows.Select(r => r.Id).ToList().Select(async id =>
                 {
                     await gate.WaitAsync();
                     try
                     {
-                        var s = await SteamProfileStatus.FetchAsync(steamProfiles, f.Id, CancellationToken.None);
-                        lock (rows) rows.Add(new SteamFriendRow(f.Id, f.Name, s.State, s.Game, s.Message, f.Avatar));
+                        var s = await SteamProfileStatus.FetchAsync(steamProfiles, id, CancellationToken.None);
+                        bool repaint;
+                        lock (rows)
+                        {
+                            int i = rows.FindIndex(x => x.Id == id);
+                            if (i >= 0) rows[i] = rows[i] with { State = s.State, Game = s.Game, Message = s.Message };
+                            homeSteamFriends = SortedFriends(rows);
+                            repaint = DateTime.UtcNow - painted > TimeSpan.FromMilliseconds(250);
+                            if (repaint) painted = DateTime.UtcNow;
+                        }
+                        if (repaint) await InvokeAsync(StateHasChanged);
                     }
                     finally { gate.Release(); }
                 });
                 await Task.WhenAll(work);
-
-                homeSteamFriends = rows.OrderBy(r => FriendRank(r.State)).ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ToList();
-                homeSteamFriendsLoaded = true;
+                lock (rows) homeSteamFriends = SortedFriends(rows);
                 Log.Debug("home: {Count} Steam friends looked at, {Online} online", rows.Count, rows.Count(r => r.State is SteamProfileStatus.Online or SteamProfileStatus.InGame));
             }
             catch (Exception ex) { Log.Debug(ex, "home: Steam friends' status could not be read"); homeSteamFriendsLoaded = true; }
@@ -59,11 +76,15 @@ namespace Cairn.Launcher.Pages
             }
         }
 
+        private static List<SteamFriendRow> SortedFriends(IEnumerable<SteamFriendRow> rows) =>
+            rows.OrderBy(r => FriendRank(r.State)).ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ToList();
+
         private static int FriendRank(string state) => state switch
         {
             SteamProfileStatus.InGame => 0,
             SteamProfileStatus.Online => 1,
             SteamProfileStatus.Offline => 2,
+            "loading" => 2,   // not known yet: with the offline ones, until the answer moves it
             _ => 3,
         };
 
