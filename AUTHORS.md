@@ -14,6 +14,34 @@ The KD2M fork of Kingdom Come: Together, which Cairn Client grew out of: the KCD
 - DeepFriedDepp: <https://github.com/DeepFriedDepp/KingdomCome-Together>
 - marczukmichal: <https://github.com/marczukmichal/kcd2-multiplayer>
 
+## The other games' mods
+
+Each game's mod lives in its own repository of the Cairn-client organisation, forked from the project below. The mod's code and credits are its authors'; Cairn only
+packs it (and, for some games, the loader it runs on) and installs it. Each keeps its own licence.
+
+| Game | Mod | Upstream | Licence |
+| --- | --- | --- | --- |
+| Noita | Noita Entangled Worlds | IntQuant and contributors: <https://github.com/IntQuant/noita_entangled_worlds> | Apache-2.0 |
+| Dyson Sphere Program | Nebula Multiplayer Mod | NebulaModTeam: <https://github.com/NebulaModTeam/nebula> | GPL-3.0 |
+| Voices of the Void | Multivoid | Pelmentor and the VOTV-MP team: <https://github.com/VOTV-MP/Multivoid> | MIT |
+| Kerbal Space Program | Luna Multiplayer | the LunaMultiplayer team: <https://github.com/LunaMultiplayer/LunaMultiplayer> | MIT |
+| RimWorld | Multiplayer | Zetrith and the RimWorld Multiplayer Team: <https://github.com/rwmt/Multiplayer> | MIT |
+| Cities: Skylines | CSM (Cities: Skylines Multiplayer) | the CSM team: <https://github.com/CitiesSkylinesMultiplayer/CSM> | MIT |
+| Slime Rancher 2 | Ranching Together (SR2MP) | pyeight and contributors: <https://github.com/pyeight/SlimeRancher2Multiplayer> | GPL-3.0 |
+| Dead Cells | Dead Cells Multiplayer Mod | vaiserYT: <https://github.com/vaiserYT/DeadCellsMultiplayerMod> | MIT |
+| Grand Theft Auto: San Andreas | CoopAndreas | Tornamic: <https://github.com/Tornamic/CoopAndreas> | GPL-3.0 |
+| Prey | CoopPrototype (prey-coop) | x0rp01s0n and contributors: <https://github.com/x0rp01s0n/prey-coop> | GPL-3.0 |
+
+What a mod's pack carries beyond the mod itself, each under its own licence and credited to its authors:
+
+- BepInEx (Dyson Sphere Program), in the build Dyson Sphere Program mods use, from the Thunderstore package xiaoye97/BepInEx: <https://github.com/BepInEx/BepInEx>
+- UE4SS, in the build of the Thunderstore package Thunderstore/unreal_shimloader (Voices of the Void): <https://github.com/UE4SS-RE/RE-UE4SS>
+- Harmony, with the Luna Multiplayer client (Kerbal Space Program) and inside Prepatcher (RimWorld): <https://github.com/pardeike/Harmony>
+- Prepatcher by Zetrith (MIT, RimWorld): <https://github.com/Zetrith/Prepatcher>
+- MelonLoader (Apache-2.0, Slime Rancher 2): <https://github.com/LavaGang/MelonLoader>
+- Dead Cells Core Modding API (MIT, Dead Cells): <https://github.com/dead-cells-core-modding/core>
+- Chairloader by thelivingdiamond (GPL-3.0, Prey): <https://github.com/thelivingdiamond/Chairloader>. Prey's pack does not carry it: the player installs it.
+- Starlight by ThatFinn (Slime Rancher 2) is a requirement of that mod. Its licence forbids bundling it, so Cairn does not carry it: the player takes it from its author's page.
 ## Additional libraries and modules
 
 Not part of this repository's own code; each keeps its own license.
