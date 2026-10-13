@@ -1380,3 +1380,108 @@
     padding: 48px;
     text-align: center;
 }
+
+/* ---- the Store ---- */
+.store-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 22px;
+}
+
+    .store-bar .cairn-input {
+        width: 280px;
+    }
+
+.store-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 176px);
+    gap: 22px 20px;
+}
+
+.store-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 176px;
+}
+
+    .store-card .poster {
+        width: 176px;
+        height: 264px;
+    }
+
+.store-add {
+    width: 100%;
+}
+
+.store-none {
+    padding: 24px 0;
+}
+
+.store-detail {
+    border: 1px solid var(--cairn-oak);
+    border-radius: 14px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.store-hero {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    min-height: 260px;
+    padding: 28px;
+    background-size: cover;
+    background-position: center;
+}
+
+.store-hero-shade {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(0deg, rgba(10, 10, 12, 0.9), rgba(10, 10, 12, 0.15));
+}
+
+.store-back {
+    position: absolute;
+    top: 16px;
+    left: 18px;
+    padding: 6px 12px;
+    border: 1px solid var(--cairn-oak);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.5);
+    color: var(--cairn-parchment);
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.store-hero-body {
+    position: relative;
+}
+
+.store-logo {
+    max-width: 380px;
+    max-height: 120px;
+    object-fit: contain;
+}
+
+.store-detail-body {
+    display: grid;
+    gap: 18px;
+    padding: 22px 28px 28px;
+}
+
+.store-desc {
+    max-width: 70ch;
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.55;
+}
+
+.store-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}

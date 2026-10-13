@@ -16,6 +16,7 @@ namespace Cairn.Launcher.Models
     {
         Home,
         Library,
+        Store,
         Settings,
         Versions,
         Help,

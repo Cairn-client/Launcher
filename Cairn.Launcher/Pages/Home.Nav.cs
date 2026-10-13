@@ -103,10 +103,35 @@ namespace Cairn.Launcher.Pages
         /// <summary>Home's game cards: show the game in the Library.</summary>
         private void OpenGameFromHome(string gameId)
         {
-            AddToLibrary(gameId);   // until the Store opens it: a game opened from Home or Search is added
+            if (!InLibrary(gameId)) { OpenStore(gameId); return; }   // a game that is not added is shown in the Store, with its Add button
             SelectGame(gameId);
             NavigateTo(AppView.Library);
             StateHasChanged();
+        }
+
+        // ---- the Store: games to add to the library ------------------------------------------------------------------------------
+
+        private string? storeFocus;
+
+        /// <summary>The Store page, on one game's page when asked for one (from Search or Home), else on the whole list.</summary>
+        private void OpenStore(string? gameId = null)
+        {
+            storeFocus = gameId;
+            if (currentView == AppView.Store && gameId is null) storeFocus = "";   // pressing Store again goes back to the list
+            NavigateTo(AppView.Store);
+            StateHasChanged();
+        }
+
+        private void AddFromStore(string gameId)
+        {
+            AddToLibrary(gameId);
+            ShowToast($"{(GameProfileRegistry.Get(gameId)?.DisplayName ?? gameId)} is in your library.", error: false, action: "Open it", onAction: () => { OpenGameFromHome(gameId); return Task.CompletedTask; });
+        }
+
+        private void RemoveFromStore(string gameId)
+        {
+            RemoveFromLibrary(gameId);
+            ShowToast($"{(GameProfileRegistry.Get(gameId)?.DisplayName ?? gameId)} is out of your library. Its mod stays on this PC.");
         }
         // ---- Home: continue, friends, mods, favourites, update banner, the tour --------------------------------------------------
 
