@@ -148,6 +148,7 @@ namespace Cairn.Launcher.Pages
         private void ResetLaunchState()
         {
             Log.Information("MP-LAUNCH launch state reset (stage was {Stage})", launchStage);
+            invitedFriends.Clear();
             packSession?.Cancel();
             launchStage = LaunchStage.Idle;
             pendingGameProcess = null;

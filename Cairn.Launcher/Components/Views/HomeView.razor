@@ -162,6 +162,10 @@
                                 {
                                     <button class="mini join-friend" @onclick="() => OnJoinFriend.InvokeAsync(hosting)">Join</button>
                                 }
+                                else if (CanInvite && OnCairn(f) is { Online: true })
+                                {
+                                    <button class="mini join-friend" disabled="@Invited.Contains(f.Id)" @onclick="() => OnInvite.InvokeAsync(f)">@(Invited.Contains(f.Id) ? "Invited" : "Invite")</button>
+                                }
                             </li>
                         }
                     </ul>
@@ -279,6 +283,10 @@
     /// <summary>Every Steam friend and what they are doing; HostingAs finds the one hosting a session, when this friend is.</summary>
     [Parameter] public IReadOnlyList<SteamFriendRow> SteamFriends { get; set; } = Array.Empty<SteamFriendRow>();
     [Parameter] public bool SteamFriendsLoaded { get; set; }
+    /// <summary>This player is hosting and the code is ready: a friend on Cairn can be invited with one click.</summary>
+    [Parameter] public bool CanInvite { get; set; }
+    [Parameter] public ISet<string> Invited { get; set; } = new HashSet<string>();
+    [Parameter] public EventCallback<SteamFriendRow> OnInvite { get; set; }
     /// <summary>The friend as the presence feature sees them (online with Cairn, and what they do), or null.</summary>
     [Parameter] public Func<SteamFriendRow, Cairn.Wire.PresenceFriend?> OnCairn { get; set; } = _ => null;
     [Parameter] public Func<SteamFriendRow, SteamFriendData?> HostingAs { get; set; } = _ => null;

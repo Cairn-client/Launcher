@@ -61,7 +61,7 @@ namespace Cairn.Launcher.Pages
             if (!settings.NotifyFriends) return;
             if (PresenceNotices.ForFriend(before, f) is { } text)
             {
-                if (f.Online && f.Activity == PresenceApi.Activity.Hosting) ShowToast(text, error: false, action: "Join", onAction: () => JoinHostingFriendAsync(f), milliseconds: 30_000);
+                if (f.Online && f.Activity == PresenceApi.Activity.Hosting) { TrayService.Notify("A friend is hosting", text); ShowToast(text, error: false, action: "Join", onAction: () => JoinHostingFriendAsync(f), milliseconds: 30_000); }
                 else ShowToast(text);
             }
             _ = InvokeAsync(StateHasChanged);
@@ -77,10 +77,23 @@ namespace Cairn.Launcher.Pages
             await JoinFriendFromHomeAsync(hosting);
         }
 
+        private readonly HashSet<string> invitedFriends = new();
+
+        /// <summary>One click on a friend's row: hosting, the code ready, and the friend is on Cairn.</summary>
+        private bool CanInviteNow => presence is not null && gameRunning && launchedAs == "host" && !string.IsNullOrWhiteSpace(hostSteamCode);
+
+        private async Task InviteFromHomeAsync(SteamFriendRow row)
+        {
+            if (!friendSeen.TryGetValue(row.Id, out var f) || !f.Online) { ShowToast($"{row.Name} is not on Cairn right now.", true); return; }
+            invitedFriends.Add(row.Id);
+            await InviteFriendAsync(f);
+        }
+
         private void OnPresenceInvited(PresenceInvited i)
         {
             if (!settings.NotifyFriends) return;
             string text = PresenceNotices.ForInvite(i);
+            TrayService.Notify("Invitation", text + ". Open Cairn to join.");   // the window may be in the tray or behind the game
             ShowToast(text, error: false, action: "Join", onAction: () => AcceptInviteAsync(i), milliseconds: 60_000);
         }
 
