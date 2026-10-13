@@ -47,7 +47,6 @@ namespace Cairn.Launcher.Pages
         {
             await LoadCatalogAsync();
             await LoadPackIndexAsync();
-            _ = AutoUpdateModsAsync();
         }
 
         // the list changed: what was learned about the old one (where games are, what mods are on this PC) is asked again

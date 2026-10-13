@@ -110,24 +110,6 @@
                     </div>
                     }
 
-                    @if (Show("updates"))
-                    {
-                    <div class="cairn-input-group">
-                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="checkbox" @bind="Settings.AutoUpdateCairn" />
-                            Install a new Cairn by itself when the launcher starts
-                        </label>
-                        <div class="cairn-hint">The installer runs with no windows and Cairn opens again. Off: a new version is announced and waits for you. Friends need the same version to play together.</div>
-                    </div>
-                    <div class="cairn-input-group">
-                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="checkbox" @bind="Settings.AutoUpdateMods" />
-                            Keep my mods up to date by themselves
-                        </label>
-                        <div class="cairn-hint">A newer version of a mod you have is downloaded and put in the game in the background, never while a game is running. "Go back" on the game's page undoes an update.</div>
-                    </div>
-                    }
-
                     @* ---- Appearance ---- *@
                     @if (Show("accent"))
                     {
@@ -183,16 +165,6 @@
                             Also show Windows notifications (when a friend hosts, or invites me)
                         </label>
                         <div class="cairn-hint">So you see them while the game is in front or Cairn is minimised.</div>
-                    </div>
-                    }
-
-                    @if (Show("notifyupdates"))
-                    {
-                    <div class="cairn-input-group">
-                        <label class="cairn-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="checkbox" @bind="Settings.NotifyUpdates" />
-                            Tell me when a mod was updated in the background
-                        </label>
                     </div>
                     }
 
@@ -511,13 +483,11 @@
     {
         ["startpage"] = ("general", "start page home library opens first launch"),
         ["confirmquit"] = ("general", "escape key ask close quit exit confirm"),
-        ["updates"] = ("general", "update automatically install new version mods background keep up to date cairn"),
         ["accent"] = ("appearance", "accent colour color theme gold blue green pink violet red"),
         ["motion"] = ("appearance", "reduce motion animation animations fade spinner"),
         ["slideshow"] = ("appearance", "slideshow slides home change automatically carousel"),
         ["notifyfriends"] = ("notifications", "friends online notifications playing invite tell me"),
         ["traynotices"] = ("notifications", "windows notifications tray toast hosting invite"),
-        ["notifyupdates"] = ("notifications", "mod updated background update notice"),
         ["presence"] = ("privacy", "presence online invite friends cairn server see me"),
         ["friendstatus"] = ("privacy", "friends status pictures avatars steam profile community"),
         ["addr"] = ("privacy", "show ip address host window hidden stream share screen"),

@@ -227,3 +227,15 @@ html[reduce-motion] *, html[reduce-motion] *::before, html[reduce-motion] *::aft
     .accent-choice.on {
         border-color: var(--cairn-parchment);
     }
+
+/* the orange dot: something newer is out (next to Versions, and next to a version number) */
+.update-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-left: 7px;
+    border-radius: 50%;
+    background: #ff9f1a;
+    box-shadow: 0 0 0 2px rgba(255, 159, 26, 0.25);
+    vertical-align: middle;
+}
