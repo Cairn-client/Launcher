@@ -132,6 +132,7 @@ namespace Cairn.Launcher.Pages
 
         private async Task RefreshHomeFriendsIfStaleAsync()
         {
+            _ = RefreshSteamFriendStatusAsync();
             if (homeFriendsState == "checking" || DateTime.UtcNow - homeFriendsAt < TimeSpan.FromSeconds(50)) return;
             if (showJoinSteam || steamBusy || gameRunning || !setupChecked || !SetupAllGood) return;
             string? program = PackSessionProgram(FriendsGameId);

@@ -193,3 +193,10 @@
         width: 190px;
     }
 }
+
+/* the typed words, marked in a title */
+.sb-name ::deep mark {
+    background: none;
+    color: var(--cairn-gold);
+    font-weight: 700;
+}

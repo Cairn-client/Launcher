@@ -72,6 +72,26 @@ public class SteamIdentityTests
     }
 
     [Fact]
+    public void Friend_names_come_with_their_ids()
+    {
+        var n = SteamIdentity.FriendNames(Config);
+        Assert.Equal(["Bob", "Carol"], n.Select(x => x.Name));
+        Assert.Equal((SteamIdentity.IndividualBase + 5).ToString(), n[0].Id);
+    }
+
+    [Theory]
+    [InlineData("<profile><onlineState>in-game</onlineState><stateMessage><![CDATA[In-Game<br/>Noita]]></stateMessage><inGameInfo><gameName>Noita</gameName></inGameInfo></profile>", "in-game", "Noita", "In-Game")]
+    [InlineData("<profile><onlineState>online</onlineState><stateMessage>Online</stateMessage></profile>", "online", "", "Online")]
+    [InlineData("<profile><onlineState>offline</onlineState><stateMessage><![CDATA[Last Online 2 hrs, 5 mins ago]]></stateMessage></profile>", "offline", "", "Last Online 2 hrs, 5 mins ago")]
+    [InlineData("<response><error>The specified profile could not be found.</error></response>", "unknown", "", "")]
+    [InlineData("not xml", "unknown", "", "")]
+    public void A_public_profile_says_what_the_friend_is_doing(string xml, string state, string game, string message)
+    {
+        var s = SteamProfileStatus.Parse(xml);
+        Assert.Equal((state, game, message), (s.State, s.Game, s.Message));
+    }
+
+    [Fact]
     public void A_config_without_friends_has_none() => Assert.Empty(SteamIdentity.FriendIds("\"UserLocalConfigStore\" { \"x\" \"y\" }"));
 
     [Fact]

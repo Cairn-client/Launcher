@@ -49,14 +49,13 @@
     <aside class="sidebar">
 
         <div class="list-controls">
-            <div class="filter-checks" role="group" aria-label="Show only">
-                <label class="check"><input type="checkbox" checked="@gameFilterMode.HasFlag(GameFilter.OnThisPc)" @onchange="() => ToggleGameFilter(GameFilter.OnThisPc)" /><span>On this PC</span></label>
-                <label class="check"><input type="checkbox" checked="@gameFilterMode.HasFlag(GameFilter.ModInstalled)" @onchange="() => ToggleGameFilter(GameFilter.ModInstalled)" /><span>Mod installed</span></label>
-                <label class="check"><input type="checkbox" checked="@gameFilterMode.HasFlag(GameFilter.Favorites)" @onchange="() => ToggleGameFilter(GameFilter.Favorites)" /><span>Favourites</span></label>
+            <div class="filter-chips" role="group" aria-label="Show only">
+                <button class="filter-chip @(gameFilterMode.HasFlag(GameFilter.OnThisPc) ? "on" : "")" aria-pressed="@(gameFilterMode.HasFlag(GameFilter.OnThisPc) ? "true" : "false")" @onclick="() => ToggleGameFilter(GameFilter.OnThisPc)">On this PC</button>
+                <button class="filter-chip @(gameFilterMode.HasFlag(GameFilter.ModInstalled) ? "on" : "")" aria-pressed="@(gameFilterMode.HasFlag(GameFilter.ModInstalled) ? "true" : "false")" @onclick="() => ToggleGameFilter(GameFilter.ModInstalled)">Mod installed</button>
+                <button class="filter-chip @(gameFilterMode.HasFlag(GameFilter.Favorites) ? "on" : "")" aria-pressed="@(gameFilterMode.HasFlag(GameFilter.Favorites) ? "true" : "false")" @onclick="() => ToggleGameFilter(GameFilter.Favorites)">Favourites</button>
             </div>
             <div class="list-toolbar">
                 <label class="group-field">
-                    <span class="group-label">Group</span>
                     <select class="group-select" aria-label="Group games by" value="@gameGrouping" @onchange="OnGroupingChanged">
                         <option value="@GameGrouping.Title">Title</option>
                         <option value="@GameGrouping.Developer">Developer</option>
@@ -394,7 +393,7 @@
                     <HomeView Games="@GameProfileRegistry.All()" OnPc="@IsGameFound" GamesOnPc="@HomeGamesOnPc" ModsInstalled="@HomeModsInstalled"
                               Latest="@(changelog?.FirstOrDefault())" SetupReady="@(!setupChecked ? null : SystemSetupGood)"
                               UpdateTag="@upd.Tag" UpdateNotes="@upd.Notes" UpdateBusy="@updateBusy" OnUpdate="@HomeUpdateClickAsync"
-                              Last="@HomeLast" FriendsState="@homeFriendsState" Friends="@homeFriends" OnJoinFriend="@JoinFriendFromHomeAsync" History="@HomeHistory()" Notices="@HomeNotices()" OnDismissNotice="@DismissNotice" 
+                              Last="@HomeLast" FriendsState="@homeFriendsState" Friends="@homeFriends" SteamFriends="@homeSteamFriends" SteamFriendsLoaded="@homeSteamFriendsLoaded" HostingAs="@HostingAs" OnJoinFriend="@JoinFriendFromHomeAsync" History="@HomeHistory()" Notices="@HomeNotices()" OnDismissNotice="@DismissNotice" 
                               Favorites="@HomeFavorites" OnToggleFavorite="@ToggleFavorite"
                               OnOpenGame="@OpenGameFromHome" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenVersions="@(() => NavigateTo(AppView.Versions))"
                               OnOpenHelp="@(() => NavigateTo(AppView.Help))" OnOpenSetup="@OpenSetupChecklist" />

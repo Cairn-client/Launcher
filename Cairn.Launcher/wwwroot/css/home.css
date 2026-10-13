@@ -1116,3 +1116,123 @@ dl.details.modbar dd {
     .feature-row { grid-template-columns: 10px minmax(0, 1fr) auto; }
     .feature-row .feature-detail { grid-column: 2 / 4; }
 }
+
+/* the "show only" filters of the game list: three small toggles, side by side */
+.filter-chips {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.filter-chip {
+    padding: 5px 4px;
+    text-align: center;
+    white-space: nowrap;
+    border-radius: 999px;
+    border: 1px solid var(--cairn-oak);
+    background: transparent;
+    color: var(--cairn-muted);
+    font: inherit;
+    font-size: 12px;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+    .filter-chip:hover {
+        color: var(--cairn-text, #e8e8e8);
+        border-color: var(--cairn-muted);
+    }
+
+    .filter-chip.on {
+        background: rgba(232, 200, 114, 0.14);
+        border-color: var(--cairn-gold);
+        color: var(--cairn-gold);
+    }
+
+    .filter-chip:focus-visible {
+        outline: 2px solid var(--cairn-gold);
+        outline-offset: 2px;
+    }
+
+/* Continue: a banner made of the game's own art, its poster on the left, the way back in on the right */
+.home button.continue {
+    position: relative;
+    min-height: 150px;
+    padding: 16px 18px;
+    gap: 18px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--cairn-oak);
+    background:
+        linear-gradient(90deg, rgba(18, 19, 22, 0.94) 0%, rgba(18, 19, 22, 0.78) 45%, rgba(18, 19, 22, 0.45) 100%),
+        var(--continue-bg, none) center / cover no-repeat;
+    transition: border-color 0.15s;
+}
+
+    .home button.continue:hover {
+        border-color: var(--cairn-gold);
+    }
+
+    .home button.continue .continue-art {
+        width: 72px;
+        height: 108px;
+    }
+
+    .home button.continue .continue-text {
+        flex: 1;
+        gap: 5px;
+    }
+
+        .home button.continue .continue-text strong {
+            font-size: 17px;
+        }
+
+.continue-go {
+    flex: none;
+    padding: 6px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--cairn-gold);
+    color: var(--cairn-gold);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.home button.continue:hover .continue-go {
+    background: rgba(232, 200, 114, 0.14);
+}
+
+/* Steam friends: a dot for what the friend is doing, the list scrolls when there are many */
+.dot-state {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #6b7280;
+}
+
+    .dot-state.online {
+        background: #6fb7ff;
+    }
+
+    .dot-state.in-game {
+        background: #8fd18f;
+        box-shadow: 0 0 8px rgba(143, 209, 143, 0.7);
+    }
+
+.home .friends.scroll {
+    max-height: 168px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.home .friends li.away .friend-name {
+    color: var(--cairn-muted);
+}
+
+.friends-sum {
+    margin: -4px 0 8px;
+    font-size: 12px;
+}

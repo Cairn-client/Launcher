@@ -35,7 +35,7 @@
                             @onmousedown="() => Pick(g.Id)" @onclick="() => Pick(g.Id)" @onmouseenter="() => selected = row">
                         <span class="sb-logo">@if (g.LogoImage.Length > 0) { <img src="@g.LogoImage" alt="" /> }@if (Favorites.Contains(g.Id)) { <span class="fav-badge" title="Favourite"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg></span> }</span>
                         <span class="sb-text">
-                            <span class="sb-name">@g.DisplayName</span>
+                            <span class="sb-name">@Highlight(g.DisplayName)</span>
                             <span class="sb-sub">@(g.Developer.Length > 0 ? g.Developer : "")@(OnPc?.Invoke(g) == true ? " · On this PC" : "")@(g.IsSupported ? "" : " · Coming soon")</span>
                         </span>
                     </button>
@@ -78,12 +78,31 @@
         StateHasChanged();
     }
 
+    /// <summary>The title with the typed words marked where they occur in it.</summary>
+    private Microsoft.AspNetCore.Components.MarkupString Highlight(string name)
+    {
+        var marks = new bool[name.Length];
+        foreach (var w in query.Split(new[] { ' ', '-', ':', '.' }, StringSplitOptions.RemoveEmptyEntries))
+            for (int at = name.IndexOf(w, StringComparison.OrdinalIgnoreCase); at >= 0; at = name.IndexOf(w, at + 1, StringComparison.OrdinalIgnoreCase))
+                for (int k = at; k < at + w.Length; k++) marks[k] = true;
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < name.Length;)
+        {
+            int j = i; while (j < name.Length && marks[j] == marks[i]) j++;
+            string part = System.Net.WebUtility.HtmlEncode(name[i..j]);
+            sb.Append(marks[i] ? "<mark>" + part + "</mark>" : part);
+            i = j;
+        }
+        return new Microsoft.AspNetCore.Components.MarkupString(sb.ToString());
+    }
+
     private List<GameProfile> Results()
     {
         if (string.IsNullOrWhiteSpace(query)) return new List<GameProfile>();
-        return Games.Where(g => GameListView.Matches(g, query.Trim()))
-             .OrderByDescending(g => Favorites.Contains(g.Id)).ThenByDescending(g => g.IsSupported)
-             .ThenBy(g => g.DisplayName, StringComparer.OrdinalIgnoreCase).Take(8).ToList();
+        string q = query.Trim();
+        return Games.Select(g => (Game: g, Score: GameListView.Score(g, q))).Where(x => x.Score > 0)
+             .OrderByDescending(x => x.Score).ThenByDescending(x => Favorites.Contains(x.Game.Id)).ThenByDescending(x => x.Game.IsSupported)
+             .ThenBy(x => x.Game.DisplayName, StringComparer.OrdinalIgnoreCase).Take(8).Select(x => x.Game).ToList();
     }
 
     private void OnInput(Microsoft.AspNetCore.Components.ChangeEventArgs e)

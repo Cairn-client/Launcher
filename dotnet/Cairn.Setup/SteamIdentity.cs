@@ -13,7 +13,10 @@ public static class SteamIdentity
     /// <summary>The offset between a 32-bit Steam account id and the 64-bit Steam id of an individual account.</summary>
     public const ulong IndividualBase = 76561197960265728UL;
 
-    public sealed record Local(string Id, string Name, IReadOnlyList<string> Friends);
+    /// <summary>A friend as Steam's own files list them: the 64-bit id and the name the client last saw.</summary>
+    public sealed record Named(string Id, string Name);
+
+    public sealed record Local(string Id, string Name, IReadOnlyList<string> Friends, IReadOnlyList<Named>? Named = null);
 
     /// <summary>The signed-in account and its friends, or null when Steam's files do not say.</summary>
     public static Local? Read(string? steamRoot)
@@ -28,9 +31,15 @@ public static class SteamIdentity
             ulong id = ulong.Parse(me.Value.Id);
             ulong account = id - IndividualBase;
             var friends = new List<string>();
+            var named = new List<Named>();
             string cfg = Path.Combine(steamRoot, "userdata", account.ToString(), "config", "localconfig.vdf");
-            if (File.Exists(cfg)) friends = FriendIds(File.ReadAllText(cfg));
-            return new Local(me.Value.Id, me.Value.Name, friends);
+            if (File.Exists(cfg))
+            {
+                string text = File.ReadAllText(cfg);
+                friends = FriendIds(text);
+                named = FriendNames(text).Where(n => n.Id != me.Value.Id).ToList();
+            }
+            return new Local(me.Value.Id, me.Value.Name, friends, named);
         }
         catch { return null; }
     }
@@ -62,6 +71,22 @@ public static class SteamIdentity
             ids.Add((IndividualBase + account).ToString());
         }
         return ids;
+    }
+
+    /// <summary>localconfig.vdf: each friend's 64-bit Steam id and the name stored beside it (the id stands in when Steam has no name yet).</summary>
+    public static List<Named> FriendNames(string vdf)
+    {
+        var list = new List<Named>();
+        var friends = Vdf.Parse(vdf).Find("friends");
+        if (friends is null) return list;
+        foreach (var f in friends.Children)
+        {
+            if (f.Text is not null || !uint.TryParse(f.Key, out uint account) || account == 0) continue;
+            string id = (IndividualBase + account).ToString();
+            string name = f.Value("name") ?? "";
+            list.Add(new Named(id, name.Length > 0 ? name : id));
+        }
+        return list;
     }
 
     /// <summary>A tiny reader of Valve's text KeyValues format: "key" "value" pairs and "key" { ... } sections.</summary>
