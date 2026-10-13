@@ -39,6 +39,10 @@ jobs:
           ./tools/Build-Installer.ps1
           if (-not (Test-Path "release/Cairn-Setup-$env:GITHUB_REF_NAME.exe")) { throw "installer missing" }
 
+      - name: The published master server works (it is trimmed, so a build that passes can still fail at run time)
+        shell: pwsh
+        run: ./tools/Test-MasterServer.ps1 -Dir release/Cairn/MasterServer
+
       - name: Changelog
         shell: pwsh
         run: ./tools/New-ReleaseNotes.ps1 -OutFile notes.md -Tag $env:GITHUB_REF_NAME
