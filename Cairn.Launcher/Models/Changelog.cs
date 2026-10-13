@@ -19,10 +19,6 @@ namespace Cairn.Launcher.Models
         Settings,
         Versions,
         Help,
-        Friends,
-        Activity,
-        Saves,
-        News,
         Profile,
     }
 

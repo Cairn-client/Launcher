@@ -26,23 +26,23 @@
         <nav class="nav" aria-label="Pages">
             <button class="nav-btn @(currentView == AppView.Home ? "active" : "")" aria-current="@(currentView == AppView.Home ? "page" : null)" @onclick="() => NavigateTo(AppView.Home)">Home</button>
             <button class="nav-btn @(currentView == AppView.Library ? "active" : "")" aria-current="@(currentView == AppView.Library ? "page" : null)" @onclick="() => NavigateTo(AppView.Library)">Library</button>
-            <button class="nav-btn @(currentView == AppView.Friends ? "active" : "")" aria-current="@(currentView == AppView.Friends ? "page" : null)" @onclick="() => NavigateTo(AppView.Friends)">Friends</button>
-            <button class="nav-btn @(currentView == AppView.Activity ? "active" : "")" aria-current="@(currentView == AppView.Activity ? "page" : null)" @onclick="() => NavigateTo(AppView.Activity)">Activity</button>
-            <button class="nav-btn @(currentView == AppView.Saves ? "active" : "")" aria-current="@(currentView == AppView.Saves ? "page" : null)" @onclick="() => NavigateTo(AppView.Saves)">Saves</button>
         </nav>
 
         <div class="topbar-right">
-            <button class="nav-btn profile-btn @(currentView == AppView.Profile ? "active" : "")" title="Your profile" aria-label="Your profile" @onclick="() => NavigateTo(AppView.Profile)">
-                @if (steamSelf.Avatar.Length > 0) { <img src="https://avatars.steamstatic.com/@(steamSelf.Avatar).jpg" alt="" /> } else { <span>@(steamSelf.Name.Length > 0 ? steamSelf.Name[..1].ToUpperInvariant() : "?")</span> }
-            </button>
             <SearchBar @ref="searchBar" Games="@GameProfileRegistry.All()" OnPc="@IsGameFound" Favorites="@HomeFavorites" OnPick="@PickFromSearch" />
 
             <nav class="nav" aria-label="Launcher">
                 <button class="nav-btn @(currentView == AppView.Versions ? "active" : "")" aria-current="@(currentView == AppView.Versions ? "page" : null)" @onclick="() => NavigateTo(AppView.Versions)">Versions</button>
-                <button class="nav-btn @(currentView == AppView.News ? "active" : "")" aria-current="@(currentView == AppView.News ? "page" : null)" @onclick="() => NavigateTo(AppView.News)">News</button>
                 <button class="nav-btn @(currentView == AppView.Help ? "active" : "")" aria-current="@(currentView == AppView.Help ? "page" : null)" @onclick="() => NavigateTo(AppView.Help)">Help</button>
                 <button class="nav-btn @(currentView == AppView.Settings ? "active" : "")" aria-current="@(currentView == AppView.Settings ? "page" : null)" title="Settings (F10)" @onclick="() => NavigateTo(AppView.Settings)">Settings</button>
             </nav>
+
+            @* your friends in a menu, and your account, between Settings and the updates *@
+            <FriendsMenu Friends="@homeSteamFriends" Loaded="@homeSteamFriendsLoaded" HostingAs="@HostingAs" OnCairn="@CairnFriend" CanInvite="@CanInviteNow" Invited="@invitedFriends"
+                         OnJoin="@JoinFriendFromHomeAsync" OnInvite="@InviteFromHomeAsync" />
+            <button class="account-btn @(currentView == AppView.Profile ? "active" : "")" title="Your account" aria-label="Your account" @onclick="() => NavigateTo(AppView.Profile)">
+                @if (steamSelf.Avatar.Length > 0) { <img src="https://avatars.steamstatic.com/@(steamSelf.Avatar)_medium.jpg" alt="" /> } else { <span>@(steamSelf.Name.Length > 0 ? steamSelf.Name[..1].ToUpperInvariant() : "?")</span> }
+            </button>
 
             <span class="topbar-sep" aria-hidden="true"></span>
 
@@ -406,27 +406,14 @@
                               UpdateTag="@upd.Tag" UpdateNotes="@upd.Notes" UpdateBusy="@updateBusy" OnUpdate="@HomeUpdateClickAsync"
                               Last="@HomeLast" FriendsState="@homeFriendsState" Friends="@homeFriends" SteamFriends="@homeSteamFriends" SteamFriendsLoaded="@homeSteamFriendsLoaded" HostingAs="@HostingAs" CanInvite="@CanInviteNow" Invited="@invitedFriends" OnInvite="@InviteFromHomeAsync" OnCairn="@CairnFriend" OnJoinFriend="@JoinFriendFromHomeAsync" History="@HomeHistory()" Notices="@HomeNotices()" OnDismissNotice="@DismissNotice" 
                               Favorites="@HomeFavorites" OnToggleFavorite="@ToggleFavorite"
-                              Attention="@HomeAttentionItems()" Suggestions="@HomeSuggestions()" OnDownloadMod="@(id => DownloadPackAsync(id))"
+                              Suggestions="@HomeSuggestions()" ModNews="@modNews" RecentGames="@HomeRecentGames()" OnSaveLogs="@CollectMyLogs" OnReportBug="@(() => UrlLauncher.Open("https://github.com/Cairn-client/launcher/issues/new"))" OnReplayTour="@ReplayTour" OnDownloadMod="@(id => DownloadPackAsync(id))"
                               TotalSessions="@recent.Entries.Sum(e => e.Sessions)" TotalMinutes="@recent.Entries.Sum(e => e.Minutes)" MostPlayed="@HomeMostPlayed()"
-                              OnOpenActivity="@(() => NavigateTo(AppView.Activity))" OnOpenNews="@(() => NavigateTo(AppView.News))"
+                              OnOpenAccount="@(() => NavigateTo(AppView.Profile))" OnOpenNews="@(() => NavigateTo(AppView.Versions))"
                               OnOpenGame="@OpenGameFromHome" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenVersions="@(() => NavigateTo(AppView.Versions))"
                               OnOpenHelp="@(() => NavigateTo(AppView.Help))" OnOpenSetup="@OpenSetupChecklist" />
                     break;
                 case AppView.Versions:
                     <VersionsView Releases="@changelog" CheckingUpdates="@updateBusy" OnCheckUpdates="@CheckUpdatesAndChangelogAsync" OnReload="@ReloadChangelogAsync" />
-                    break;
-                case AppView.Friends:
-                    <FriendsView Friends="@homeSteamFriends" Loaded="@homeSteamFriendsLoaded" HostingAs="@HostingAs" OnCairn="@CairnFriend" CanInvite="@CanInviteNow" Invited="@invitedFriends"
-                                 OnJoin="@JoinFriendFromHomeAsync" OnInvite="@InviteFromHomeAsync" />
-                    break;
-                case AppView.Activity:
-                    <ActivityView Rows="@ActivityRows()" OnOpenGame="@OpenGameFromHome" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" />
-                    break;
-                case AppView.Saves:
-                    <SavesView Sections="@allSaves" Loading="@allSavesLoading" GameRunning="@gameRunning" Asked="@allSavesAsked" OnDelete="@DeleteFromSavesPageAsync" OnRefresh="@LoadAllSavesAsync" />
-                    break;
-                case AppView.News:
-                    <NewsView Notices="@CurrentNotices()" CairnReleases="@changelog" Mods="@modNews" Loading="@modNewsLoading" OnRefresh="@(() => LoadModNewsAsync(true))" OnOpenVersions="@(() => NavigateTo(AppView.Versions))" OnOpenGame="@OpenGameFromHome" />
                     break;
                 case AppView.Profile:
                     <ProfileView SteamName="@steamSelf.Name" SteamId="@steamSelf.Id" Avatar="@steamSelf.Avatar"
@@ -434,7 +421,7 @@
                                  ModsInstalled="@HomeModsInstalled" Friends="@homeSteamFriends.Count" FriendsOnline="@homeSteamFriends.Count(f => f.State is "online" or "in-game")"
                                  Presence="@settings.PresenceEnabled" Notify="@settings.NotifyFriends" AutoUpdate="@settings.AutoUpdateMods"
                                  OnPresence="@(on => SetProfileSwitchAsync("presence", on))" OnNotify="@(on => SetProfileSwitchAsync("notify", on))" OnAutoUpdate="@(on => SetProfileSwitchAsync("update", on))"
-                                 OnOpenSettings="@(() => NavigateTo(AppView.Settings))" />
+                                 OnOpenSettings="@(() => NavigateTo(AppView.Settings))" Rows="@ActivityRows()" OnOpenGame="@OpenGameFromHome" />
                     break;
                 case AppView.Help:
                     <HelpView Notices="@CurrentNotices()" OnReplayTour="@ReplayTour" OnOpenSetup="@OpenSetupChecklist" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenSettings="@(() => NavigateTo(AppView.Settings))" />
