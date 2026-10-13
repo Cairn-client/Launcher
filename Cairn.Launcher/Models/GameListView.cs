@@ -73,13 +73,64 @@ namespace Cairn.Launcher.Models
             return sorted.Select(x => new GameGroup(x.Key, x.ToList())).ToList();
         }
 
-        /// <summary>The search text matches a title, an id, a developer or a franchise, ignoring case.</summary>
-        public static bool Matches(GameProfile g, string query) =>
-            query.Length == 0
-            || g.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase)
-            || g.Id.Contains(query, StringComparison.OrdinalIgnoreCase)
-            || g.Developer.Contains(query, StringComparison.OrdinalIgnoreCase)
-            || g.Franchise.Contains(query, StringComparison.OrdinalIgnoreCase);
+        /// <summary>The search text matches a game: see <see cref="Score"/>.</summary>
+        public static bool Matches(GameProfile g, string query) => query.Trim().Length == 0 || Score(g, query) > 0;
+
+        /// <summary>
+        /// How well a game answers a search, 0 when it does not. Like a store's library search: accents, case and signs such as the trademark
+        /// mark or a colon do not matter; the words may come in any order and a word may be only the start of one ("space prog" finds
+        /// Kerbal Space Program); a short code finds a title by its initials ("sr2" finds Slime Rancher 2) or its id ("kcd2"); and the letters
+        /// may be spread through the title ("kerbspace"). A title match ranks above a studio or franchise match, a word start above the
+        /// middle of a word.
+        /// </summary>
+        public static int Score(GameProfile g, string query)
+        {
+            var words = Words(query);
+            if (words.Count == 0) return 0;
+            string title = Normalize(g.DisplayName), id = Normalize(g.Id), dev = Normalize(g.Developer), fran = Normalize(g.Franchise);
+            var titleWords = title.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            string initials = string.Concat(titleWords.Select(w => w[0]));
+            string compact = title.Replace(" ", "");
+            int total = 0;
+            foreach (string w in words)
+            {
+                int best = 0;
+                if (titleWords.Any(t => t.StartsWith(w, StringComparison.Ordinal))) best = 40;
+                else if (title.Contains(w, StringComparison.Ordinal)) best = 25;
+                else if (id.Contains(w, StringComparison.Ordinal)) best = 22;
+                else if (initials.StartsWith(w, StringComparison.Ordinal) && w.Length >= 2) best = 20;
+                else if (Words(dev).Concat(Words(fran)).Any(t => t.StartsWith(w, StringComparison.Ordinal))) best = 12;
+                else if (dev.Contains(w, StringComparison.Ordinal) || fran.Contains(w, StringComparison.Ordinal)) best = 8;
+                else if (w.Length >= 3 && IsSubsequence(w, compact)) best = 4;
+                if (best == 0) return 0;   // every word has to find something
+                total += best;
+            }
+            if (title.StartsWith(string.Join(' ', words), StringComparison.Ordinal)) total += 30;   // the title begins with what was typed
+            return total;
+        }
+
+        private static List<string> Words(string s) => Normalize(s).Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+
+        /// <summary>Lower case, no accents, and every sign that is not a letter or a digit becomes a space ("Prey (2017)" and "PREYâ„¢" meet).</summary>
+        public static string Normalize(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            var decomposed = s.Normalize(System.Text.NormalizationForm.FormD);
+            var sb = new System.Text.StringBuilder(decomposed.Length);
+            foreach (char c in decomposed)
+            {
+                if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) == System.Globalization.UnicodeCategory.NonSpacingMark) continue;
+                sb.Append(char.IsLetterOrDigit(c) ? char.ToLowerInvariant(c) : ' ');
+            }
+            return string.Join(' ', sb.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        }
+
+        private static bool IsSubsequence(string needle, string hay)
+        {
+            int i = 0;
+            foreach (char c in hay) if (i < needle.Length && c == needle[i]) i++;
+            return i == needle.Length;
+        }
 
         private static string NameOr(string s) => string.IsNullOrWhiteSpace(s) ? UnknownGroup : s.Trim();
 
