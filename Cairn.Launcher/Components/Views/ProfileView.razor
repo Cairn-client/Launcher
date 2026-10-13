@@ -1,12 +1,13 @@
-﻿@* Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+@* Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
    GPLv3 section 7 additional terms: AUTHORS.md. Unofficial, free, not affiliated with or endorsed by the studios or publishers
    of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md). *@
 @using Cairn.Launcher.Components.Shared
+@using Cairn.Launcher.Models
 @* You as Cairn knows you: the Steam account in use, what you have done, and the few switches that are about you (what friends see, what you are told). *@
 <div class="view">
     <header class="view-head">
-        <h1>Profile</h1>
-        <p class="lead">Who you are on Cairn, and what your friends can see.</p>
+        <h1>Account</h1>
+        <p class="lead">Who you are on Cairn, what you have played, and what your friends can see.</p>
     </header>
 
     <section class="card profile-card">
@@ -28,6 +29,33 @@
             <div><span class="k">Mods installed</span><span class="v">@ModsInstalled</span></div>
             <div><span class="k">Friends online</span><span class="v">@FriendsOnline / @Friends</span></div>
         </div>
+    </section>
+
+    <section class="card">
+        <div class="card-head"><h2>Activity</h2></div>
+        @if (Rows.Count == 0)
+        {
+            <p class="muted">Nothing played yet. Host or join a game and it shows up here.</p>
+        }
+        else
+        {
+            <ul class="activity">
+                @foreach (var (game, s) in Rows)
+                {
+                    <li>
+                        <button class="activity-row" @onclick="() => OnOpenGame.InvokeAsync(game.Id)">
+                            <span class="activity-logo">@if (game.LogoImage.Length > 0) { <img src="@game.LogoImage" alt="" /> }</span>
+                            <span class="activity-main">
+                                <strong>@game.DisplayName</strong>
+                                <span class="muted">@(s.Role == "host" ? "You hosted" : s.With.Length > 0 ? "You joined " + s.With : "You joined") · @HomeLogic.Ago(s.LastUtc, DateTime.UtcNow)</span>
+                            </span>
+                            <span class="activity-stat"><b>@s.Sessions</b><span class="muted">@(s.Sessions == 1 ? "session" : "sessions")</span></span>
+                            <span class="activity-stat"><b>@(s.Minutes > 0 ? HomeLogic.Played(s.Minutes) : "-")</b><span class="muted">played</span></span>
+                        </button>
+                    </li>
+                }
+            </ul>
+        }
     </section>
 
     <section class="card">
@@ -64,4 +92,7 @@
     [Parameter] public EventCallback<bool> OnNotify { get; set; }
     [Parameter] public EventCallback<bool> OnAutoUpdate { get; set; }
     [Parameter] public EventCallback OnOpenSettings { get; set; }
+    /// <summary>Every game played from Cairn, the latest first.</summary>
+    [Parameter] public IReadOnlyList<(GameProfile Game, RecentSession Session)> Rows { get; set; } = Array.Empty<(GameProfile, RecentSession)>();
+    [Parameter] public EventCallback<string> OnOpenGame { get; set; }
 }

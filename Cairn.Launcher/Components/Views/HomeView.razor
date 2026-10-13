@@ -141,44 +141,6 @@
                 }
             </section>
 
-            @* Friends: your Steam friends and what they are doing; a friend who is hosting has a Join button *@
-            <section class="tile friends-tile">
-                <h2>Friends</h2>
-                @if (SteamFriends.Count > 0)
-                {
-                    int online = SteamFriends.Count(f => f.State is "online" or "in-game");
-                    <p class="muted friends-sum">@online of @SteamFriends.Count online</p>
-                    <ul class="friends scroll">
-                        @foreach (var f in SteamFriends)
-                        {
-                            <FriendRow Friend="f" Hosting="HostingAs(f)" Cairn="OnCairn(f)" CanInvite="CanInvite" Invited="Invited.Contains(f.Id)" OnJoin="OnJoinFriend" OnInvite="OnInvite" />
-                        }
-                    </ul>
-                }
-                else if (SteamFriendsLoaded)
-                {
-                    <p class="muted">No Steam friends were found. Make sure Steam is installed and you are signed in to it.</p>
-                }
-                else
-                {
-                    <div class="tile-loading" role="status" aria-label="Asking Steam"><span class="spinner"></span></div>
-                }
-            </section>
-
-            @* Needs attention: what is out of date or not in place, each with its button *@
-            @if (Attention.Count > 0)
-            {
-                <section class="tile attention-tile">
-                    <h2>Needs attention</h2>
-                    <ul class="attention">
-                        @foreach (var a in Attention)
-                        {
-                            <li><span class="attention-text">@a.Text</span><button class="mini" @onclick="a.Do">@a.Label</button></li>
-                        }
-                    </ul>
-                </section>
-            }
-
             @* Your numbers *@
             <section class="tile">
                 <h2>Your numbers</h2>
@@ -193,7 +155,7 @@
                         <li><span class="stat-n">@(TotalMinutes > 0 ? HomeLogic.Played(TotalMinutes) : "-")</span><span>played</span></li>
                         <li><span class="stat-n stat-text">@MostPlayed</span><span>most played</span></li>
                     </ul>
-                    <div class="tile-actions"><button class="mini" @onclick="OnOpenActivity">Open Activity</button></div>
+                    <div class="tile-actions"><button class="mini" @onclick="OnOpenAccount">Open your account</button></div>
                 }
             </section>
 
@@ -263,6 +225,67 @@
             </section>
         }
 
+        @if (FriendsActive.Count > 0)
+        {
+            <section class="shelf">
+                <h2>Friends are playing <span class="count">@FriendsActive.Count</span></h2>
+                <ul class="friends-grid">
+                    @foreach (var f in FriendsActive)
+                    {
+                        <FriendRow Friend="f" Hosting="HostingAs(f)" Cairn="OnCairn(f)" CanInvite="CanInvite" Invited="Invited.Contains(f.Id)" OnJoin="OnJoinFriend" OnInvite="OnInvite" />
+                    }
+                </ul>
+            </section>
+        }
+
+        @if (RecentGames.Count > 0)
+        {
+            <section class="shelf">
+                <h2>Recently played</h2>
+                <div class="shelf-row">
+                    @foreach (var g in RecentGames) { @Poster(g) }
+                </div>
+            </section>
+        }
+
+        @if (ModNews.Count > 0)
+        {
+            <section class="shelf">
+                <h2>From the mods</h2>
+                <div class="mod-news">
+                    @foreach (var (game, notes) in ModNews)
+                    {
+                        var latest = notes[0];
+                        <button class="mod-news-card" @onclick="() => OnOpenGame.InvokeAsync(game.Id)">
+                            <span class="mod-news-head"><strong>@game.DisplayName</strong><span class="muted">@latest.Tag@(latest.Published is { } when ? " · " + when.ToString("d MMM") : "")</span></span>
+                            @if (latest.Items.Count == 0) { <span class="muted">Maintenance and stability improvements.</span> }
+                            else
+                            {
+                                <ul>
+                                    @foreach (var line in latest.Items.Take(3)) { <li>@line</li> }
+                                </ul>
+                            }
+                        </button>
+                    }
+                </div>
+            </section>
+        }
+
+        <section class="shelf">
+            <h2>Tools</h2>
+            <div class="tools">
+                <button class="tool" @onclick="OnOpenSetup"><strong>Check setup</strong><span>Find what is missing for your games, and fix it.</span></button>
+                <button class="tool" @onclick="OnSaveLogs"><strong>Save the logs</strong><span>One zip with the game's, the mod's and the launcher's logs.</span></button>
+                <button class="tool" @onclick="OnReportBug"><strong>Report a problem</strong><span>Open the issue page, with what to attach.</span></button>
+                <button class="tool" @onclick="OnReplayTour"><strong>Welcome guide</strong><span>The short walk through Cairn, again.</span></button>
+            </div>
+        </section>
+
+        <section class="shelf">
+            <h2>Tip of the day</h2>
+            <div class="tip"><strong>@Tip.Title</strong><span>@Tip.Text</span></div>
+        </section>
+
         @if (Upcoming.Count > 0)
         {
             <section class="shelf">
@@ -305,14 +328,35 @@
     [Parameter] public IReadOnlyList<Cairn.Setup.Notice> Notices { get; set; } = Array.Empty<Cairn.Setup.Notice>();
     [Parameter] public EventCallback<string> OnDismissNotice { get; set; }
 
-    [Parameter] public IReadOnlyList<HomeAttention> Attention { get; set; } = Array.Empty<HomeAttention>();
     [Parameter] public IReadOnlyList<GameProfile> Suggestions { get; set; } = Array.Empty<GameProfile>();
     [Parameter] public EventCallback<string> OnDownloadMod { get; set; }
     [Parameter] public int TotalSessions { get; set; }
     [Parameter] public int TotalMinutes { get; set; }
     [Parameter] public string MostPlayed { get; set; } = "";
-    [Parameter] public EventCallback OnOpenActivity { get; set; }
+    [Parameter] public EventCallback OnOpenAccount { get; set; }
     [Parameter] public EventCallback OnOpenNews { get; set; }
+    /// <summary>The latest release of each mod the player has or follows.</summary>
+    [Parameter] public IReadOnlyList<(GameProfile Game, IReadOnlyList<ReleaseNote> Notes)> ModNews { get; set; } = Array.Empty<(GameProfile, IReadOnlyList<ReleaseNote>)>();
+    [Parameter] public EventCallback OnSaveLogs { get; set; }
+    [Parameter] public EventCallback OnReportBug { get; set; }
+    [Parameter] public EventCallback OnReplayTour { get; set; }
+    /// <summary>The games played from here, the latest first.</summary>
+    [Parameter] public IReadOnlyList<GameProfile> RecentGames { get; set; } = Array.Empty<GameProfile>();
+
+    private IReadOnlyList<SteamFriendRow> FriendsActive => SteamFriends
+        .Where(f => HostingAs(f) is not null || f.State == "in-game" || OnCairn(f) is { Online: true, Activity: "playing" or "hosting" })
+        .OrderBy(f => HostingAs(f) is not null ? 0 : 1).ThenBy(f => f.Name, StringComparer.OrdinalIgnoreCase).Take(8).ToList();
+
+    private static readonly (string Title, string Text)[] Tips =
+    {
+        ("Same version, same world", "Everyone in a session needs the same mod version. Cairn keeps your mods up to date by itself, so you only have to check when a friend is on an older one."),
+        ("Something broke after an update?", "Open the game's page and press Go back: the version before the last update is restored, and it is not installed again by itself."),
+        ("Favourites", "Press the heart on a game's poster and it comes first in the list and on this page."),
+        ("Ready check", "Before you host or join, the ready check says what is missing and has a button for each problem."),
+        ("Report a problem", "Save the logs from here, then attach the zip to your report: it holds the game's, the mod's and the launcher's logs."),
+    };
+    // one tip a day, then the next
+    private (string Title, string Text) Tip => Tips[(int)(DateTime.UtcNow.DayOfYear % Tips.Length)];
 
     [Parameter] public RecentSession? Last { get; set; }
     [Parameter] public string FriendsState { get; set; } = "idle";

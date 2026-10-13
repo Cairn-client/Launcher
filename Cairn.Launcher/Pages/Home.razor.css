@@ -1021,3 +1021,35 @@ button.chip {
     padding-left: 8px;
     border-left: 1px solid var(--cairn-oak);
 }
+
+/* your account: the avatar, round, between Settings and the updates (the bar's own buttons stretch, this one does not) */
+.account-btn {
+    align-self: center;
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    margin: 0 4px;
+    padding: 0;
+    border: 2px solid var(--cairn-oak-lit);
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--cairn-ink);
+    color: var(--cairn-muted);
+    font-family: var(--cairn-font-family);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+    .account-btn:hover, .account-btn.active {
+        border-color: var(--cairn-gold);
+    }
+
+    .account-btn img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+

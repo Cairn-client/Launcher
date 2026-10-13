@@ -1431,3 +1431,110 @@ dl.details.modbar dd {
     font-size: 13.5px;
     line-height: 1.5;
 }
+
+/* the sections under Playable now */
+.home .friends-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 6px 14px;
+}
+
+    .home .friends-grid li.friend-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        font-size: 13.5px;
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+.mod-news {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+}
+
+.mod-news-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 16px;
+    border: 1px solid var(--cairn-oak);
+    border-radius: 12px;
+    background: rgba(var(--cairn-shadow-rgb, 20, 22, 26), 0.55);
+    color: var(--cairn-parchment);
+    font-family: var(--cairn-font-family);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+    .mod-news-card:hover {
+        border-color: var(--cairn-gold);
+    }
+
+    .mod-news-card ul {
+        margin: 0;
+        padding-left: 18px;
+        line-height: 1.5;
+    }
+
+.mod-news-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.tools {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.tool {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 16px;
+    border: 1px solid var(--cairn-oak);
+    border-radius: 12px;
+    background: rgba(var(--cairn-shadow-rgb, 20, 22, 26), 0.55);
+    color: var(--cairn-parchment);
+    font-family: var(--cairn-font-family);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+    .tool:hover {
+        border-color: var(--cairn-gold);
+    }
+
+    .tool strong {
+        font-size: 14px;
+    }
+
+    .tool span {
+        color: var(--cairn-muted);
+        line-height: 1.45;
+    }
+
+.tip {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 18px;
+    border-left: 3px solid var(--cairn-gold);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    font-size: 13.5px;
+    line-height: 1.55;
+}
+
+    .tip span {
+        color: var(--cairn-parchment-dim, var(--cairn-muted));
+    }
