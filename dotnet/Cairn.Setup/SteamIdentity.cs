@@ -16,7 +16,7 @@ public static class SteamIdentity
     /// <summary>A friend as Steam's own files list them: the 64-bit id and the name the client last saw.</summary>
     public sealed record Named(string Id, string Name, string Avatar = "");
 
-    public sealed record Local(string Id, string Name, IReadOnlyList<string> Friends, IReadOnlyList<Named>? Named = null);
+    public sealed record Local(string Id, string Name, IReadOnlyList<string> Friends, IReadOnlyList<Named>? Named = null, string Avatar = "");
 
     /// <summary>The signed-in account and its friends, or null when Steam's files do not say.</summary>
     public static Local? Read(string? steamRoot)
@@ -32,14 +32,17 @@ public static class SteamIdentity
             ulong account = id - IndividualBase;
             var friends = new List<string>();
             var named = new List<Named>();
+            string avatar = "";
             string cfg = Path.Combine(steamRoot, "userdata", account.ToString(), "config", "localconfig.vdf");
             if (File.Exists(cfg))
             {
                 string text = File.ReadAllText(cfg);
                 friends = FriendIds(text);
-                named = FriendNames(text).Where(n => n.Id != me.Value.Id).ToList();
+                var all = FriendNames(text);
+                named = all.Where(n => n.Id != me.Value.Id).ToList();
+                avatar = all.FirstOrDefault(n => n.Id == me.Value.Id)?.Avatar ?? "";   // Steam lists the signed-in account beside its friends
             }
-            return new Local(me.Value.Id, me.Value.Name, friends, named);
+            return new Local(me.Value.Id, me.Value.Name, friends, named, avatar);
         }
         catch { return null; }
     }

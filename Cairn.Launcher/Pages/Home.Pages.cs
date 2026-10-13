@@ -76,5 +76,25 @@ namespace Cairn.Launcher.Pages
             }
             catch (Exception ex) { Log.Debug(ex, "news: the mods'' releases could not be read"); }
             finally { modNewsLoading = false; await InvokeAsync(StateHasChanged); }
+        }
+        // ---- the Profile page ----
+        private (string Id, string Name, string Avatar) steamSelf = ("", "", "");
+
+        private void LoadSteamSelf()
+        {
+            var me = SteamIdentity.Read(RealSetupHost.Instance.SteamRootFromRegistry());
+            if (me is not null) steamSelf = (me.Id, me.Name, me.Avatar);
+        }
+
+        private async Task SetProfileSwitchAsync(string which, bool on)
+        {
+            switch (which)
+            {
+                case "presence": settings.PresenceEnabled = on; break;
+                case "notify": settings.NotifyFriends = on; break;
+                case "update": settings.AutoUpdateMods = on; break;
+            }
+            WriteSettings("the profile page");
+            await InvokeAsync(StateHasChanged);
         }    }
 }
