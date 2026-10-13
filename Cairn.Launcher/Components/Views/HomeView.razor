@@ -280,6 +280,7 @@
     {
         "in-game" => f.Game,
         "online" => f.Message.Length > 0 ? f.Message : "Online",
+        "loading" => "Checking...",
         "offline" => f.Message.StartsWith("Last Online", StringComparison.OrdinalIgnoreCase) ? f.Message["Last ".Length..] : "Offline",
         _ => "Private profile",
     };
