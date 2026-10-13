@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8" />
@@ -28,6 +28,9 @@
                 root.setProperty(key, vars[key]);
             }
         };
+
+        // a flag on the page (an attribute on <html>) that a style rule can key on, such as reduce-motion
+        window.setCairnFlag = (name, on) => document.documentElement.toggleAttribute(name, !!on);
 
         window.registerGlobalKeys = (dotNetHelper) => {
             window.addEventListener('keydown', (e) => {

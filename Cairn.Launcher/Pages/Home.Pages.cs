@@ -48,7 +48,7 @@ namespace Cairn.Launcher.Pages
         /// <summary>What the player's own Steam profile page says (names, since when, most played games), read at most every ten minutes.</summary>
         private async Task LoadSteamSelfInfoAsync()
         {
-            if (steamSelf.Id.Length == 0 || DateTime.UtcNow - steamSelfInfoAt < TimeSpan.FromMinutes(10)) return;
+            if (!settings.FriendStatus || steamSelf.Id.Length == 0 || DateTime.UtcNow - steamSelfInfoAt < TimeSpan.FromMinutes(10)) return;
             steamSelfInfoAt = DateTime.UtcNow;
             steamSelfInfo = await SteamProfileStatus.FetchInfoAsync(steamProfiles, steamSelf.Id, CancellationToken.None);
             await InvokeAsync(StateHasChanged);

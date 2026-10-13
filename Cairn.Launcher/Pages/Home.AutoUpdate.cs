@@ -59,7 +59,7 @@ namespace Cairn.Launcher.Pages
                     await DownloadPackAsync(g.Id);
                     installedPackCache.Remove(g.Id);
                     if (InstalledPackOf(g) is { } now && now.Version == offered.Version)
-                        ShowToast($"{g.DisplayName} mod updated to {offered.Version}.", error: false, action: PreviousPackOf(g) is null ? null : "Undo", onAction: () => RollbackPackAsync(g.Id), milliseconds: 20_000);
+                        if (settings.NotifyUpdates) ShowToast($"{g.DisplayName} mod updated to {offered.Version}.", error: false, action: PreviousPackOf(g) is null ? null : "Undo", onAction: () => RollbackPackAsync(g.Id), milliseconds: 20_000);
                 }
             }
             catch (Exception ex) { Log.Warning(ex, "updates: a background update failed"); }

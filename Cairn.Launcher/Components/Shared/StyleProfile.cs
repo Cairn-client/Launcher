@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
 // GPLv3 section 7 additional terms: AUTHORS.md. This project's own code only; Kingdom Come: Deliverance II and its
 // content belong to Warhorse Studios and PLAION. Unofficial, free, not affiliated with or endorsed by them.
 // Portions from the original project, marczukmichal/kcd2-multiplayer; its author keeps their copyright (AUTHORS.md).
@@ -48,6 +48,13 @@ namespace Cairn.Launcher.Components.Shared
         public string ColorOnline { get; set; } = "#6FCF8A";
         public string ColorTrack { get; set; } = "#060707";
 
+        /// <summary>"#E8A35A" -> "232, 163, 90", the form the translucent accent rules (rgba(var(--cairn-gold-rgb), 0.2)) read.</summary>
+        private static string Rgb(string hex)
+        {
+            string h = hex.TrimStart('#');
+            return h.Length == 6 ? $"{Convert.ToInt32(h[..2], 16)}, {Convert.ToInt32(h[2..4], 16)}, {Convert.ToInt32(h[4..], 16)}" : "232, 163, 90";
+        }
+
         /// <summary>
         /// CSS custom-property name/value pairs for this profile. Applied to
         /// <c>document.documentElement</c> via the <c>applyCairnTheme</c> JS
@@ -60,6 +67,7 @@ namespace Cairn.Launcher.Components.Shared
         {
             ["--cairn-gold"] = ColorGold,
             ["--cairn-gold-bright"] = ColorGoldBright,
+        ["--cairn-gold-rgb"] = Rgb(ColorGold),
             ["--cairn-parchment"] = ColorParchment,
             ["--cairn-parchment-dim"] = ColorParchmentDim,
             ["--cairn-oak"] = ColorOak,

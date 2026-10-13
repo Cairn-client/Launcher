@@ -130,7 +130,7 @@ namespace Cairn.Launcher.Pages
             if (n is null || n.Tag == announcedUpdateTag || updateBusy || showUpdate) return;
             if (launchStage != LaunchStage.Idle || showSettings || showGameSettings || showSetup || showHostInfo || showJoinSteam) return;
             announcedUpdateTag = n.Tag;
-            if (settings.AutoUpdateMods && !gameRunning)
+            if (settings.AutoUpdateCairn && !gameRunning)
             {
                 // seamless: no window to click through. The installer downloads and runs with nothing on screen, and the new launcher opens by itself.
                 Log.Information("update: {Tag} is out, installing it by itself", n.Tag);

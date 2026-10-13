@@ -1,4 +1,4 @@
-﻿@* Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
+@* Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
    GPLv3 section 7 additional terms: AUTHORS.md. Unofficial, free, not affiliated with or endorsed by the studios or publishers
    of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md). *@
 @using Cairn.Launcher.Models
@@ -53,6 +53,7 @@
         "in-game" => f.Game,
         "online" => f.Message.Length > 0 ? f.Message : "Online",
         "loading" => "Checking...",
+        "hidden" => "",
         "offline" => f.Message.StartsWith("Last Online", StringComparison.OrdinalIgnoreCase) ? f.Message["Last ".Length..] : "Offline",
         _ => "Private profile",
     };
