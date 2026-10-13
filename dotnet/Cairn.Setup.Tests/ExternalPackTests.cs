@@ -85,7 +85,7 @@ public class ExternalInstallTests : IDisposable
 
     private static string Hex(string t) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(t))).ToLowerInvariant();
 
-    private static byte[] Zip(Dictionary<string, string> modFiles, string version = "1.0.0", string installDir = "mods/quant.ew", string? companion = null, bool carryCompanion = true)
+    private static byte[] Zip(Dictionary<string, string> modFiles, string version = "1.0.0", string installDir = "mods/quant.ew", string? companion = null, bool carryCompanion = true, string? installRoot = null)
     {
         using var ms = new MemoryStream();
         using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
@@ -95,6 +95,7 @@ public class ExternalInstallTests : IDisposable
             if (companion is not null && carryCompanion) lines.Add($"BIN|{Path.GetFileName(companion)}|7|{Hex("proxy!!")}");
             Add("manifest.txt", string.Join("\n", lines) + "\n");
             Add("pack.json", "{ \"schema\": 2, \"id\": \"noita\", \"version\": \"" + version + "\", \"kind\": \"external\", \"installDir\": \"" + installDir + "\""
+                             + (installRoot is null ? "" : ", \"installRoot\": \"" + installRoot + "\"")
                              + (companion is null ? "" : ", \"companion\": \"" + companion + "\"") + " }");
             foreach (var kv in modFiles) Add("mod/" + kv.Key, kv.Value);
             if (companion is not null && carryCompanion) Add("bin/" + Path.GetFileName(companion), "proxy!!");
@@ -222,6 +223,56 @@ public class ExternalInstallTests : IDisposable
         Assert.Equal("the game", File.ReadAllText(Path.Combine(Game, "game.exe")));
     }
 
+    // ---- a mod that installs into the player's local application data (a game that looks for its mods there) ----------------
+
+    private const string AppDataDir = "Colossal Order/Cities_Skylines/Addons/Mods/CSM";
+
+    [Fact]
+    public void AContractCanNameTheLocalApplicationDataAsTheRootOfItsFolder()
+    {
+        string Json(string root, string dir) => "{ \"schema\": 2, \"id\": \"cs\", \"version\": \"1.0.0\", \"kind\": \"external\", \"installRoot\": \"" + root + "\", \"installDir\": \"" + dir + "\" }";
+        var c = PackContract.Parse(Json("local-appdata", AppDataDir));
+        Assert.NotNull(c);
+        Assert.Equal("local-appdata", c!.InstallRoot);
+        Assert.Null(PackContract.Parse(Json("local-appdata", ".")));              // the root itself is never a mod folder
+        Assert.Null(PackContract.Parse(Json("local-appdata", "../x")));
+        Assert.Null(PackContract.Parse(Json("system32", "x")));                     // only the roots the launcher knows
+        Assert.Null(PackContract.Parse(Json("local-appdata", "a/b/c/d/e/f/g")));    // deeper than a mod folder needs
+        Assert.Null(PackContract.Parse("{ \"schema\": 2, \"id\": \"cs\", \"version\": \"1.0.0\", \"kind\": \"mod\", \"installRoot\": \"local-appdata\" }"));   // only an external mod has an install root
+    }
+
+    [Fact]
+    public async Task AModForTheLocalApplicationDataIsPlacedThereAndTakenOutAgain()
+    {
+        var appData = Path.Combine(_dir, "appdata");
+        await Download(Zip(new Dictionary<string, string> { ["CSM.dll"] = "the mod" }, installDir: AppDataDir, installRoot: "local-appdata"));
+        var r = ExternalInstall.Place(Game, Packs, "noita", appData);
+        Assert.True(r.Ok, r.Message);
+        Assert.Equal("the mod", File.ReadAllText(Path.Combine(appData, "Colossal Order", "Cities_Skylines", "Addons", "Mods", "CSM", "CSM.dll")));
+        Assert.True(ExternalInstall.IsPlaced(Game, Packs, "noita", appData));
+        Assert.False(File.Exists(Path.Combine(Game, "CSM.dll")));   // not in the game's folder
+        Assert.True(ExternalInstall.Unplace(Game, Packs, "noita", appData).Ok);
+        Assert.False(File.Exists(Path.Combine(appData, "Colossal Order", "Cities_Skylines", "Addons", "Mods", "CSM", "CSM.dll")));
+    }
+
+    [Fact]
+    public async Task AFolderOfTheSameNameInTheLocalApplicationDataThatCairnDidNotMakeIsLeftAlone()
+    {
+        var appData = Path.Combine(_dir, "appdata");
+        var theirs = Path.Combine(appData, "Colossal Order", "Cities_Skylines", "Addons", "Mods", "CSM");
+        Directory.CreateDirectory(theirs);
+        File.WriteAllText(Path.Combine(theirs, "CSM.dll"), "the player's own copy");
+        await Download(Zip(new Dictionary<string, string> { ["CSM.dll"] = "the mod" }, installDir: AppDataDir, installRoot: "local-appdata"));
+        Assert.False(ExternalInstall.Place(Game, Packs, "noita", appData).Ok);
+        Assert.Equal("the player's own copy", File.ReadAllText(Path.Combine(theirs, "CSM.dll")));
+    }
+
+    [Fact]
+    public async Task AGameWithoutAFolderStillPlacesNothingWhenTheModNeedsTheLocalApplicationData()
+    {
+        await Download(Zip(new Dictionary<string, string> { ["CSM.dll"] = "x" }, installDir: AppDataDir, installRoot: "local-appdata"));
+        Assert.False(ExternalInstall.Place(Path.Combine(_dir, "no-such-game"), Packs, "noita", Path.Combine(_dir, "appdata")).Ok);
+    }
     [Fact]
     public async Task AFileOfTheGameWithTheSameNameAndOtherBytesIsNeverOverwritten()
     {

@@ -82,6 +82,9 @@ manifest.txt  MOD|<path>|<size>|<sha256> (placed in installDir) and BIN|<path>|.
 * `installDir` -- the folder inside the **game's own folder** that the MOD files go to (`.` is the game's own folder, for a loader such as BepInEx): relative, forward slashes, at most four plain
   segments, never `..` or a drive. The launcher writes a `.cairn-pack` marker there listing what it placed, so it only updates or
   removes its own files. A folder of that name that Cairn did not make is left alone (the install says so).
+* `installRoot` (optional) -- where `installDir` is relative to. Empty is the game's own folder. `"local-appdata"` is the player's `%LOCALAPPDATA%`, for a game that looks for its mods there
+  (Cities: Skylines: `installDir` `Colossal Order/Cities_Skylines/Addons/Mods/CSM`); the folder may then be up to six segments deep and is never `.`. A launcher older than the one that
+  introduced it would place such a pack in the game's folder, so a pack that names a root must say `launcherMin` of that launcher (0.3.23).
 * `companion` (optional) -- one program of the pack (a path inside it, carried in the pack) that is started with the game.
 * No `agent`, `relay`, `native`, `installTo` or `lua`: those belong to Cairn's own session (`kind: "mod"`).
 

@@ -38,7 +38,7 @@ public sealed record PackContract(
     string Agent, string Relay, string Native, string BrandPak, string AgentConfig, string LauncherMin,
     IReadOnlyList<string> ReplacesFolders, IReadOnlyDictionary<string, string>? Lua = null,
     string Kind = PackKinds.Mod, IReadOnlyList<PackDependency>? DependsOn = null, int MenuProtocol = 1, string InstallTo = "",
-    string InstallDir = "", string Companion = "", bool CompanionStartsGame = false, string OptionsProgram = "", bool Setup = false, bool Session = false)
+    string InstallDir = "", string Companion = "", bool CompanionStartsGame = false, string OptionsProgram = "", bool Setup = false, bool Session = false, string InstallRoot = "")
 {
     public const string FileName = "pack.json";
     /// <summary>The version of the mod-menu messages (the launcher draws the menu; the mod sends its items) this launcher speaks; a pack that needs a newer one is refused.</summary>
@@ -48,6 +48,9 @@ public sealed record PackContract(
     public const int CurrentSchema = 2;
     /// <summary>An external mod's <c>installDir</c> for the game's own folder.</summary>
     public const string GameRoot = ".";
+    /// <summary>An external mod's <c>installRoot</c>: where <c>installDir</c> is relative to. Empty is the game's own folder; this is the player's local application data folder (%LOCALAPPDATA%),
+    /// where some games look for their mods. The only places a pack can name; never a path.</summary>
+    public const string InstallRootLocalAppData = "local-appdata";
 
     /// <summary>Reads a contract; null when it is not one this launcher understands (bad JSON, another schema, an unsafe path).</summary>
     public static PackContract? Parse(string json)
@@ -78,7 +81,7 @@ public sealed record PackContract(
                 kind, deps, menuProtocol, S("installTo"), S("installDir"), S("companion"),
                 r.TryGetProperty("companionStartsGame", out var csg) && csg.ValueKind == JsonValueKind.True, S("optionsProgram"),
                 r.TryGetProperty("setup", out var su) && su.ValueKind == JsonValueKind.True,
-                r.TryGetProperty("session", out var se) && se.ValueKind == JsonValueKind.True);
+                r.TryGetProperty("session", out var se) && se.ValueKind == JsonValueKind.True, S("installRoot"));
             bool common = IsPlainName(c.Id) && c.Version.Length > 0 && PackKinds.IsKnown(kind) && deps is not null && menuProtocol >= 1
                           && (c.InstallTo.Length == 0 || c.InstallTo == StartSaveTarget) && replaces.All(IsPlainName) && luaOk;
             bool noPrograms = c.Agent.Length == 0 && c.Relay.Length == 0 && c.Native.Length == 0;
@@ -88,7 +91,7 @@ public sealed record PackContract(
             bool ok = common && (c.InstallDir.Length == 0 || kind == PackKinds.External) && (c.Companion.Length == 0 || kind != PackKinds.Content) && (!c.CompanionStartsGame || kind == PackKinds.External) && (c.OptionsProgram.Length == 0 || (kind != PackKinds.Content && IsPackPath(c.OptionsProgram))) && (!c.Setup || c.OptionsProgram.Length > 0) && (!c.Session || (c.OptionsProgram.Length > 0 && kind == PackKinds.Mod)) && kind switch
             {
                 PackKinds.Content => noPrograms,
-                PackKinds.External => noPrograms && c.InstallTo.Length == 0 && IsGameRelativeDir(c.InstallDir)
+                PackKinds.External => noPrograms && c.InstallTo.Length == 0 && InstallDirOk(c)
                                       && (c.Companion.Length == 0 || IsPackPath(c.Companion)) && (!c.CompanionStartsGame || c.Companion.Length > 0),
                 _ => IsPlainName(c.ModFolder) && c.LuaPrefix.Length is > 0 and <= 40
                      && IsPackPath(c.Agent) && IsPackPath(c.Relay) && IsPackPath(c.Native)
@@ -143,12 +146,21 @@ public sealed record PackContract(
     /// A folder inside the game's own folder (<c>mods/quant.ew</c>), or <c>.</c> for the game's own folder: relative, forward slashes, 1 to 4 plain segments, no <c>..</c>, no drive.
     /// The launcher puts an external mod's files there and nowhere else.
     /// </summary>
-    internal static bool IsGameRelativeDir(string s)
+    /// <summary>An external contract's folder is fine: relative to the game's folder, or, when it names another root, a longer relative folder that is never the root itself.</summary>
+    private static bool InstallDirOk(PackContract c) => c.InstallRoot switch
     {
-        if (s == GameRoot) return true;   // the game's own folder (a loader such as BepInEx puts files there)
+        "" => IsGameRelativeDir(c.InstallDir),
+        InstallRootLocalAppData => c.InstallDir != GameRoot && IsRelativeDir(c.InstallDir, 6),
+        _ => false,
+    };
+
+    internal static bool IsGameRelativeDir(string s) => s == GameRoot || IsRelativeDir(s, 4);   // the game's own folder (a loader such as BepInEx puts files there), or a folder inside it
+
+    internal static bool IsRelativeDir(string s, int maxParts)
+    {
         if (s.Length is 0 or > 120 || s.Contains("..") || s.Contains(':') || s.Contains('\\') || s.StartsWith('/') || s.EndsWith('/')) return false;
         var parts = s.Split('/');
-        return parts.Length <= 4 && parts.All(p => p.Length > 0 && p[0] != '.' && p.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.' or ' '));
+        return parts.Length <= maxParts && parts.All(p => p.Length > 0 && p[0] != '.' && p.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.' or ' '));
     }
 
     /// <summary>A program of the pack as a path on this PC (the pack's files folder + the contract's relative path).</summary>

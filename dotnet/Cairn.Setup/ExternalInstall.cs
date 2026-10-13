@@ -19,10 +19,14 @@ public static class ExternalInstall
     public static PackContract? ContractOf(string packsRoot, string packId) =>
         PackStore.ReadContract(packsRoot, packId) is { Kind: PackKinds.External } c ? c : null;
 
-    /// <summary>The folder the mod goes to inside the game's folder; null when the contract's folder would leave it.</summary>
-    public static string? TargetDir(string gameRoot, PackContract contract)
+    /// <summary>The folder the mod goes to: inside the game's folder, or inside the player's local application data folder when the contract says so; null when the contract's folder would leave its root.
+    /// <paramref name="localAppData"/> is for tests; it is %LOCALAPPDATA% otherwise.</summary>
+    public static string? TargetDir(string gameRoot, PackContract contract, string? localAppData = null)
     {
-        if (!PackContract.IsGameRelativeDir(contract.InstallDir)) return null;
+        bool appData = contract.InstallRoot == PackContract.InstallRootLocalAppData;
+        if (contract.InstallRoot.Length > 0 && !appData) return null;
+        if (appData) gameRoot = localAppData ?? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (appData ? contract.InstallDir == PackContract.GameRoot || !PackContract.IsRelativeDir(contract.InstallDir, 6) : !PackContract.IsGameRelativeDir(contract.InstallDir)) return null;
         string root = Path.GetFullPath(gameRoot).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         if (contract.InstallDir == PackContract.GameRoot) return root.TrimEnd(Path.DirectorySeparatorChar);   // the game's own folder
         string target = Path.GetFullPath(Path.Combine(root, contract.InstallDir.Replace('/', Path.DirectorySeparatorChar)));
@@ -49,9 +53,9 @@ public static class ExternalInstall
     /// Whether the downloaded mod is really in the game's folder: placed by Cairn at this pack's version, and every file is there at the
     /// listed size. Sizes only (it runs on every repaint of the game list).
     /// </summary>
-    public static bool IsPlaced(string gameRoot, string packsRoot, string packId)
+    public static bool IsPlaced(string gameRoot, string packsRoot, string packId, string? localAppData = null)
     {
-        if (ContractOf(packsRoot, packId) is not { } c || PackStore.Read(packsRoot, packId) is not { } pack || TargetDir(gameRoot, c) is not { } target) return false;
+        if (ContractOf(packsRoot, packId) is not { } c || PackStore.Read(packsRoot, packId) is not { } pack || TargetDir(gameRoot, c, localAppData) is not { } target) return false;
         if (ReadMarker(target) is not { } m || m.Id != packId || m.Version != pack.Version) return false;
         return pack.Files.Where(f => f.Kind == "MOD").All(f =>
         {
@@ -61,14 +65,14 @@ public static class ExternalInstall
     }
 
     /// <summary>Puts the downloaded mod in the game's folder (a first install or an update).</summary>
-    public static ModInstall.PlaceResult Place(string gameRoot, string packsRoot, string packId)
+    public static ModInstall.PlaceResult Place(string gameRoot, string packsRoot, string packId, string? localAppData = null)
     {
         try
         {
             if (ContractOf(packsRoot, packId) is not { } c) return new ModInstall.PlaceResult(false, "this mod does not install into the game's folder");
             if (PackStore.Read(packsRoot, packId) is not { } pack) return new ModInstall.PlaceResult(false, "the mod has not been downloaded yet");
             if (!Directory.Exists(gameRoot)) return new ModInstall.PlaceResult(false, "the game's folder was not found");
-            if (TargetDir(gameRoot, c) is not { } target) return new ModInstall.PlaceResult(false, "the mod names a folder outside the game");
+            if (TargetDir(gameRoot, c, localAppData) is not { } target) return new ModInstall.PlaceResult(false, "the mod names a folder outside the places it may use");
             var mods = pack.Files.Where(e => e.Kind == "MOD").ToList();
             if (mods.Count == 0) return new ModInstall.PlaceResult(false, "the mod has not been downloaded yet");
 
@@ -125,11 +129,11 @@ public static class ExternalInstall
     }
 
     /// <summary>Takes the mod back out: only the files the marker lists, then the folders that are left empty. A folder with no marker is not ours and stays.</summary>
-    public static ModInstall.PlaceResult Unplace(string gameRoot, string packsRoot, string packId)
+    public static ModInstall.PlaceResult Unplace(string gameRoot, string packsRoot, string packId, string? localAppData = null)
     {
         try
         {
-            if (ContractOf(packsRoot, packId) is not { } c || TargetDir(gameRoot, c) is not { } target) return new ModInstall.PlaceResult(true, "nothing to remove");
+            if (ContractOf(packsRoot, packId) is not { } c || TargetDir(gameRoot, c, localAppData) is not { } target) return new ModInstall.PlaceResult(true, "nothing to remove");
             if (!Directory.Exists(target)) return new ModInstall.PlaceResult(true, "nothing to remove");
             if (ReadMarker(target) is not { } m || m.Id != packId) return new ModInstall.PlaceResult(true, "the folder is not Cairn's, so it stays");
             foreach (var rel in m.Files) DeleteInside(target, rel);
