@@ -8,6 +8,7 @@ obj/
 out/
 Debug/
 Release/
+release/
 publish/
 
 # Visual Studio / Rider IDE state — never commit

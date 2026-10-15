@@ -18,7 +18,9 @@
 #>
 param(
     [switch]$SkipPublish,
-    [string]$Version
+    [string]$Version,
+    [ValidateSet('dark', 'dynamic', 'light')]
+    [string]$Appearance = 'dark'
 )
 
 $ErrorActionPreference = "Stop"
@@ -50,10 +52,10 @@ $iscc = Get-Iscc
 
 # everything this build prints goes to release\BUILD-<version>.log too
 $relDir = Join-Path $root "release"
-$null = New-Item -ItemType Directory -Force -Path $relDir
 Start-Transcript -Path (Join-Path $relDir "BUILD-$Version.log") -Force | Out-Null
 trap { try { Stop-Transcript | Out-Null } catch {}; break }
-Write-Host "Build of $Version at $(Get-Date -Format s), commit $(& git -C $root rev-parse HEAD 2>$null)"
+$gitCommit = if (Get-Command git -ErrorAction SilentlyContinue) { & git -C $root rev-parse HEAD 2>$null } else { "unknown" }
+Write-Host "Build of $Version at $(Get-Date -Format s), commit $gitCommit"
 Write-Host "Inno Setup compiler: $iscc"
 
 # code signing, when its settings are present (never committed: environment or the git-ignored tools\signing.local.json)
@@ -102,8 +104,8 @@ foreach ($f in @("Cairn.Launcher.exe")) {
     -OutFile (Join-Path $payload "install-manifest.txt")
 
 $iss = Join-Path $root "installer\Cairn.iss"
-Write-Host "Compiling $iss (version $Version) ..."
-$isccArgs = @("/DAppVersion=$Version")
+Write-Host "Compiling $iss (version $Version, appearance $Appearance) ..."
+$isccArgs = @("/DAppVersion=$Version", "/DWizardAppearance=$Appearance")
 $signMeta = $null
 if ($signing) {
     # Inno signs the Setup and the uninstaller it embeds with the same command ($f = the file)

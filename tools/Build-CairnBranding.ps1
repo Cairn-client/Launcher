@@ -87,4 +87,50 @@ $bannerPath = Join-Path $root 'Cairn.Launcher\wwwroot\img\cairn-banner.png'
 $c.Bmp.Save($bannerPath, [Drawing.Imaging.ImageFormat]::Png); $c.G.Dispose(); $c.Bmp.Dispose()
 Write-Host "wrote $bannerPath"
 
+# Installer wizard side banners (328 x 628, ratio 164:314 for Inno Setup)
+$iw = 328; $ih = 628
+$fmtCenter = New-Object Drawing.StringFormat; $fmtCenter.Alignment = 'Center'
+$wizTitle = New-Object Drawing.Font('Segoe UI Bold', 34, [Drawing.FontStyle]::Regular, [Drawing.GraphicsUnit]::Pixel)
+$wizTag = New-Object Drawing.Font('Segoe UI', 15, [Drawing.FontStyle]::Regular, [Drawing.GraphicsUnit]::Pixel)
+
+# Dark banner
+$cd = New-Canvas $iw $ih
+$cd.G.Clear((C '#0E151C'))
+Set-RoundClip $cd.G 89 105 150 150 33
+Draw-Emblem $cd.G 89 105 150
+$cd.G.ResetClip()
+$cd.G.DrawString('CAIRN', $wizTitle, (New-Object Drawing.SolidBrush((C '#F2BA80'))), [single]($iw / 2), 280, $fmtCenter)
+$goldPen = New-Object Drawing.Pen((C '#E8A35A'), 2)
+$cd.G.DrawLine($goldPen, [single]($iw / 2 - 24), 332, [single]($iw / 2 + 24), 332)
+$cd.G.DrawString('Play single-player games', $wizTag, (New-Object Drawing.SolidBrush((C '#B5BCC0'))), [single]($iw / 2), 350, $fmtCenter)
+$cd.G.DrawString('together.', $wizTag, (New-Object Drawing.SolidBrush((C '#B5BCC0'))), [single]($iw / 2), 374, $fmtCenter)
+$darkBannerPath = Join-Path $root 'installer\wizard-image-dark.png'
+$cd.Bmp.Save($darkBannerPath, [Drawing.Imaging.ImageFormat]::Png); $cd.G.Dispose(); $cd.Bmp.Dispose()
+Write-Host "wrote $darkBannerPath"
+
+# Light banner
+$cl = New-Canvas $iw $ih
+$cl.G.Clear((C '#F4F5F7'))
+Set-RoundClip $cl.G 89 105 150 150 33
+Draw-Emblem $cl.G 89 105 150
+$cl.G.ResetClip()
+$cl.G.DrawString('CAIRN', $wizTitle, (New-Object Drawing.SolidBrush((C '#14202A'))), [single]($iw / 2), 280, $fmtCenter)
+$cl.G.DrawLine($goldPen, [single]($iw / 2 - 24), 332, [single]($iw / 2 + 24), 332)
+$cl.G.DrawString('Play single-player games', $wizTag, (New-Object Drawing.SolidBrush((C '#5A646E'))), [single]($iw / 2), 350, $fmtCenter)
+$cl.G.DrawString('together.', $wizTag, (New-Object Drawing.SolidBrush((C '#5A646E'))), [single]($iw / 2), 374, $fmtCenter)
+$goldPen.Dispose()
+$lightBannerPath = Join-Path $root 'installer\wizard-image-light.png'
+$cl.Bmp.Save($lightBannerPath, [Drawing.Imaging.ImageFormat]::Png); $cl.G.Dispose(); $cl.Bmp.Dispose()
+Write-Host "wrote $lightBannerPath"
+
+# Installer small top-right icon (147 x 147)
+$cs = New-Canvas 147 147
+Set-RoundClip $cs.G 12 12 123 123 27
+Draw-Emblem $cs.G 12 12 123
+$cs.G.ResetClip()
+$smallPath = Join-Path $root 'installer\wizard-small.png'
+$cs.Bmp.Save($smallPath, [Drawing.Imaging.ImageFormat]::Png); $cs.G.Dispose(); $cs.Bmp.Dispose()
+Write-Host "wrote $smallPath"
+
 & (Join-Path $PSScriptRoot 'Build-LauncherIcon.ps1') -SourcePng (Join-Path $root 'assets\cairn-icon.png') -OutputIco (Join-Path $root 'Cairn.Launcher\app.ico')
+

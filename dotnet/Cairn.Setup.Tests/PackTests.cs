@@ -168,7 +168,7 @@ public class PackContractTests
 
 public class PackInstallerTests : IDisposable
 {
-    private readonly string _root = Path.Combine(AppContext.BaseDirectory, "scratch", "packs-" + Guid.NewGuid().ToString("N")[..8]);
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "scratch", "packs-" + Guid.NewGuid().ToString("N")[..8]);
     public void Dispose() { try { Directory.Delete(_root, recursive: true); } catch { } }
 
     private static string Hex(byte[] b) => Convert.ToHexString(SHA256.HashData(b)).ToLowerInvariant();
@@ -462,7 +462,7 @@ public class PackInstallerTests : IDisposable
 
 public class ScriptBuiltPackTests : IDisposable
 {
-    private readonly string _root = Path.Combine(AppContext.BaseDirectory, "scratch", "scriptpack-" + Guid.NewGuid().ToString("N")[..8]);
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "scratch", "scriptpack-" + Guid.NewGuid().ToString("N")[..8]);
     public void Dispose() { try { Directory.Delete(_root, recursive: true); } catch { } }
 
     private sealed class FileHandler(string path) : HttpMessageHandler
