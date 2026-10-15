@@ -84,7 +84,25 @@ Compression=lzma2/max
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-WizardStyle=modern
+; Setup appearance: "dark" (forces dark mode) or "dynamic" (matches Windows light/dark system setting).
+; Inno Setup 6.6+ supports dark mode natively with styled immersive title bars ('includetitlebar').
+#ifndef WizardAppearance
+  #define WizardAppearance "dark"
+#endif
+
+WizardStyle=modern {#WizardAppearance} includetitlebar
+WizardImageStretch=yes
+
+#if WizardAppearance == "dark"
+  WizardImageFile=wizard-image-dark.png
+  WizardSmallImageFile=wizard-small.png
+#else
+  WizardImageFile=wizard-image-light.png
+  WizardImageFileDynamicDark=wizard-image-dark.png
+  WizardSmallImageFile=wizard-small.png
+  WizardSmallImageFileDynamicDark=wizard-small.png
+#endif
+
 UninstallDisplayName={#AppName}
 UninstallDisplayIcon={app}\{#AppExeName}
 SetupLogging=yes
