@@ -435,6 +435,7 @@
                     break;
                 case AppView.Profile:
                     <ProfileView SteamName="@steamSelf.Name" SteamId="@steamSelf.Id" Avatar="@steamSelf.Avatar" Info="@steamSelfInfo"
+                                 SteamInstalled="@steamInstalled" OnSteamAction="@StartOrGetSteam"
                                  Sessions="@recent.Entries.Sum(e => e.Sessions)" Played="@(recent.Entries.Sum(e => e.Minutes) > 0 ? HomeLogic.Played(recent.Entries.Sum(e => e.Minutes)) : "-")"
                                  ModsInstalled="@HomeModsInstalled"
                                  Rows="@ActivityRows()" OnOpenGame="@OpenGameFromHome" />

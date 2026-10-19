@@ -54,11 +54,19 @@ namespace Cairn.Launcher.Pages
             await InvokeAsync(StateHasChanged);
         }
 
+        private bool steamInstalled;
+
         private void LoadSteamSelf()
         {
-            var me = SteamIdentity.Read(RealSetupHost.Instance.SteamRootFromRegistry());
+            string? root = RealSetupHost.Instance.SteamRootFromRegistry();
+            steamInstalled = root is not null && Directory.Exists(root);
+            var me = SteamIdentity.Read(root);
             if (me is not null) steamSelf = (me.Id, me.Name, me.Avatar);
         }
+
+        /// <summary>The Profile page's button when nobody is signed in: start Steam, or open its download page.</summary>
+        private void StartOrGetSteam() =>
+            Cairn.Launcher.Components.Shared.UrlLauncher.Open(steamInstalled ? "steam://open/main" : "https://store.steampowered.com/about/");
 
         // ---- the cards and sections of Home that point at something ----
 

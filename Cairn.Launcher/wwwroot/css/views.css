@@ -997,6 +997,48 @@
         color: #6fb7ff;
     }
 
+/* nobody signed in to Steam: a quiet banner with an outline avatar, what is missing, and the button that fixes it */
+.profile-banner.signed-out {
+    background: linear-gradient(135deg, rgba(var(--cairn-gold-rgb), 0.1), rgba(12, 12, 12, 0.92) 60%);
+}
+
+.profile-avatar.signed-out {
+    border: 2px dashed rgba(255, 255, 255, 0.18);
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 35%, rgba(var(--cairn-gold-rgb), 0.12), var(--cairn-ink) 70%);
+    box-shadow: none;
+}
+
+    .profile-avatar.signed-out svg {
+        width: 56px;
+        height: 56px;
+        color: rgba(255, 255, 255, 0.35);
+    }
+
+.profile-kicker {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--cairn-gold-rgb));
+}
+
+.profile-hint {
+    margin: 0;
+    max-width: 560px;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--cairn-muted);
+}
+
+.profile-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 10px;
+    font-size: 13px;
+}
+
 .profile-ids {
     align-self: flex-start;
     font-size: 12px;

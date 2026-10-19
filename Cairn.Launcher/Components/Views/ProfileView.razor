@@ -11,28 +11,54 @@
     string state = Info?.State is { Length: > 0 } s ? s : SteamName.Length > 0 ? "online" : "offline";
 }
 <div class="view profile-page">
-    <header class="profile-banner" style="@(avatar.Length > 0 ? $"--banner: url('{avatar}');" : "")">
-        <span class="profile-avatar @state">
-            @if (avatar.Length > 0) { <img src="@avatar" alt="" /> }
-            else { <span>@(SteamName.Length > 0 ? SteamName[..1].ToUpperInvariant() : "?")</span> }
-        </span>
-        <div class="profile-who">
-            <h1>@(SteamName.Length > 0 ? SteamName : "Steam is not signed in")</h1>
-            <span class="profile-status @state">@(Info?.StateMessage is { Length: > 0 } msg ? msg : SteamName.Length > 0 ? "Online" : "Start Steam and sign in: Cairn finds your friends through it.")</span>
-            @if (Info is { } i && (i.RealName.Length > 0 || i.Location.Length > 0))
-            {
-                <span class="muted">@string.Join(" · ", new[] { i.RealName, i.Location }.Where(x => x.Length > 0))</span>
-            }
-            <span class="muted">@(Info?.MemberSince is { } since ? "Member of Steam since " + since.ToString("MMMM yyyy") + " · " : "")Cairn @Globals.CairnVersion</span>
-        </div>
-        <div class="profile-ids muted" title="Hover to show your Steam id">@if (SteamId.Length > 0) { <span>Steam id </span><span class="profile-id-value">@SteamId</span> }</div>
-    </header>
+    @if (SteamName.Length == 0)
+    {
+        @* no Steam account to show: say why (Steam missing, or not signed in) and offer the one thing that fixes it *@
+        <header class="profile-banner signed-out">
+            <span class="profile-avatar signed-out">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+            </span>
+            <div class="profile-who">
+                <span class="profile-kicker">@(SteamInstalled ? "Steam is installed" : "Steam not found")</span>
+                <h1>@(SteamInstalled ? "Sign in to Steam" : "Get Steam to play with friends")</h1>
+                <p class="profile-hint">@(SteamInstalled
+                    ? "Start Steam and sign in: Cairn finds your friends through it, and your profile shows up here."
+                    : "Cairn finds your friends and your games through Steam. Install it, sign in, and your profile shows up here.")</p>
+                <div class="profile-actions">
+                    <button class="cairn-btn primary" @onclick="OnSteamAction">@(SteamInstalled ? "Start Steam" : "Get Steam")</button>
+                    <span class="muted">Cairn @Globals.CairnVersion</span>
+                </div>
+            </div>
+        </header>
+    }
+    else
+    {
+        <header class="profile-banner" style="@(avatar.Length > 0 ? $"--banner: url('{avatar}');" : "")">
+            <span class="profile-avatar @state">
+                @if (avatar.Length > 0) { <img src="@avatar" alt="" /> }
+                else { <span>@(SteamName[..1].ToUpperInvariant())</span> }
+            </span>
+            <div class="profile-who">
+                <h1>@SteamName</h1>
+                <span class="profile-status @state">@(Info?.StateMessage is { Length: > 0 } msg ? msg : "Online")</span>
+                @if (Info is { } i && (i.RealName.Length > 0 || i.Location.Length > 0))
+                {
+                    <span class="muted">@string.Join(" · ", new[] { i.RealName, i.Location }.Where(x => x.Length > 0))</span>
+                }
+                <span class="muted">@(Info?.MemberSince is { } since ? "Member of Steam since " + since.ToString("MMMM yyyy") + " · " : "")Cairn @Globals.CairnVersion</span>
+            </div>
+            <div class="profile-ids muted" title="Hover to show your Steam id">@if (SteamId.Length > 0) { <span>Steam id </span><span class="profile-id-value">@SteamId</span> }</div>
+        </header>
+    }
 
-    <div class="profile-stats">
-        <div><b>@Sessions</b><span>@(Sessions == 1 ? "session" : "sessions")</span></div>
-        <div><b>@Played</b><span>played on Cairn</span></div>
-        <div><b>@ModsInstalled</b><span>@(ModsInstalled == 1 ? "mod installed" : "mods installed")</span></div>
-    </div>
+    @if (Sessions > 0 || ModsInstalled > 0)
+    {
+        <div class="profile-stats">
+            <div><b>@Sessions</b><span>@(Sessions == 1 ? "session" : "sessions")</span></div>
+            <div><b>@Played</b><span>played on Cairn</span></div>
+            <div><b>@ModsInstalled</b><span>@(ModsInstalled == 1 ? "mod installed" : "mods installed")</span></div>
+        </div>
+    }
 
     <div class="profile-cols one">
         <div class="profile-main">
@@ -82,6 +108,10 @@
     [Parameter] public string SteamName { get; set; } = "";
     [Parameter] public string SteamId { get; set; } = "";
     [Parameter] public string Avatar { get; set; } = "";
+    /// <summary>Whether Steam is on this PC at all (when nobody is signed in, the page says which of the two to fix).</summary>
+    [Parameter] public bool SteamInstalled { get; set; }
+    /// <summary>Starts Steam, or opens its download page when it is not installed.</summary>
+    [Parameter] public EventCallback OnSteamAction { get; set; }
     /// <summary>What the Steam profile page says (null until it has been read, or when the profile is private).</summary>
     [Parameter] public SteamProfileStatus.ProfileInfo? Info { get; set; }
     [Parameter] public int Sessions { get; set; }
