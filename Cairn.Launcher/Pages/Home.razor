@@ -12,17 +12,12 @@
 @using System.Diagnostics
 @using System.Text.Json
 
-@* Cairn: the top bar. Left: the brand, then Home and Library. Right: the search, then Versions, Help and Settings, then Manage updates in the
+@* Cairn: the top bar. Left: Home, Library and Store. Right: the search, then Versions, Help and Settings, then Manage updates in the
    corner (its panel slides in from the right). Under it, in the Library, the game list is on the left and the selected game's page (Host /
    Join) on the right. Nothing in the bar is per game; leaving the launcher is the window's own close button, or Esc. *@
 <div class="shell">
 
     <header class="topbar">
-        <div class="brand">
-            <img src="img/logo-128.png" alt="" />
-            <div class="brand-name">CAIRN</div>
-        </div>
-
         <nav class="nav" aria-label="Pages">
             <button class="nav-btn @(currentView == AppView.Home ? "active" : "")" aria-current="@(currentView == AppView.Home ? "page" : null)" @onclick="() => NavigateTo(AppView.Home)">Home</button>
             <button class="nav-btn @(currentView == AppView.Library ? "active" : "")" aria-current="@(currentView == AppView.Library ? "page" : null)" @onclick="() => NavigateTo(AppView.Library)">Library</button>
