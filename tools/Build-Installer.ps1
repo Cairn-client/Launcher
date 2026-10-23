@@ -72,11 +72,15 @@ if ($signing) {
 $payload = Join-Path $root "release\Cairn"
 
 if (-not $SkipPublish) {
-    foreach ($t in @("Setup.Tests", "MasterServer.Tests")) {
-        Write-Host "Unit tests (dotnet\Cairn.$t) ..."
-        & dotnet test (Join-Path $root "dotnet\Cairn.$t\Cairn.$t.csproj") -c Release --nologo -v q
-        if ($LASTEXITCODE -ne 0) { throw "$t FAILED. Not shipping." }
-    }
+    Write-Host "Unit tests (rust) ..."
+    Push-Location (Join-Path $root "rust")
+    try {
+        & cargo test --workspace --locked
+        if ($LASTEXITCODE -ne 0) { throw "the Rust tests FAILED. Not shipping." }
+    } finally { Pop-Location }
+    Write-Host "Unit tests (dotnet\Cairn.MasterServer.Tests) ..."
+    & dotnet test (Join-Path $root "dotnet\Cairn.MasterServer.Tests\Cairn.MasterServer.Tests.csproj") -c Release --nologo -v q
+    if ($LASTEXITCODE -ne 0) { throw "MasterServer.Tests FAILED. Not shipping." }
 
     & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "Publish-Release.ps1")
     if ($LASTEXITCODE -ne 0) { throw "Publish-Release.ps1 failed" }
@@ -90,7 +94,7 @@ if (-not $SkipPublish) {
 }
 
 # the .iss embeds this folder wholesale, so an empty or missing one would compile into an installer that installs nothing
-foreach ($f in @("Cairn.Launcher.exe")) {
+foreach ($f in @("Cairn.Launcher.exe", "app.ico")) {
     if (-not (Test-Path (Join-Path $payload $f))) { throw "release payload incomplete: $payload\$f not found (run without -SkipPublish)" }
 }
 

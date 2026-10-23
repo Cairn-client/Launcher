@@ -9,7 +9,7 @@ fixing a description, a requirement or a picture, announcing a known issue or pu
 | --- | --- |
 | [`Cairn-client/games`](https://github.com/Cairn-client/games) | `games.json` (the list, shared requirements, blocked versions, notices) and `games/<id>/` (`game.json` and pictures) for games that have no mod repository yet |
 | a game's own repository (`Cairn-client/mod-kcd2`) | its releases carry `game.json` and its pictures beside the mod pack (`docs/PACKS.md`) |
-| `Cairn.Launcher/Seed/` | embedded in the launcher: the one game it can show before it has ever reached the network (KCD2), so a first start offline is not empty |
+| `rust/crates/cairn-launcher/src/seed/` | embedded in the launcher: the one game it can show before it has ever reached the network (KCD2), so a first start offline is not empty |
 
 ## How the launcher reads it
 
@@ -21,7 +21,7 @@ fixing a description, a requirement or a picture, announcing a known issue or pu
    A listed game whose `game.json` can be had from nowhere keeps what it was (or what the seed knows); it is not dropped.
 4. At start, and from **Manage updates > Check for updates**; then the mods' own catalogs (`pack-index.json`) are read.
 
-Nothing in these files is run, and every file is checked before use (`Cairn.Setup/Catalog.cs`): a file that is too big (256 KB), of
+Nothing in these files is run, and every file is checked before use (`rust/crates/cairn-setup/src/catalog.rs`): a file that is too big (256 KB), of
 another schema or malformed is ignored and the last good copy stays; ids are plain; a **picture is a plain file name looked up
 beside the file that names it, never a URL**; texts are short and have no markup. `tools/Validate-Catalog.ps1` in the games
 repository applies the same rules in CI.

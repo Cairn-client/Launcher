@@ -35,7 +35,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 /// The version of this launcher, as the packs' `launcherMin` is compared with.
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// The release number: the `VERSION` file at the repository root, read when the launcher is built.
+pub const VERSION: &str = env!("CAIRN_VERSION");
 
 /// The pages of the top bar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -12,9 +12,7 @@
 ;     where a game is chosen, its mod downloaded and its setup done (each game's
 ;     pack does that, see docs\PACKS.md),
 ;   * verifies after installing that every file landed and nothing foreign sits
-;     in the install folder,
-;   * installs the WebView2 runtime when missing, which the Photino-based
-;     launcher cannot render without.
+;     in the install folder.
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
@@ -38,11 +36,6 @@
 #define AppUrl "https://github.com/Cairn-client/Launcher"
 
 
-; Evergreen WebView2 Runtime bootstrapper. Microsoft's documented permanent
-; redirect; ~2 MB, and it installs per-user when Setup is not elevated, which
-; is exactly our case (PrivilegesRequired=lowest).
-#define WebView2BootstrapUrl "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
-
 [Setup]
 AppId={{88C5B9F1-0E71-4D60-9418-5575D5684F95}
 AppName={#AppName}
@@ -56,7 +49,7 @@ AppUpdatesURL={#AppUrl}
 
 ; %LocalAppData%, deliberately, and PrivilegesRequired=lowest with it:
 ;   * the launcher writes settings.json in its own working directory
-;     (Cairn.Launcher/Pages/Home.razor.cs:33), so a Program Files install
+;     (rust/crates/cairn-launcher/src/app.rs, settings_file), so a Program Files install
 ;     would need elevation every time the user pressed Save in Settings;
 ;   * the mod's target folder is inside the Steam library, and Steam grants
 ;     BUILTIN\Users FullControl on its own tree, so an unelevated install can
@@ -73,8 +66,8 @@ DisableProgramGroupPage=yes
 LicenseFile=..\LICENSE
 OutputDir=..\release
 OutputBaseFilename=Cairn-Setup-{#AppVersion}
-; the installer's own icon (the launcher's multi-size .ico, built by tools\Build-Branding.py)
-SetupIconFile=..\Cairn.Launcher\app.ico
+; the installer's own icon (the launcher's multi-size .ico, built by tools\Build-CairnBranding.ps1)
+SetupIconFile=..\rust\crates\cairn-launcher\assets\app.ico
 ; the exe keeps its path across the rename, so Windows' icon cache kept showing the
 ; old logo on the upgraded shortcuts (maintainer's report). The shortcuts name app.ico
 ; directly (a path the cache has not seen), and Setup tells Explorer to refresh icons at
@@ -125,10 +118,9 @@ FinishedLabel=Setup has finished installing [name] on your computer. The applica
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-; The whole Publish-Release.ps1 output: launcher, agent, relay, native DLL,
-; injector, and the self-contained .NET runtime beside them. The launcher
-; resolves relative DllPath/AgentPath/RelayPath against its own directory,
-; so this flat layout is the one AppSettings' defaults already expect.
+; The whole Publish-Release.ps1 output: the launcher (one native exe, no runtime to install),
+; its icon, and the master server in its own folder. The launcher resolves relative
+; paths against its own directory.
 ;
 ; overwritereadonly is not decoration. Without it, ONE read-only file
 ; anywhere in the install directory stops the entire install dead: Inno raises
@@ -475,81 +467,6 @@ begin
   RestoreKeptDataFrom('CAIRN-kept');
 end;
 
-{ -------------------------------------------------------------- WebView2 }
-
-function WebView2Installed(): Boolean;
-var
-  V: String;
-begin
-  Result := False;
-  { Per-machine install writes the 32-bit view; per-user writes HKCU. Both are
-    the documented locations, and the 32-bit one is where this dev machine's
-    runtime (pv 150.0.4078.105) actually is. }
-  if RegQueryStringValue(HKLM32, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', V) then
-    if (V <> '') and (V <> '0.0.0.0') then Result := True;
-  if not Result then
-    if RegQueryStringValue(HKLM64, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', V) then
-      if (V <> '') and (V <> '0.0.0.0') then Result := True;
-  if not Result then
-    if RegQueryStringValue(HKCU, 'Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', V) then
-      if (V <> '') and (V <> '0.0.0.0') then Result := True;
-end;
-
-function OnDownloadProgress(const Url, FileName: String; const Progress, ProgressMax: Int64): Boolean;
-begin
-  if not WizardSilent then
-  begin
-    if ProgressMax > 0 then
-      WizardForm.PreparingLabel.Caption :=
-        'Downloading the Microsoft WebView2 runtime (' +
-        IntToStr(Progress div 1024) + ' of ' + IntToStr(ProgressMax div 1024) + ' KB)...'
-    else
-      WizardForm.PreparingLabel.Caption :=
-        'Downloading the Microsoft WebView2 runtime (' + IntToStr(Progress div 1024) + ' KB)...';
-  end;
-  Result := True;
-end;
-
-{ Returns '' on success, or a message explaining why setup cannot continue. }
-function EnsureWebView2(): String;
-var
-  Bootstrapper: String;
-  ResultCode: Integer;
-begin
-  Result := '';
-  if WebView2Installed() then Exit;
-
-  if not WizardSilent then
-    WizardForm.PreparingLabel.Caption := 'Downloading the Microsoft WebView2 runtime...';
-
-  Bootstrapper := ExpandConstant('{tmp}\MicrosoftEdgeWebview2Setup.exe');
-  try
-    DownloadTemporaryFile('{#WebView2BootstrapUrl}', 'MicrosoftEdgeWebview2Setup.exe', '', @OnDownloadProgress);
-  except
-    Result :=
-      'The launcher needs the Microsoft WebView2 runtime, and it could not be downloaded:' + #13#10 +
-      GetExceptionMessage + #13#10#13#10 +
-      'Check your internet connection and try again, or install "Microsoft Edge WebView2 Runtime"' + #13#10 +
-      'from microsoft.com and re-run this installer.';
-    Exit;
-  end;
-
-  if not WizardSilent then
-    WizardForm.PreparingLabel.Caption := 'Installing the Microsoft WebView2 runtime...';
-
-  if not Exec(Bootstrapper, '/silent /install', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
-  begin
-    Result := 'The WebView2 runtime installer could not be started (error ' + IntToStr(ResultCode) + ').';
-    Exit;
-  end;
-
-  if not WebView2Installed() then
-    Result :=
-      'The WebView2 runtime installer finished (exit code ' + IntToStr(ResultCode) + ') but the' + #13#10 +
-      'runtime is still not registered. The launcher cannot draw its window without it.' + #13#10#13#10 +
-      'Install "Microsoft Edge WebView2 Runtime" from microsoft.com, then run this installer again.';
-end;
-
 { ------------------------------------------------------------- mod folder }
 
 { DelTree is the normal path, but it was observed failing once on this folder
@@ -721,7 +638,7 @@ begin
   Result := BackupUserData();
   if Result <> '' then Exit;
 
-  Result := EnsureWebView2();
+  Result := '';
 end;
 
 { ================================================ verify, sweep and repair }

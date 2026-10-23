@@ -10,7 +10,7 @@
     small logo box. It is only the game's name in a clean typeface, not a copy of anyone's artwork.
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\New-TextLogo.ps1 -Big "007" -Small "FIRST LIGHT" -Out Cairn.Launcher\wwwroot\img\games\fl-logo.png
+    powershell -ExecutionPolicy Bypass -File tools\New-TextLogo.ps1 -Big "007" -Small "FIRST LIGHT" -Out fl-logo.png
 #>
 param(
     [Parameter(Mandatory)] [string] $Big,

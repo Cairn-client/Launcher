@@ -11,11 +11,12 @@ each mod on its own.
 
 | Path | What it is |
 | --- | --- |
-| `Cairn.Launcher/` | the launcher: Blazor UI hosted in a native window (.NET 8, WinForms/WPF host) |
-| `dotnet/Cairn.Setup/` | where Steam and the games are, the pack store (`Packs.cs`), the catalog, the clients of the pack program (`PackSetup`, `PackSession`, `GameOptions`), the bridge server |
-| `dotnet/Cairn.MasterServer/` | the server list and friend presence |
-| `dotnet/Cairn.Protocol/` | the API shared by the launcher and the master server (`MasterApi`, `PresenceApi`) |
-| `dotnet/Cairn.*.Tests/` | xunit tests (`Setup`, `MasterServer`) |
+| `rust/crates/cairn-launcher/` | the launcher: a native egui window (pages in `src/ui/`, the seed in `src/seed/`) |
+| `rust/crates/cairn-setup/` | where Steam and the games are, the pack store (`packs/`), the catalog, the clients of the pack program (`pack_setup`, `pack_session`, `game_options`), the bridge server |
+| `rust/crates/cairn-protocol/` | the API shared by the launcher and the master server (`master_api`, `presence_api`), in Rust |
+| `dotnet/Cairn.MasterServer/` | the server list and friend presence (the one part still in C#) |
+| `dotnet/Cairn.Protocol/` | the same API for the master server (`MasterApi`, `PresenceApi`) |
+| `dotnet/Cairn.MasterServer.Tests/` | xunit tests |
 | `installer/` | Inno Setup script (`Cairn.iss`) |
 | `tools/` | build and test scripts (PowerShell) |
 | `docs/` | `VERSIONING.md` (release rules), `PACKS.md` (mod downloads), `CATALOG.md` (the game catalog) |
@@ -23,8 +24,9 @@ each mod on its own.
 ## Build and test
 
 ```bash
-dotnet build Cairn.sln -c Release
-dotnet test dotnet/Cairn.Setup.Tests/Cairn.Setup.Tests.csproj -c Release     # also: MasterServer.Tests
+cd rust && cargo build --release && cargo test && cargo clippy --all-targets -- -D warnings && cargo fmt --check
+dotnet build Cairn.sln -c Release                                             # the master server
+dotnet test dotnet/Cairn.MasterServer.Tests/Cairn.MasterServer.Tests.csproj -c Release
 ```
 
 `tools/Build-Installer.ps1` runs the gates and builds `release/Cairn-Setup-X.Y.Z.exe`. It needs Inno Setup 6 (found in Program Files
@@ -33,7 +35,7 @@ on a tag.
 
 ## Releases and versions
 
-- `VERSION` is the single source of truth: strict `MAJOR.MINOR.PATCH`, no `v`. It started at 0.1.0 with this repository.
+- `VERSION` is the single source of truth: strict `MAJOR.MINOR.PATCH`, no `v`. It started at 0.1.0 with this repository. The Rust launcher reads it at build time (`build.rs`); the crates' own `version` is not the release number.
 - Tag `X.Y.Z` on `main` and push the tag; CI builds the installer and publishes it. Do not upload by hand.
 - Release notes are the changelog only (generated from `feat`/`fix`/`perf`/`refactor` commit titles, plus any `* ` line in such a
   commit's body): nothing else goes in them.
@@ -41,10 +43,10 @@ on a tag.
 
 ## Conventions
 
-- Names: `Cairn.*` for projects and namespaces. Name things after what they do, never after a ticket or work-order number.
+- Names: `cairn-*` for crates and `Cairn.*` for .NET projects and namespaces. Name things after what they do, never after a ticket or work-order number.
 - Every source file starts with the license header naming `AUTHORS.md`. Never remove or reword it, and never remove credits from `AUTHORS.md`.
 - Games are data: the list, their requirements, artwork, feature cards, blocked mod versions and notices are the catalog (`docs/CATALOG.md`),
-  in the `Cairn-client/games` repository and each game's own repository; the launcher ships only the KCD2 seed (`Cairn.Launcher/Seed/`).
+  in the `Cairn-client/games` repository and each game's own repository; the launcher ships only the KCD2 seed (`rust/crates/cairn-launcher/src/seed/`).
   Do not put a game's data back into the launcher.
 - The launcher never contains game-specific session code: what a mod needs from the launcher is described by the pack's `pack.json`.
 
