@@ -238,8 +238,6 @@ async fn serve(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use interprocess::local_socket::{traits::Stream as _, Stream};
-    use std::io::{Read, Write};
     use std::sync::mpsc::{channel, Receiver};
     use std::time::Instant;
 
@@ -261,38 +259,38 @@ mod tests {
         Fixture { server, got, changes }
     }
 
-    /// A bridge, as the game's mod is one: it connects, says lines and reads lines.
+    /// A bridge, as the game's mod is one: it connects, says lines and reads lines. It lives on a small runtime of its own, as the server does.
     struct Client {
-        stream: Stream,
+        rt: tokio::runtime::Runtime,
+        stream: interprocess::local_socket::tokio::Stream,
         buf: Vec<u8>,
     }
 
     impl Client {
         fn connect(name: &str) -> Self {
-            let start = Instant::now();
-            let stream = loop {
-                match Stream::connect(name.to_ns_name::<GenericNamespaced>().unwrap()) {
-                    Ok(s) => break s,
-                    Err(_) if start.elapsed() < Duration::from_secs(5) => std::thread::sleep(Duration::from_millis(25)),
-                    Err(e) => panic!("could not connect: {e}"),
+            let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+            let stream = rt.block_on(async {
+                let start = Instant::now();
+                loop {
+                    match interprocess::local_socket::tokio::Stream::connect(name.to_ns_name::<GenericNamespaced>().unwrap()).await {
+                        Ok(s) => return s,
+                        Err(_) if start.elapsed() < Duration::from_secs(5) => tokio::time::sleep(Duration::from_millis(25)).await,
+                        Err(e) => panic!("could not connect: {e}"),
+                    }
                 }
-            };
-            stream.set_nonblocking(true).unwrap();
-            Self { stream, buf: Vec::new() }
+            });
+            Self {
+                rt,
+                stream,
+                buf: Vec::new(),
+            }
         }
 
         fn write_all(&mut self, bytes: &[u8]) {
-            let mut sent = 0;
-            let start = Instant::now();
-            while sent < bytes.len() {
-                match self.stream.write(&bytes[sent..]) {
-                    Ok(n) => sent += n,
-                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock && start.elapsed() < Duration::from_secs(5) => {
-                        std::thread::sleep(Duration::from_millis(5))
-                    }
-                    Err(_) => return, // the server dropped us
-                }
-            }
+            let stream = &mut self.stream;
+            let _ = self
+                .rt
+                .block_on(async { tokio::time::timeout(Duration::from_secs(5), stream.write_all(bytes)).await });
         }
 
         fn say(&mut self, line: &str) {
@@ -301,23 +299,24 @@ mod tests {
 
         /// The next line, or `None` when the server closed the connection.
         fn read(&mut self) -> Option<String> {
-            let start = Instant::now();
-            loop {
-                if let Some(pos) = self.buf.iter().position(|b| *b == b'\n') {
-                    let line: Vec<u8> = self.buf.drain(..=pos).collect();
-                    return Some(String::from_utf8_lossy(&line).trim_end().to_string());
-                }
-                let mut tmp = [0u8; 4096];
-                match self.stream.read(&mut tmp) {
-                    Ok(0) => return None,
-                    Ok(n) => self.buf.extend_from_slice(&tmp[..n]),
-                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                        assert!(start.elapsed() < Duration::from_secs(5), "a line in time");
-                        std::thread::sleep(Duration::from_millis(10));
+            let (stream, buf) = (&mut self.stream, &mut self.buf);
+            self.rt.block_on(async {
+                tokio::time::timeout(Duration::from_secs(5), async {
+                    loop {
+                        if let Some(pos) = buf.iter().position(|b| *b == b'\n') {
+                            let line: Vec<u8> = buf.drain(..=pos).collect();
+                            return Some(String::from_utf8_lossy(&line).trim_end().to_string());
+                        }
+                        let mut tmp = [0u8; 4096];
+                        match stream.read(&mut tmp).await {
+                            Ok(0) | Err(_) => return None,
+                            Ok(n) => buf.extend_from_slice(&tmp[..n]),
+                        }
                     }
-                    Err(_) => return None,
-                }
-            }
+                })
+                .await
+                .expect("a line in time")
+            })
         }
     }
 
