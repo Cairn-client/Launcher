@@ -75,9 +75,13 @@ if (-not $SkipPublish) {
     Write-Host "Unit tests (rust) ..."
     Push-Location (Join-Path $root "rust")
     try {
-        & cargo test --workspace --locked
-        if ($LASTEXITCODE -ne 0) { throw "the Rust tests FAILED. Not shipping." }
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"   # cargo prints its progress on stderr
+        & cargo test --workspace --locked 2>&1 | ForEach-Object { Write-Host "$_" }
+        $cargoExit = $LASTEXITCODE
+        $ErrorActionPreference = $previous
     } finally { Pop-Location }
+    if ($cargoExit -ne 0) { throw "the Rust tests FAILED. Not shipping." }
     Write-Host "Unit tests (dotnet\Cairn.MasterServer.Tests) ..."
     & dotnet test (Join-Path $root "dotnet\Cairn.MasterServer.Tests\Cairn.MasterServer.Tests.csproj") -c Release --nologo -v q
     if ($LASTEXITCODE -ne 0) { throw "MasterServer.Tests FAILED. Not shipping." }
