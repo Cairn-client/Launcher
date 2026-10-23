@@ -359,10 +359,14 @@ fn replace_directory(final_dir: &Path, work: &Path, keep_old: bool) -> bool {
 
 /// Ends any program running from inside the folder (the mod's agent or relay from a session before): a running program holds its file open.
 fn stop_programs_running_from(dir: &Path) {
-    use sysinfo::{ProcessesToUpdate, System};
+    use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
     let Ok(root) = fs::canonicalize(dir) else { return };
     let mut sys = System::new();
-    sys.refresh_processes(ProcessesToUpdate::All, true);
+    sys.refresh_processes_specifics(
+        ProcessesToUpdate::All,
+        true,
+        ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet),
+    );
     let me = std::process::id();
     for p in sys.processes().values() {
         if p.pid().as_u32() == me {

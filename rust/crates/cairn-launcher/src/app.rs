@@ -10,12 +10,16 @@ use crate::game_finder::GameFinder;
 use crate::games::{GameProfile, GameRegistry};
 use crate::home_data::RecentSessions;
 use crate::mods::{self, JobEnv, Offers, RepoGame};
+use crate::preflight::PreflightItem;
 use crate::prefs::{GameListPrefs, GamePathStore};
 use crate::settings::{migrate_stale, AppSettings, SettingsStore};
+use crate::setup_list::SetupLine;
 use crate::steam_service::{self, SteamSelf};
 use crate::ui::images::ImageCache;
 use crate::ui::theme;
 use crate::update_check::{self, Check, UpdateInfo};
+use cairn_setup::bridge_protocol::{BridgeIn, BridgeSaveSlot};
+use cairn_setup::bridge_server::BridgeServer;
 use cairn_setup::catalog_client::{CatalogClient, CatalogSnapshot};
 use cairn_setup::external_install;
 use cairn_setup::http::{Http, UreqHttp};
@@ -55,6 +59,22 @@ pub enum Msg {
     FriendStatus(String, Status),
     UpdateChecked(Check, bool),
     UpdateProgress(f64),
+    SetupLines {
+        game: String,
+        lines: Vec<SetupLine>,
+        game_exe: Option<String>,
+    },
+    SetupAction {
+        game: String,
+        step: String,
+        ok: bool,
+        note: String,
+    },
+    OpenSetup(String),
+    GameLaunched(String),
+    GameExited(String),
+    BridgeConnected(String),
+    Bridge(BridgeIn),
     UpdateDownloaded(Result<std::path::PathBuf, String>),
     /// The pack of a game changed on disk (downloaded, removed, placed): forget what was read about it.
     PackChanged(String),
@@ -122,6 +142,27 @@ pub struct CairnApp {
     pub update_checking: bool,
     pub update_last_failed: bool,
     pub update_modal: Option<UpdateModal>,
+    // playing
+    pub running: Option<RunningGame>,
+    pub setup_lines: Vec<SetupLine>,
+    pub setup_game: String,
+    pub setup_checking: bool,
+    pub setup_open: bool,
+    pub setup_busy: Option<String>,
+    pub setup_notes: HashMap<String, String>,
+    pub setup_last_poll: Instant,
+    pub preflight_open: bool,
+    pub preflight_items: Vec<PreflightItem>,
+    pub bridge: Option<BridgeServer>,
+    pub bridge_game: String,
+    pub bridge_saves: Vec<BridgeSaveSlot>,
+}
+
+/// A game the launcher started and that has not closed yet.
+#[derive(Debug, Clone)]
+pub struct RunningGame {
+    pub game_id: String,
+    pub since: Instant,
 }
 
 /// The window that offers the launcher's own update.
@@ -212,6 +253,19 @@ impl CairnApp {
             update_checking: false,
             update_last_failed: false,
             update_modal: None,
+            running: None,
+            setup_lines: Vec::new(),
+            setup_game: String::new(),
+            setup_checking: false,
+            setup_open: false,
+            setup_busy: None,
+            setup_notes: HashMap::new(),
+            setup_last_poll: Instant::now(),
+            preflight_open: false,
+            preflight_items: Vec::new(),
+            bridge: None,
+            bridge_game: String::new(),
+            bridge_saves: Vec::new(),
         };
         for p in problems {
             app.toast(&p, true);
@@ -414,6 +468,54 @@ impl CairnApp {
                         }
                     }
                 }
+                Msg::SetupLines { game, lines, game_exe } => {
+                    self.setup_checking = false;
+                    if game.eq_ignore_ascii_case(&self.setup_game) {
+                        self.setup_lines = lines;
+                    }
+                    if let Some(exe) = game_exe {
+                        self.adopt_detected_game_path(&game, &exe);
+                    }
+                }
+                Msg::SetupAction { game, step, ok, note } => {
+                    self.setup_busy = None;
+                    if !note.is_empty() {
+                        self.setup_notes.insert(format!("{game}:{step}"), note);
+                    }
+                    if !ok {
+                        self.toast(&self.setup_notes.get(&format!("{game}:{step}")).cloned().unwrap_or_default(), true);
+                    }
+                    self.refresh_setup(&game);
+                }
+                Msg::OpenSetup(game) => {
+                    self.setup_open = true;
+                    self.refresh_setup(&game);
+                }
+                Msg::GameLaunched(id) => {
+                    self.running = Some(RunningGame {
+                        game_id: id,
+                        since: Instant::now(),
+                    })
+                }
+                Msg::GameExited(id) => {
+                    if let Some(r) = self.running.take_if(|r| r.game_id.eq_ignore_ascii_case(&id)) {
+                        let minutes = (r.since.elapsed().as_secs() / 60) as i32;
+                        self.recent.add_playtime(&id, minutes);
+                    }
+                }
+                Msg::BridgeConnected(game) => {
+                    self.bridge_game = game.clone();
+                    if game.is_empty() {
+                        self.bridge_saves.clear();
+                    } else if let Some(b) = &self.bridge {
+                        b.send(&cairn_setup::bridge_protocol::ask_saves());
+                    }
+                }
+                Msg::Bridge(msg) => match msg {
+                    BridgeIn::Toast { text, error } => self.toast(&text, error),
+                    BridgeIn::Saves(slots) => self.bridge_saves = slots,
+                    _ => {}
+                },
                 Msg::UpdateProgress(p) => {
                     if let (Some(m), Some(u)) = (self.update_modal.as_mut(), self.update.as_ref()) {
                         m.progress = Some(p);
@@ -789,6 +891,8 @@ impl eframe::App for CairnApp {
         }
         self.game_settings_window(ui.ctx());
         self.update_window(ui.ctx());
+        self.ready_check_windows(ui.ctx());
+        self.poll_setup();
         self.friends_panel(ui.ctx());
         self.toasts_ui(ui);
         crate::dev::screenshot_tick(ui.ctx());

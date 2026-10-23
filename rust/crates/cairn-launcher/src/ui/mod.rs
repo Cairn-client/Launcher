@@ -10,6 +10,7 @@ pub mod icons;
 pub mod images;
 pub mod library;
 pub mod profile;
+pub mod ready_check;
 pub mod settings;
 pub mod store;
 pub mod theme;
