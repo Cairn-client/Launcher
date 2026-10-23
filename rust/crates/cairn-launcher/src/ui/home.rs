@@ -512,7 +512,11 @@ impl CairnApp {
                             self.prefs.tour_seen = false;
                             self.save_prefs();
                         }
-                        _ => self.toast(&format!("{title} is not wired up yet."), false),
+                        1 => self.save_logs(),
+                        _ => {
+                            let id = self.selected_game.clone();
+                            self.open_setup(&id);
+                        }
                     }
                 }
             }
