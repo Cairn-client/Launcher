@@ -325,6 +325,9 @@ impl CairnApp {
         }
         self.game_settings_open = Some(game_id.to_string());
         self.game_settings_tab = "settings".into();
+        if let Some(g) = self.registry.get(game_id).cloned() {
+            self.load_game_extras(&g);
+        }
     }
 
     pub fn game_settings_window(&mut self, ctx: &egui::Context) {
@@ -344,6 +347,26 @@ impl CairnApp {
             .show(ctx, |ui| {
                 ui.label(RichText::new("Game settings").color(theme::MUTED));
                 ui.add_space(8.0);
+                let has_saves = self.game_has_saves(&game);
+                if has_saves {
+                    ui.horizontal(|ui| {
+                        for (key, label) in [("settings", "Settings"), ("saves", "Saves")] {
+                            if tab_button(ui, label, self.game_settings_tab == key, accent).clicked() {
+                                self.game_settings_tab = key.into();
+                            }
+                        }
+                    });
+                    ui.add_space(6.0);
+                }
+                if has_saves && self.game_settings_tab == "saves" {
+                    self.saves_tab(ui);
+                    ui.add_space(12.0);
+                    if secondary_button(ui, "CLOSE", true).clicked() {
+                        close = true;
+                        self.settings_store.revert(&mut self.settings);
+                    }
+                    return;
+                }
                 if game.exe_is_setting {
                     ui.label(RichText::new("Game executable path").size(11.5).color(theme::MUTED).strong());
                     ui.horizontal(|ui| {
@@ -374,8 +397,13 @@ impl CairnApp {
                     for option in &game.options {
                         let on = self.settings.game_options.get(&game.id).and_then(|o| o.get(&option.id)).copied().unwrap_or(false);
                         let mut now = on;
-                        if ui.checkbox(&mut now, &option.title).changed() {
+                        let st = self.option_status.get(&option.id).cloned();
+                        let usable = st.as_ref().is_none_or(|s| s.available);
+                        if ui.add_enabled(usable && !self.options_busy, egui::Checkbox::new(&mut now, &option.title)).changed() {
                             self.settings.game_options.entry(game.id.clone()).or_default().insert(option.id.clone(), now);
+                        }
+                        if let Some(n) = st.as_ref().map(|s| s.note.clone()).filter(|n| !n.is_empty()) {
+                            ui.add(egui::Label::new(RichText::new(n).color(theme::WARN).size(12.5)).wrap());
                         }
                         if !option.hint.is_empty() {
                             ui.add(egui::Label::new(RichText::new(&option.hint).color(theme::MUTED).size(12.5)).wrap());
@@ -396,11 +424,74 @@ impl CairnApp {
             });
         if save {
             self.save_settings("the game settings window");
+            self.apply_game_options(&game);
             self.game_settings_open = None;
         } else if close {
             self.game_settings_open = None;
         }
         let _ = (Color32::TRANSPARENT, CornerRadius::ZERO);
+    }
+}
+
+impl CairnApp {
+    fn saves_tab(&mut self, ui: &mut egui::Ui) {
+        ui.label(RichText::new("Saved games").size(11.5).color(theme::MUTED).strong());
+        let running = self.running.is_some();
+        let Some(slots) = self.saves.clone() else {
+            ui.label(RichText::new("The game's saves are listed here once its mod is installed.").color(theme::MUTED));
+            return;
+        };
+        if slots.is_empty() {
+            ui.label(RichText::new("No saves yet.").color(theme::MUTED));
+        }
+        let mut delete = None;
+        egui::ScrollArea::vertical().max_height(260.0).show(ui, |ui| {
+            for s in &slots {
+                ui.horizontal(|ui| {
+                    ui.vertical(|ui| {
+                        ui.label(RichText::new(&s.name).strong());
+                        ui.label(RichText::new(&s.detail).color(theme::MUTED).size(12.5));
+                    });
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let asked = self.confirm_delete_save == s.id;
+                        if secondary_button(ui, if asked { "SURE? DELETE" } else { "DELETE" }, !self.saves_loading).clicked() {
+                            if asked {
+                                delete = Some(s.id.clone());
+                            } else {
+                                self.confirm_delete_save = s.id.clone();
+                            }
+                        }
+                        if let Some(w) = s.when {
+                            ui.label(RichText::new(crate::home_data::ago(w, cairn_setup::time_util::now_utc())).color(theme::MUTED));
+                        }
+                    });
+                });
+            }
+        });
+        if running {
+            ui.label(
+                RichText::new("The game is running: a save written in the last ten minutes is kept, since the game may be using it.")
+                    .color(theme::MUTED)
+                    .size(12.5),
+            );
+        }
+        ui.add_space(8.0);
+        if self.confirm_delete_all {
+            ui.label(RichText::new("Delete every save of the game and everything the mod kept? This cannot be undone.").color(theme::WARN));
+            ui.horizontal(|ui| {
+                if secondary_button(ui, "YES, DELETE ALL", true).clicked() {
+                    self.delete_all_saves();
+                }
+                if secondary_button(ui, "CANCEL", true).clicked() {
+                    self.confirm_delete_all = false;
+                }
+            });
+        } else if secondary_button(ui, "DELETE ALL SAVES", !running && !slots.is_empty()).clicked() {
+            self.confirm_delete_all = true;
+        }
+        if let Some(id) = delete {
+            self.delete_save(&id);
+        }
     }
 }
 

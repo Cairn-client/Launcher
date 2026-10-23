@@ -76,6 +76,20 @@ pub enum Msg {
     BridgeConnected(String),
     Bridge(BridgeIn),
     Session(cairn_setup::pack_session::SessionEvent),
+    GameExtras {
+        game: String,
+        options: HashMap<String, cairn_setup::game_options::OptionStatus>,
+        saves: Option<Vec<BridgeSaveSlot>>,
+    },
+    OptionsApplied {
+        game: String,
+        results: Vec<(String, bool, bool, String)>,
+    },
+    SavesChanged {
+        ok: bool,
+        message: String,
+        slots: Option<Vec<BridgeSaveSlot>>,
+    },
     UpdateDownloaded(Result<std::path::PathBuf, String>),
     /// The pack of a game changed on disk (downloaded, removed, placed): forget what was read about it.
     PackChanged(String),
@@ -157,6 +171,13 @@ pub struct CairnApp {
     pub bridge: Option<BridgeServer>,
     pub bridge_game: String,
     pub bridge_saves: Vec<BridgeSaveSlot>,
+    pub window_saved: (Instant, Option<crate::prefs::WindowPrefs>),
+    pub option_status: HashMap<String, cairn_setup::game_options::OptionStatus>,
+    pub options_busy: bool,
+    pub saves: Option<Vec<BridgeSaveSlot>>,
+    pub saves_loading: bool,
+    pub confirm_delete_save: String,
+    pub confirm_delete_all: bool,
     pub confirm_exit: bool,
     pub quit_ok: bool,
     pub tour_step: usize,
@@ -275,6 +296,13 @@ impl CairnApp {
             bridge: None,
             bridge_game: String::new(),
             bridge_saves: Vec::new(),
+            window_saved: (Instant::now(), None),
+            option_status: HashMap::new(),
+            options_busy: false,
+            saves: None,
+            saves_loading: false,
+            confirm_delete_save: String::new(),
+            confirm_delete_all: false,
             confirm_exit: false,
             quit_ok: false,
             tour_step: 0,
@@ -485,6 +513,21 @@ impl CairnApp {
                         }
                     }
                 }
+                Msg::GameExtras { game, options, saves } => {
+                    if self.game_settings_open.as_deref().is_some_and(|g| g.eq_ignore_ascii_case(&game)) {
+                        for (id, st) in &options {
+                            self.settings
+                                .game_options
+                                .entry(game.clone())
+                                .or_default()
+                                .insert(id.clone(), st.on);
+                        }
+                        self.option_status = options;
+                        self.saves = saves;
+                    }
+                }
+                Msg::OptionsApplied { game, results } => self.on_options_applied(&game, results),
+                Msg::SavesChanged { ok, message, slots } => self.on_saves_changed(ok, message, slots),
                 Msg::Session(ev) => self.on_session_event(ev),
                 Msg::SetupLines { game, lines, game_exe } => {
                     self.setup_checking = false;
@@ -894,6 +937,35 @@ fn start_save_root(s: &AppSettings) -> PathBuf {
         .unwrap_or(p)
 }
 
+impl CairnApp {
+    /// Remembers the window's size, place and maximised state for the next start (at most once a second, and only when it changed).
+    fn track_window(&mut self, ctx: &egui::Context) {
+        if self.window_saved.0.elapsed() < Duration::from_secs(1) {
+            return;
+        }
+        let (inner, outer, maximized) = ctx.input(|i| {
+            let v = i.viewport();
+            (v.inner_rect, v.outer_rect, v.maximized.unwrap_or(false))
+        });
+        let (Some(inner), Some(outer)) = (inner, outer) else { return };
+        let mut w = self.window_saved.1.clone().unwrap_or_default();
+        w.maximized = maximized;
+        if !maximized {
+            w.width = inner.width() as i32;
+            w.height = inner.height() as i32;
+            w.x = outer.min.x as i32;
+            w.y = outer.min.y as i32;
+        }
+        if self.window_saved.1.as_ref() != Some(&w) {
+            if self.window_saved.1.is_some() {
+                w.save(&crate::app_dirs::window_file());
+            }
+            self.window_saved.1 = Some(w);
+        }
+        self.window_saved.0 = Instant::now();
+    }
+}
+
 impl eframe::App for CairnApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.receive();
@@ -914,6 +986,7 @@ impl eframe::App for CairnApp {
         self.updates_drawer(ui.ctx());
         self.tour_window(ui.ctx());
         self.exit_window(ui.ctx());
+        self.track_window(ui.ctx());
         self.poll_setup();
         self.friends_panel(ui.ctx());
         self.toasts_ui(ui);
