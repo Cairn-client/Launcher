@@ -5,7 +5,7 @@
 //! shelves of posters. Opening a game goes to its page in the Library.
 
 use super::theme;
-use super::widgets::{card, paint_cover, poster, primary_button, secondary_button, PosterInfo};
+use super::widgets::{card, fade, paint_cover, poster, primary_button, secondary_button, PosterInfo};
 use crate::app::{CairnApp, View};
 use crate::games::GameProfile;
 use crate::home_data;
@@ -13,14 +13,6 @@ use cairn_setup::catalog::KNOWN_ISSUE;
 use cairn_setup::time_util;
 use eframe::egui::{self, Color32, CornerRadius, Margin, RichText, Sense, Stroke, Vec2};
 use std::time::Duration;
-
-const TIPS: [(&str, &str); 5] = [
-    ("Same version, same world", "Everyone in a session needs the same mod version. Cairn keeps your mods up to date by itself, so you only have to check when a friend is on an older one."),
-    ("Something broke after an update?", "Open the game's page and press Go back: the version before the last update is restored."),
-    ("Favourites", "Press the heart on a game's poster and it comes first in the list and on this page."),
-    ("Ready check", "Before you host or join, the ready check says what is missing and has a button for each problem."),
-    ("Report a problem", "Save the logs from here, then attach the zip to your report: it holds the game's, the mod's and the launcher's logs."),
-];
 
 /// What the page shows, worked out once per frame.
 type Tile = Box<dyn FnOnce(&mut CairnApp, &mut egui::Ui)>;
@@ -59,8 +51,9 @@ impl CairnApp {
             .filter(|g| self.prefs.is_favorite(&g.id))
             .map(|g| (*g).clone())
             .collect();
-        let playable = in_library.iter().filter(|g| g.is_supported).map(|g| (*g).clone()).collect();
-        let upcoming = in_library.iter().filter(|g| !g.is_supported).map(|g| (*g).clone()).collect();
+        // every game with a mod is on the shelf, in the library or not
+        let playable = all.iter().filter(|g| g.is_supported).cloned().collect();
+        let upcoming = all.iter().filter(|g| !g.is_supported).cloned().collect();
         let mut recents: Vec<&crate::home_data::RecentSession> = self.recent.entries.iter().collect();
         recents.sort_by_key(|r| std::cmp::Reverse(r.last_secs()));
         let recent_games = recents
@@ -92,21 +85,28 @@ impl CairnApp {
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(theme::GROUND))
             .show(ui, |ui| {
-                egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-                    self.notices_ui(ui);
-                    self.slideshow(ui, &snap);
-                    egui::Frame::new().inner_margin(Margin::symmetric(32, 20)).show(ui, |ui| {
-                        ui.set_max_width(1280.0);
-                        self.dashboard(ui, &snap);
-                        ui.add_space(8.0);
-                        self.shelf(ui, "Favourites", &snap.favorites, &snap);
-                        self.shelf(ui, "Playable now", &snap.playable, &snap);
-                        self.shelf(ui, "Recently played", &snap.recent_games, &snap);
-                        self.tools_and_tip(ui);
-                        self.shelf(ui, "Coming soon", &snap.upcoming, &snap);
-                        ui.add_space(30.0);
+                // the page scrolls with the wheel and the bar; a drag is for the shelves
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .scroll_source(egui::scroll_area::ScrollSource {
+                        drag: egui::scroll_area::DragScroll::Never,
+                        ..Default::default()
+                    })
+                    .show(ui, |ui| {
+                        self.notices_ui(ui);
+                        self.slideshow(ui, &snap);
+                        // the content is a centred column, so a wide window has no empty right half
+                        egui::Frame::new().inner_margin(Margin::symmetric(32, 20)).show(ui, |ui| {
+                            self.dashboard(ui, &snap);
+                            ui.add_space(8.0);
+                            self.shelf(ui, "Favourites", &snap.favorites, &snap);
+                            self.shelf(ui, "Playable now", &snap.playable, &snap);
+                            self.shelf(ui, "Recently played", &snap.recent_games, &snap);
+                            self.tools_and_tip(ui);
+                            self.shelf(ui, "Coming soon", &snap.upcoming, &snap);
+                            ui.add_space(30.0);
+                        });
                     });
-                });
             });
     }
 
@@ -165,9 +165,10 @@ impl CairnApp {
             self.slide_since = std::time::Instant::now();
         }
         let game = snap.slides[self.slide].clone();
-        let accent = self.accent_for(Some(&game));
-        let size = Vec2::new(ui.available_width(), 380.0);
-        let (rect, resp) = ui.allocate_exact_size(size, Sense::click());
+        let accent = self.accent;
+        // tall enough to be the page's hero: about half the window, never a thin strip
+        let size = Vec2::new(ui.available_width(), (ui.ctx().content_rect().height() * 0.5).clamp(380.0, 640.0));
+        let (rect, _) = ui.allocate_exact_size(size, Sense::click());
         ui.painter().rect_filled(rect, 0.0, theme::INK);
         let art = if game.hero_image.is_empty() {
             &game.background_image
@@ -178,22 +179,10 @@ impl CairnApp {
             paint_cover(ui, &tex, rect, 0, Color32::WHITE);
         }
         // the shade on the left, under the text
-        let ppp = ui.ctx().pixels_per_point();
-        let w = (rect.width() * 0.62).round();
-        let n = 40;
-        for i in 0..n {
-            let t = i as f32 / n as f32;
-            let x0 = ((rect.left() + w * t) * ppp).round() / ppp;
-            let x1 = ((rect.left() + w * (t + 1.0 / n as f32)) * ppp).round() / ppp;
-            let a = (1.0 - t).powf(1.4) * 0.92;
-            ui.painter().rect_filled(
-                egui::Rect::from_min_max(egui::pos2(x0, rect.top()), egui::pos2(x1, rect.bottom())),
-                0.0,
-                theme::with_alpha(theme::GROUND, a),
-            );
-        }
+        let shade = egui::Rect::from_min_size(rect.min, Vec2::new((rect.width() * 0.62).round(), rect.height()));
+        fade(ui, shade, true, theme::GROUND, |t| (1.0 - t).powf(1.4) * 0.92);
         let mut body = ui.new_child(egui::UiBuilder::new().max_rect(egui::Rect::from_min_size(
-            rect.min + Vec2::new(48.0, 56.0),
+            rect.min + Vec2::new(84.0, 56.0),
             Vec2::new(520.0, rect.height() - 90.0),
         )));
         match self.images.get(&self.ctx, &game.logo_image) {
@@ -213,7 +202,7 @@ impl CairnApp {
             self.open_game(&game.id);
         }
         // the arrows and the dots
-        for (dir, x) in [(-1i32, rect.left() + 22.0), (1, rect.right() - 22.0)] {
+        for (dir, x) in [(-1i32, rect.left() + 38.0), (1, rect.right() - 38.0)] {
             let c = egui::pos2(x, rect.center().y);
             let arrow = egui::Rect::from_center_size(c, Vec2::splat(40.0));
             let r = ui.interact(arrow, ui.make_persistent_id(("arrow", dir)), Sense::click());
@@ -230,31 +219,42 @@ impl CairnApp {
                 self.slide_since = std::time::Instant::now();
             }
         }
-        let dots_w = snap.slides.len() as f32 * 26.0;
-        for i in 0..snap.slides.len() {
-            let c = egui::pos2(rect.center().x - dots_w / 2.0 + 13.0 + i as f32 * 26.0, rect.bottom() - 20.0);
+        // one segment a slide at the bottom right; the one shown is longer and fills as its time runs out, always in Cairn's colour
+        let (short, long, gap, height) = (16.0_f32, 52.0_f32, 6.0_f32, 5.0_f32);
+        let n = snap.slides.len();
+        let total = (n - 1) as f32 * (short + gap) + long;
+        let progress = if self.settings.slideshow_auto {
+            (self.slide_since.elapsed().as_secs_f32() / 8.0).clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
+        let mut x = rect.right() - 56.0 - total;
+        for i in 0..n {
+            let on = i == self.slide;
+            let w = if on { long } else { short };
+            let bar = egui::Rect::from_min_size(egui::pos2(x, rect.bottom() - 20.0 - height / 2.0), Vec2::new(w, height));
             let r = ui.interact(
-                egui::Rect::from_center_size(c, Vec2::new(24.0, 18.0)),
+                bar.expand2(Vec2::new(gap / 2.0, 7.0)),
                 ui.make_persistent_id(("dot", i)),
                 Sense::click(),
             );
-            let on = i == self.slide;
             ui.painter().rect_filled(
-                egui::Rect::from_center_size(c, Vec2::new(if on { 20.0 } else { 14.0 }, 4.0)),
-                CornerRadius::same(2),
-                if on { accent } else { theme::with_alpha(Color32::WHITE, 0.35) },
+                bar,
+                CornerRadius::same(3),
+                theme::with_alpha(Color32::WHITE, if on { 0.3 } else { 0.4 }),
             );
+            if on {
+                let fill = egui::Rect::from_min_size(bar.min, Vec2::new(w * progress, height));
+                ui.painter().rect_filled(fill, CornerRadius::same(3), self.accent);
+            }
             if r.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
                 self.slide = i;
                 self.slide_since = std::time::Instant::now();
             }
-        }
-        if resp.clicked() {
-            // a click on the picture itself opens the game too
-            let _ = &game;
+            x += w + gap;
         }
         if self.settings.slideshow_auto {
-            ui.ctx().request_repaint_after(Duration::from_millis(500));
+            ui.ctx().request_repaint_after(Duration::from_millis(60));
         }
     }
 
@@ -268,7 +268,6 @@ impl CairnApp {
         let now = time_util::now_utc();
         let width = ui.available_width();
         let cols = if width > 1000.0 { 3 } else { 2 };
-        let tile_w = (width - 16.0 * (cols as f32 - 1.0)) / cols as f32;
         let tiles: Vec<Tile> = {
             let last = self.recent.last().cloned();
             let recent_game = last.as_ref().and_then(|l| self.registry.get(&l.game_id).cloned());
@@ -419,6 +418,8 @@ impl CairnApp {
             if row.is_empty() {
                 break;
             }
+            // a short last row stretches to the full width instead of leaving a hole
+            let tile_w = (width - 16.0 * (row.len() as f32 - 1.0)) / row.len() as f32;
             ui.horizontal_top(|ui| {
                 ui.spacing_mut().item_spacing.x = 16.0;
                 for tile in row {
@@ -427,7 +428,7 @@ impl CairnApp {
                             ui.set_width(tile_w);
                             card(ui, |ui| {
                                 ui.set_width(tile_w - 38.0);
-                                ui.set_min_height(120.0);
+                                ui.set_min_height(150.0);
                                 tile(self, ui);
                             });
                         });
@@ -445,10 +446,61 @@ impl CairnApp {
         ui.add_space(14.0);
         ui.label(RichText::new(title).size(19.0).strong());
         ui.add_space(6.0);
-        egui::ScrollArea::horizontal()
-            .id_salt(("shelf", title))
-            .auto_shrink([false, true])
-            .show(ui, |ui| {
+        // the bar has a row of its own under the posters, not floating over them
+        ui.scope(|ui| {
+            ui.spacing_mut().scroll = egui::style::ScrollStyle::solid();
+            ui.spacing_mut().scroll.bar_inner_margin = 10.0;
+            // the shelf can be grabbed and pulled, like on a touch screen
+            let drag_id = ui.make_persistent_id(("shelf-drag", title));
+            let mut st: ShelfDrag = ui.data(|d| d.get_temp(drag_id)).unwrap_or_default();
+            let (down, origin, delta, released) = ui.input(|i| {
+                (
+                    i.pointer.primary_down(),
+                    i.pointer.press_origin(),
+                    i.pointer.delta().x,
+                    i.pointer.any_released(),
+                )
+            });
+            if down && origin.is_some_and(|p| st.rect.contains(p)) {
+                let moved = ui
+                    .input(|i| i.pointer.latest_pos())
+                    .zip(origin)
+                    .is_some_and(|(a, b)| (a.x - b.x).abs() > 6.0);
+                if moved || st.dragging {
+                    st.dragging = true;
+                    st.offset -= delta;
+                    // remembered, so that the shelf keeps gliding when it is let go
+                    st.glide = 0.6 * st.glide - 0.4 * delta;
+                }
+            }
+            // a pull that ends on a poster must not also open it
+            let pulled = st.dragging;
+            if !down {
+                st.dragging = false;
+            }
+            if pulled {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+            }
+            let _ = released;
+            let mut area = egui::ScrollArea::horizontal()
+                .id_salt(("shelf", title))
+                .auto_shrink([false, true])
+                .scroll_source(egui::scroll_area::ScrollSource {
+                    drag: egui::scroll_area::DragScroll::Never,
+                    ..Default::default()
+                });
+            let gliding = !down && st.glide.abs() > 0.4;
+            if gliding {
+                st.offset += st.glide;
+                st.glide *= 0.94;
+                ui.ctx().request_repaint();
+            } else if !pulled {
+                st.glide = 0.0;
+            }
+            if (pulled && down) || gliding {
+                area = area.horizontal_scroll_offset(st.offset.max(0.0));
+            }
+            let out = area.show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 14.0;
                     for g in games {
@@ -458,7 +510,7 @@ impl CairnApp {
                             &g.poster_image
                         };
                         let art = self.images.get(&self.ctx, url);
-                        let accent = self.accent_for(Some(g));
+                        let accent = self.accent;
                         let sub = if !g.developer.is_empty() {
                             g.developer.clone()
                         } else if g.is_supported {
@@ -471,13 +523,20 @@ impl CairnApp {
                             sub: &sub,
                             flag: snap.on_pc.contains(&g.id).then_some("On this PC"),
                             favorite: self.prefs.is_favorite(&g.id),
+                            heart: self.prefs.in_library(&g.id),
                             accent,
                         };
                         let (open, heart) = poster(ui, art.as_ref(), &info);
-                        if open {
-                            self.open_game(&g.id);
+                        if open && !pulled {
+                            // a game in the library opens there, any other in the Store
+                            if self.prefs.in_library(&g.id) {
+                                self.open_game(&g.id);
+                            } else {
+                                self.store_chosen = Some(g.id.clone());
+                                self.view = View::Store;
+                            }
                         }
-                        if heart {
+                        if heart && !pulled {
                             let now = self.prefs.toggle_favorite(&g.id);
                             self.save_prefs();
                             self.toast(
@@ -492,6 +551,10 @@ impl CairnApp {
                     }
                 });
             });
+            st.offset = out.state.clamped_offset().x;
+            st.rect = out.inner_rect;
+            ui.data_mut(|d| d.insert_temp(drag_id, st));
+        });
     }
 
     fn tools_and_tip(&mut self, ui: &mut egui::Ui) {
@@ -499,6 +562,7 @@ impl CairnApp {
         ui.label(RichText::new("Tools").size(19.0).strong());
         ui.add_space(6.0);
         ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing = Vec2::new(14.0, 14.0);
             for (title, text, action) in [
                 ("Check setup", "Find what is missing for your games, and fix it.", 0),
                 ("Save the logs", "One zip with the game's, the mod's and the launcher's logs.", 1),
@@ -521,14 +585,27 @@ impl CairnApp {
                 }
             }
         });
-        ui.add_space(14.0);
-        ui.label(RichText::new("Tip of the day").size(19.0).strong());
-        ui.add_space(6.0);
-        let day = (time_util::now_utc() / 86_400) as usize % TIPS.len();
-        card(ui, |ui| {
-            ui.label(RichText::new(TIPS[day].0).strong());
-            ui.add(egui::Label::new(RichText::new(TIPS[day].1).color(theme::PARCHMENT_DIM)).wrap());
-        });
+    }
+}
+
+/// Where a shelf is, how far it is scrolled, and whether it is being pulled with the pointer.
+#[derive(Clone, Copy)]
+struct ShelfDrag {
+    offset: f32,
+    dragging: bool,
+    rect: egui::Rect,
+    /// How fast the shelf is still gliding after it was let go (points a frame).
+    glide: f32,
+}
+
+impl Default for ShelfDrag {
+    fn default() -> Self {
+        Self {
+            offset: 0.0,
+            dragging: false,
+            rect: egui::Rect::NOTHING,
+            glide: 0.0,
+        }
     }
 }
 

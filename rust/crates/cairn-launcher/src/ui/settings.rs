@@ -5,7 +5,7 @@
 //! its page. The values are keys of `settings.json`; only what the player changed is written, when they press Save.
 
 use super::theme;
-use super::widgets::{card, primary_button, secondary_button};
+use super::widgets::{card, column, primary_button, secondary_button};
 use crate::app::CairnApp;
 use eframe::egui::{self, Color32, CornerRadius, Margin, RichText, Sense, Stroke, Vec2};
 
@@ -57,7 +57,7 @@ impl CairnApp {
             .frame(egui::Frame::new().fill(theme::GROUND))
             .show(ui, |ui| {
                 egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-                    egui::Frame::new().inner_margin(Margin::symmetric(40, 28)).show(ui, |ui| {
+                    column(ui, 760.0, 40.0, 28, |ui| {
                         ui.set_max_width(760.0);
                         ui.label(RichText::new("Settings").size(32.0).strong());
                         ui.add_space(10.0);
@@ -336,7 +336,7 @@ impl CairnApp {
             self.game_settings_open = None;
             return;
         };
-        let accent = self.accent_for(Some(&game));
+        let accent = self.accent;
         let mut close = false;
         let mut save = false;
         egui::Window::new(RichText::new(game.display_name.to_uppercase()).strong())

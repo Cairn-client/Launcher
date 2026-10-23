@@ -4,10 +4,10 @@
 //! Help and About in one page. The credit to the projects Cairn continues and the disclaimer stay (GPLv3 section 7, AUTHORS.md).
 
 use super::theme;
-use super::widgets::{card, primary_button, secondary_button};
+use super::widgets::{card, column, primary_button, secondary_button};
 use crate::app::{CairnApp, View, VERSION};
 use cairn_setup::catalog::KNOWN_ISSUE;
-use eframe::egui::{self, Margin, RichText};
+use eframe::egui::{self, RichText};
 
 pub const REPO_URL: &str = "https://github.com/Cairn-client/Launcher";
 
@@ -15,7 +15,7 @@ impl CairnApp {
     pub fn help_page(&mut self, ui: &mut egui::Ui) {
         egui::CentralPanel::default().frame(egui::Frame::new().fill(theme::GROUND)).show(ui, |ui| {
             egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-                egui::Frame::new().inner_margin(Margin::symmetric(40, 28)).show(ui, |ui| {
+                column(ui, 980.0, 40.0, 28, |ui| {
                     ui.set_max_width(980.0);
                     ui.label(RichText::new("Help").size(32.0).strong());
                     ui.label(RichText::new("Get unstuck, report a problem, and find out who made what.").color(theme::PARCHMENT_DIM));

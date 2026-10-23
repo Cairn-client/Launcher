@@ -4,12 +4,12 @@
 //! Your account, laid out like a Steam profile: a banner with your avatar, name and status, your numbers, and recent activity.
 
 use super::theme;
-use super::widgets::{card, paint_cover, primary_button};
+use super::widgets::{card, column, paint_cover, primary_button};
 use crate::app::{CairnApp, VERSION};
 use crate::home_data;
 use crate::steam_service::{avatar_url, initial};
 use cairn_setup::time_util;
-use eframe::egui::{self, Color32, Margin, RichText, Sense, Stroke, Vec2};
+use eframe::egui::{self, Color32, RichText, Sense, Stroke, Vec2};
 
 impl CairnApp {
     pub fn profile_page(&mut self, ui: &mut egui::Ui) {
@@ -17,7 +17,7 @@ impl CairnApp {
             .frame(egui::Frame::new().fill(theme::GROUND))
             .show(ui, |ui| {
                 egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-                    egui::Frame::new().inner_margin(Margin::symmetric(40, 28)).show(ui, |ui| {
+                    column(ui, 1000.0, 40.0, 28, |ui| {
                         ui.set_max_width(1000.0);
                         self.profile_banner(ui);
                         ui.add_space(14.0);
