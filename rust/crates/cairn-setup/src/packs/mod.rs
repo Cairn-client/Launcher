@@ -7,6 +7,7 @@
 pub mod contract;
 pub mod index;
 pub mod installer;
+pub mod plan;
 pub mod store;
 
 pub use contract::{PackContract, PackDependency, PackKinds};
