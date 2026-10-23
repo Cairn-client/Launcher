@@ -5,11 +5,13 @@
 
 pub mod app;
 pub mod app_dirs;
+pub mod changelog;
 pub mod dev;
 pub mod downloads;
 pub mod game_finder;
 pub mod game_list;
 pub mod games;
+pub mod home_data;
 pub mod mods;
 pub mod open;
 pub mod prefs;

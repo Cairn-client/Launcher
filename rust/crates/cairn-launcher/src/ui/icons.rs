@@ -9,6 +9,15 @@ fn s(width: f32, color: Color32) -> Stroke {
     Stroke::new(width, color)
 }
 
+/// A chevron pointing left.
+pub fn chevron_left(p: &Painter, c: Pos2, size: f32, color: Color32) {
+    let h = size / 2.0;
+    p.add(Shape::line(
+        vec![pos2(c.x + h / 2.0, c.y - h), pos2(c.x - h / 2.0, c.y), pos2(c.x + h / 2.0, c.y + h)],
+        s(1.8, color),
+    ));
+}
+
 /// A chevron: `open` points down, otherwise right.
 pub fn chevron(p: &Painter, c: Pos2, size: f32, open: bool, color: Color32) {
     let h = size / 2.0;
