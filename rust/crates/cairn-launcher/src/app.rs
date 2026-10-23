@@ -193,6 +193,10 @@ pub struct CairnApp {
     pub presence_connected: bool,
     pub friends_seen: HashMap<String, cairn_protocol::presence_api::PresenceFriend>,
     pub pending_invite: Option<cairn_protocol::presence_api::PresenceInvited>,
+    pub ingame: Option<crate::ingame::InGame>,
+    pub tray: Option<crate::winapi::Tray>,
+    pub tray_tried: bool,
+    pub tray_events: Option<std::sync::mpsc::Receiver<crate::winapi::TrayEvent>>,
     pub confirm_exit: bool,
     pub quit_ok: bool,
     pub tour_step: usize,
@@ -328,6 +332,10 @@ impl CairnApp {
             presence_connected: false,
             friends_seen: HashMap::new(),
             pending_invite: None,
+            ingame: None,
+            tray: None,
+            tray_tried: false,
+            tray_events: None,
             confirm_exit: false,
             quit_ok: false,
             tour_step: 0,
@@ -493,6 +501,7 @@ impl CairnApp {
     /// Takes what the background tasks have finished.
     fn receive(&mut self) {
         self.start_presence();
+        self.run_tray();
         let was_running = self.running.as_ref().map(|r| r.game_id.clone());
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
@@ -599,6 +608,11 @@ impl CairnApp {
                 Msg::BridgeConnected(game) => {
                     self.bridge_game = game.clone();
                     if game.is_empty() {
+                        if let Some(g) = self.ingame.as_mut() {
+                            g.bridge_gone();
+                        }
+                    }
+                    if game.is_empty() {
                         self.bridge_saves.clear();
                     } else if let Some(b) = &self.bridge {
                         b.send(&cairn_setup::bridge_protocol::ask_saves());
@@ -607,7 +621,23 @@ impl CairnApp {
                 Msg::Bridge(msg) => match msg {
                     BridgeIn::Toast { text, error } => self.toast(&text, error),
                     BridgeIn::Saves(slots) => self.bridge_saves = slots,
-                    _ => {}
+                    BridgeIn::Menu(m) => {
+                        let state = crate::menu_nav::MenuState::from_bridge(&self.bridge_game, &m);
+                        if let Some(g) = self.ingame.as_mut() {
+                            g.on_menu(state);
+                        }
+                    }
+                    BridgeIn::Notice { show, text } => {
+                        if let Some(g) = self.ingame.as_mut() {
+                            g.on_notice(show, text);
+                        }
+                    }
+                    BridgeIn::Subtitle { seconds, text } => {
+                        if let Some(g) = self.ingame.as_mut() {
+                            g.on_subtitle(seconds, text);
+                        }
+                    }
+                    BridgeIn::Hello { .. } => {}
                 },
                 Msg::UpdateProgress(p) => {
                     if let (Some(m), Some(u)) = (self.update_modal.as_mut(), self.update.as_ref()) {
@@ -975,6 +1005,40 @@ fn start_save_root(s: &AppSettings) -> PathBuf {
 }
 
 impl CairnApp {
+    /// The notification-area icon: open Cairn, exit, and a notice when the window is not in front.
+    fn run_tray(&mut self) {
+        if !self.tray_tried {
+            self.tray_tried = true;
+            let (tx, rx) = std::sync::mpsc::channel();
+            self.tray = crate::winapi::Tray::start(tx);
+            self.tray_events = self.tray.as_ref().map(|_| rx);
+        }
+        let events: Vec<_> = self.tray_events.as_ref().map(|rx| rx.try_iter().collect()).unwrap_or_default();
+        for e in events {
+            match e {
+                crate::winapi::TrayEvent::Open => {
+                    self.ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+                    self.ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                    self.ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                }
+                crate::winapi::TrayEvent::Exit => {
+                    self.quit_ok = true;
+                    self.ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                }
+            }
+        }
+    }
+
+    /// A Windows notice from the tray icon, only when the launcher is not the window in front.
+    pub fn tray_notice(&self, title: &str, text: &str) {
+        if !self.settings.tray_notices || self.ctx.input(|i| i.viewport().focused.unwrap_or(true)) {
+            return;
+        }
+        if let Some(t) = &self.tray {
+            t.notify(title, text);
+        }
+    }
+
     /// Remembers the window's size, place and maximised state for the next start (at most once a second, and only when it changed).
     fn track_window(&mut self, ctx: &egui::Context) {
         if self.window_saved.0.elapsed() < Duration::from_secs(1) {
@@ -1021,6 +1085,7 @@ impl eframe::App for CairnApp {
         self.ready_check_windows(ui.ctx());
         self.session_windows(ui.ctx());
         self.invite_window(ui.ctx());
+        self.tick_ingame(ui.ctx());
         self.updates_drawer(ui.ctx());
         self.tour_window(ui.ctx());
         self.exit_window(ui.ctx());

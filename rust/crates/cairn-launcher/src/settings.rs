@@ -45,6 +45,8 @@ pub struct AppSettings {
     pub dlss5_enabled: bool,
     pub connect_gate: bool,
     pub menu_takeover: bool,
+    /// The key that opens the in-game menu: `insert`, `np_add` or `np_subtract`.
+    pub menu_key: String,
     pub start_save_path: String,
     /// game id -> `stable` or `beta`.
     pub mod_channels: BTreeMap<String, String>,
@@ -83,6 +85,7 @@ impl Default for AppSettings {
             dlss5_enabled: false,
             connect_gate: true,
             menu_takeover: true,
+            menu_key: "insert".into(),
             start_save_path: "start-save".into(),
             mod_channels: BTreeMap::new(),
             game_options: BTreeMap::new(),

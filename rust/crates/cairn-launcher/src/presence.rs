@@ -278,13 +278,19 @@ impl crate::app::CairnApp {
                 }
                 if self.settings.notify_friends {
                     if let Some(text) = api::notices::for_friend(before.as_ref(), &f) {
+                        if f.online && f.activity == api::activity::HOSTING {
+                            self.tray_notice("A friend is hosting", &text);
+                            self.refresh_home_friends(true);
+                        }
                         self.toast(&text, false);
                     }
                 }
             }
             PresenceEvent::Invited(i) => {
                 if self.settings.notify_friends {
-                    self.toast(&api::notices::for_invite(&i), false);
+                    let text = api::notices::for_invite(&i);
+                    self.tray_notice("Invitation", &format!("{text}. Open Cairn to join."));
+                    self.toast(&text, false);
                     self.pending_invite = Some(i);
                 }
             }
