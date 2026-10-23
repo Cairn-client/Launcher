@@ -81,8 +81,9 @@ impl Http for UreqHttp {
     }
 }
 
-#[cfg(test)]
-pub(crate) mod fake {
+/// A server in memory, for tests (here and in the crates that use this one).
+#[cfg(any(test, feature = "test-support"))]
+pub mod fake {
     use super::*;
     use std::collections::HashMap;
     use std::io::Cursor;
