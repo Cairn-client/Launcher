@@ -17,4 +17,7 @@ roxmltree = "0.21"
 sha2 = "0.10"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 ureq = "3"
+interprocess = { version = "2", features = ["tokio"] }
+tokio = { version = "1", features = ["rt", "net", "io-util", "time", "sync", "macros"] }
+rand = "0.9"
 sysinfo = { version = "0.37", default-features = false, features = ["system"] }

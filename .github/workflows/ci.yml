@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, rust]
   pull_request:
     branches: [main]
 
@@ -38,3 +38,21 @@ jobs:
             dotnet test "dotnet/Cairn.$p/Cairn.$p.csproj" -c Release --nologo -v q
             if ($LASTEXITCODE -ne 0) { throw "$p failed" }
           }
+
+  rust:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: "clippy, rustfmt" }
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: rust }
+      - name: Format
+        run: cargo fmt --check
+      - name: Lints
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test
