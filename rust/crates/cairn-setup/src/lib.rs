@@ -4,9 +4,16 @@
 //! Where Steam and the games are, the pack store, the catalog, and the clients of the pack program.
 
 pub mod app_manifest;
+pub mod bridge_protocol;
+pub mod catalog;
+pub mod catalog_limits;
+pub mod game_options;
+pub mod game_setup;
 pub mod mod_install;
 pub mod redact;
 pub mod setup_host;
 pub mod steam_identity;
 pub mod steam_profile_status;
+pub mod time_util;
 pub mod vdf;
+pub mod version;
