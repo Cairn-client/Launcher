@@ -77,6 +77,10 @@ pub enum Msg {
     Bridge(BridgeIn),
     Session(cairn_setup::pack_session::SessionEvent),
     Presence(crate::presence::PresenceEvent),
+    HomeFriends {
+        game: String,
+        friends: Vec<cairn_setup::pack_session::SessionFriend>,
+    },
     GameExtras {
         game: String,
         options: HashMap<String, cairn_setup::game_options::OptionStatus>,
@@ -164,6 +168,7 @@ pub struct CairnApp {
     pub setup_game: String,
     pub setup_checking: bool,
     pub setup_open: bool,
+    pub setup_then: Option<(String, crate::play::After)>,
     pub setup_busy: Option<String>,
     pub setup_notes: HashMap<String, String>,
     pub setup_last_poll: Instant,
@@ -180,6 +185,9 @@ pub struct CairnApp {
     pub confirm_delete_save: String,
     pub confirm_delete_all: bool,
     pub presence: Option<crate::presence::PresenceClient>,
+    pub home_friends: Vec<cairn_setup::pack_session::SessionFriend>,
+    pub home_friends_busy: bool,
+    pub home_friends_at: Option<Instant>,
     pub presence_tried: bool,
     pub presence_sent: bool,
     pub presence_connected: bool,
@@ -295,6 +303,7 @@ impl CairnApp {
             setup_game: String::new(),
             setup_checking: false,
             setup_open: false,
+            setup_then: None,
             setup_busy: None,
             setup_notes: HashMap::new(),
             setup_last_poll: Instant::now(),
@@ -311,6 +320,9 @@ impl CairnApp {
             confirm_delete_save: String::new(),
             confirm_delete_all: false,
             presence: None,
+            home_friends: Vec::new(),
+            home_friends_busy: false,
+            home_friends_at: None,
             presence_tried: false,
             presence_sent: false,
             presence_connected: false,
@@ -543,6 +555,10 @@ impl CairnApp {
                 }
                 Msg::OptionsApplied { game, results } => self.on_options_applied(&game, results),
                 Msg::SavesChanged { ok, message, slots } => self.on_saves_changed(ok, message, slots),
+                Msg::HomeFriends { friends, .. } => {
+                    self.home_friends_busy = false;
+                    self.home_friends = friends;
+                }
                 Msg::Presence(e) => self.on_presence(e),
                 Msg::Session(ev) => self.on_session_event(ev),
                 Msg::SetupLines { game, lines, game_exe } => {
@@ -1010,6 +1026,7 @@ impl eframe::App for CairnApp {
         self.exit_window(ui.ctx());
         self.track_window(ui.ctx());
         self.poll_setup();
+        self.continue_after_setup();
         self.friends_panel(ui.ctx());
         self.toasts_ui(ui);
         crate::dev::screenshot_tick(ui.ctx());

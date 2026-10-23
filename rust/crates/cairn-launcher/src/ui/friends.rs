@@ -93,6 +93,7 @@ impl CairnApp {
         if !self.friends_open {
             return;
         }
+        self.refresh_home_friends(false);
         let rows = self.friend_rows();
         let q = self.friends_query.trim().to_lowercase();
         let shown: Vec<&FriendRow> = rows.iter().filter(|f| q.is_empty() || f.name.to_lowercase().contains(&q)).collect();
@@ -199,7 +200,21 @@ impl CairnApp {
             egui::FontId::proportional(14.0),
             dim,
         );
-        if self.can_invite() && self.friends_seen.contains_key(&f.id) {
+        if let Some(code) = self.hosting_as(&f.name).map(|h| h.code.clone()).filter(|_| self.running.is_none()) {
+            let r = egui::Rect::from_center_size(egui::pos2(rect.right() - 36.0, rect.center().y), Vec2::new(60.0, 26.0));
+            let resp = ui.interact(r, ui.make_persistent_id(("join", &f.id)), Sense::click());
+            ui.painter().rect_filled(r, CornerRadius::same(6), self.accent);
+            ui.painter().text(
+                r.center(),
+                Align2::CENTER_CENTER,
+                "JOIN",
+                egui::FontId::proportional(11.5),
+                Color32::BLACK,
+            );
+            if resp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+                self.join_hosting_friend(&code);
+            }
+        } else if self.can_invite() && self.friends_seen.contains_key(&f.id) {
             let r = egui::Rect::from_center_size(egui::pos2(rect.right() - 36.0, rect.center().y), Vec2::new(60.0, 26.0));
             let resp = ui.interact(r, ui.make_persistent_id(("invite", &f.id)), Sense::click());
             ui.painter()
