@@ -75,6 +75,7 @@ pub enum Msg {
     GameExited(String),
     BridgeConnected(String),
     Bridge(BridgeIn),
+    Session(cairn_setup::pack_session::SessionEvent),
     UpdateDownloaded(Result<std::path::PathBuf, String>),
     /// The pack of a game changed on disk (downloaded, removed, placed): forget what was read about it.
     PackChanged(String),
@@ -156,6 +157,10 @@ pub struct CairnApp {
     pub bridge: Option<BridgeServer>,
     pub bridge_game: String,
     pub bridge_saves: Vec<BridgeSaveSlot>,
+    pub session: Option<cairn_setup::pack_session::PackSession>,
+    pub session_game: String,
+    pub session_view: cairn_setup::pack_session::SessionView,
+    pub session_ui: crate::session::SessionUi,
 }
 
 /// A game the launcher started and that has not closed yet.
@@ -266,6 +271,10 @@ impl CairnApp {
             bridge: None,
             bridge_game: String::new(),
             bridge_saves: Vec::new(),
+            session: None,
+            session_game: String::new(),
+            session_view: cairn_setup::pack_session::SessionView::idle(),
+            session_ui: Default::default(),
         };
         for p in problems {
             app.toast(&p, true);
@@ -468,6 +477,7 @@ impl CairnApp {
                         }
                     }
                 }
+                Msg::Session(ev) => self.on_session_event(ev),
                 Msg::SetupLines { game, lines, game_exe } => {
                     self.setup_checking = false;
                     if game.eq_ignore_ascii_case(&self.setup_game) {
@@ -892,6 +902,7 @@ impl eframe::App for CairnApp {
         self.game_settings_window(ui.ctx());
         self.update_window(ui.ctx());
         self.ready_check_windows(ui.ctx());
+        self.session_windows(ui.ctx());
         self.poll_setup();
         self.friends_panel(ui.ctx());
         self.toasts_ui(ui);
