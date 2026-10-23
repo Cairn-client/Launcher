@@ -143,6 +143,7 @@ impl CairnApp {
         }
     }
 
+    #[allow(deprecated)]
     /// Asks before the window closes when the player wants that (a setting).
     pub fn exit_window(&mut self, ctx: &egui::Context) {
         if ctx.input(|i| i.viewport().close_requested()) && self.settings.confirm_quit && !self.quit_ok {
@@ -153,22 +154,64 @@ impl CairnApp {
             return;
         }
         let (mut quit, mut stay) = (false, false);
-        egui::Window::new(RichText::new("EXIT GAME?").strong())
-            .collapsible(false)
-            .resizable(false)
+        egui::Area::new(egui::Id::new("quit-scrim"))
+            .order(egui::Order::Middle)
+            .fixed_pos(egui::Pos2::ZERO)
+            .show(ctx, |ui| {
+                let screen = ctx.content_rect();
+                let r = ui.allocate_rect(screen, egui::Sense::click());
+                ui.painter().rect_filled(screen, 0.0, theme::with_alpha(egui::Color32::BLACK, 0.55));
+                if r.clicked() {
+                    stay = true;
+                }
+            });
+        let width = 380.0;
+        egui::Area::new(egui::Id::new("quit-dialog"))
+            .order(egui::Order::Foreground)
             .anchor(egui::Align2::CENTER_CENTER, Vec2::ZERO)
             .show(ctx, |ui| {
-                ui.label("Are you sure you want to quit the launcher?");
-                ui.add_space(8.0);
-                ui.horizontal(|ui| {
-                    if primary_button(ui, "QUIT", self.accent, true).clicked() {
-                        quit = true;
-                    }
-                    if secondary_button(ui, "CANCEL", true).clicked() {
-                        stay = true;
-                    }
-                });
+                egui::Frame::new()
+                    .fill(theme::INK)
+                    .stroke(egui::Stroke::new(1.0, theme::with_alpha(egui::Color32::WHITE, 0.1)))
+                    .corner_radius(egui::CornerRadius::same(16))
+                    .inner_margin(egui::Margin::same(28))
+                    .show(ui, |ui| {
+                        ui.set_width(width);
+                        ui.vertical_centered(|ui| {
+                            ui.label(RichText::new("Quit Cairn?").size(22.0).strong());
+                            ui.add_space(6.0);
+                            ui.label(RichText::new("Are you sure you want to quit the launcher?").color(theme::PARCHMENT_DIM));
+                            ui.add_space(16.0);
+                            // the two buttons, centred
+                            let font = egui::FontId::proportional(13.5);
+                            let wide = |ui: &egui::Ui, s: &str| {
+                                ui.painter().layout_no_wrap(s.to_string(), font.clone(), theme::PARCHMENT).size().x + 32.0
+                            };
+                            let row = wide(ui, "QUIT") + wide(ui, "CANCEL") + ui.spacing().item_spacing.x;
+                            ui.horizontal(|ui| {
+                                ui.add_space(((width - row) / 2.0).max(0.0));
+                                if primary_button(ui, "Quit", self.accent, true).clicked() {
+                                    quit = true;
+                                }
+                                if secondary_button(ui, "Cancel", true).clicked() {
+                                    stay = true;
+                                }
+                            });
+                            ui.add_space(10.0);
+                            let mut ask = self.settings.confirm_quit;
+                            if ui.checkbox(&mut ask, "Ask me before quitting").changed() {
+                                self.settings.confirm_quit = ask;
+                                self.write_settings("quit confirmation");
+                            }
+                        });
+                    });
             });
+        if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+            quit = true;
+        }
+        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+            stay = true;
+        }
         if quit {
             self.quit_ok = true;
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);

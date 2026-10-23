@@ -124,6 +124,8 @@ pub struct CairnApp {
     rx: Receiver<Msg>,
     pub selected_game: String,
     pub search: String,
+    /// Whether the top bar's search shows its list of matches.
+    pub search_open: bool,
     pub catalog_loading: bool,
     pub accent: egui::Color32,
     // mods
@@ -136,6 +138,9 @@ pub struct CairnApp {
     pub pack_message: (String, bool),
     pub toasts: Vec<Toast>,
     pub updates_open: bool,
+    /// The download speed, a sample a second, for the graph in the updates tab.
+    pub speed_history: Vec<f32>,
+    pub speed_at: std::time::Instant,
     // home
     pub recent: RecentSessions,
     pub release_notes: Option<Vec<ReleaseNote>>,
@@ -270,6 +275,7 @@ impl CairnApp {
             rx,
             selected_game,
             search: String::new(),
+            search_open: false,
             catalog_loading: false,
             accent,
             store,
@@ -280,12 +286,14 @@ impl CairnApp {
             placed_cache: HashMap::new(),
             pack_message: (String::new(), false),
             toasts: Vec::new(),
-            updates_open: false,
+            updates_open: std::env::var_os("CAIRN_OPEN_UPDATES").is_some(),
+            speed_history: Vec::new(),
+            speed_at: std::time::Instant::now(),
             recent: RecentSessions::load(app_dirs::local_data().join("recent.json")),
             release_notes: None,
             slide: 0,
             slide_since: Instant::now(),
-            store_chosen: None,
+            store_chosen: std::env::var("CAIRN_STORE_GAME").ok(),
             store_query: String::new(),
             store_feature_tab: String::new(),
             settings_tab: "general".into(),
@@ -337,7 +345,7 @@ impl CairnApp {
             tray: None,
             tray_tried: false,
             tray_events: None,
-            confirm_exit: false,
+            confirm_exit: std::env::var_os("CAIRN_SHOW_QUIT").is_some(),
             quit_ok: false,
             tour_step: 0,
             tour_steam: (Instant::now() - Duration::from_secs(10), false),
@@ -951,9 +959,10 @@ impl CairnApp {
         }
     }
 
-    /// The accent colour the page uses: the game's own on its page, else the player's.
+    /// The accent colour: always the player's own, never a game's.
     pub fn accent_for(&self, g: Option<&GameProfile>) -> egui::Color32 {
-        g.and_then(|g| theme::hex(&g.accent)).unwrap_or(self.accent)
+        let _ = g;
+        self.accent
     }
 }
 
@@ -1017,17 +1026,38 @@ impl CairnApp {
         let events: Vec<_> = self.tray_events.as_ref().map(|rx| rx.try_iter().collect()).unwrap_or_default();
         for e in events {
             match e {
-                crate::winapi::TrayEvent::Open => {
-                    self.ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
-                    self.ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                    self.ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                crate::winapi::TrayEvent::Open => self.show_window(),
+                crate::winapi::TrayEvent::Library => {
+                    self.show_window();
+                    self.view = View::Library;
                 }
+                crate::winapi::TrayEvent::Store => {
+                    self.show_window();
+                    self.view = View::Store;
+                }
+                crate::winapi::TrayEvent::Settings => {
+                    self.show_window();
+                    self.view = View::Settings;
+                }
+                crate::winapi::TrayEvent::CheckUpdates => {
+                    self.show_window();
+                    self.updates_open = true;
+                    self.refresh_catalog_and_packs();
+                }
+                crate::winapi::TrayEvent::ReportProblem => crate::open::open_url("https://github.com/Cairn-client/Launcher/issues/new"),
                 crate::winapi::TrayEvent::Exit => {
                     self.quit_ok = true;
                     self.ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                 }
             }
         }
+    }
+
+    /// Brings the window back from the tray or the taskbar and to the front.
+    fn show_window(&self) {
+        self.ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+        self.ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+        self.ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
     }
 
     /// A Windows notice from the tray icon, only when the launcher is not the window in front.

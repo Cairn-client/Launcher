@@ -5,7 +5,7 @@
 
 use super::icons;
 use super::theme;
-use super::widgets::{card, chip, paint_contain, paint_cover, primary_button, secondary_button};
+use super::widgets::{card, chip, fade, paint_contain, paint_cover, primary_button, secondary_button};
 use crate::app::CairnApp;
 use crate::game_list::{self, ListContext};
 use crate::games::GameProfile;
@@ -15,6 +15,18 @@ use eframe::egui::{self, Color32, CornerRadius, Margin, RichText, Sense, Stroke,
 
 impl CairnApp {
     pub fn library(&mut self, ui: &mut egui::Ui) {
+        // when the game that was open is not in the library (any more), open the first one that is
+        if !self.prefs.in_library(&self.selected_game) {
+            if let Some(id) = self
+                .registry
+                .all()
+                .iter()
+                .find(|g| self.prefs.in_library(&g.id))
+                .map(|g| g.id.clone())
+            {
+                self.selected_game = id;
+            }
+        }
         self.library_sidebar(ui);
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(theme::GROUND))
@@ -71,20 +83,34 @@ impl CairnApp {
                     if before != self.prefs.grouping {
                         self.save_prefs();
                     }
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if tool_button(ui, "A-Z", !self.prefs.descending, "Order: A to Z (click for Z to A)").clicked() {
-                            self.prefs.descending = !self.prefs.descending;
-                            self.save_prefs();
+                });
+                ui.horizontal(|ui| {
+                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                        if tool_icon(ui, true, "Open all folders").clicked() {
+                            self.set_all_folders(true);
                         }
-                        if tool_button(ui, "Recent", self.prefs.recent_first, "Recently played first").clicked() {
-                            self.prefs.recent_first = !self.prefs.recent_first;
-                            self.save_prefs();
-                        }
-                        if tool_button(ui, "Close", false, "Close all folders").clicked() {
+                        if tool_icon(ui, false, "Close all folders").clicked() {
                             self.set_all_folders(false);
                         }
-                        if tool_button(ui, "Open", false, "Open all folders").clicked() {
-                            self.set_all_folders(true);
+                        if tool_button(ui, "Recent", self.prefs.recent_first, "Recently played first").clicked() {
+                            self.prefs.recent_first = true;
+                            self.save_prefs();
+                        }
+                        if tool_button(
+                            ui,
+                            if self.prefs.descending { "Z-A" } else { "A-Z" },
+                            !self.prefs.recent_first,
+                            "Alphabetical order (click again to reverse it)",
+                        )
+                        .clicked()
+                        {
+                            // Recent and alphabetical are two orders, one at a time
+                            if self.prefs.recent_first {
+                                self.prefs.recent_first = false;
+                            } else {
+                                self.prefs.descending = !self.prefs.descending;
+                            }
+                            self.save_prefs();
                         }
                     });
                 });
@@ -182,14 +208,16 @@ impl CairnApp {
             }
             if open {
                 for id in ids {
-                    self.game_item(ui, &id);
+                    let width = ui.available_width();
+                    self.game_item(ui, &id, width);
+                    ui.add_space(4.0);
                 }
             }
             ui.add_space(4.0);
         }
     }
 
-    fn game_item(&mut self, ui: &mut egui::Ui, id: &str) {
+    fn game_item(&mut self, ui: &mut egui::Ui, id: &str, width: f32) {
         let Some(game) = self.registry.get(id).cloned() else { return };
         let found = self.is_game_found(&game);
         let needs_mod = self.needs_mod(&game);
@@ -203,25 +231,34 @@ impl CairnApp {
         } else {
             ("Ready", theme::ONLINE)
         };
-        let accent = self.accent_for(Some(&game));
-        let (rect, resp) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 52.0), Sense::click());
+        let accent = self.accent;
+        let (rect, resp) = ui.allocate_exact_size(Vec2::new(width, 84.0), Sense::click());
         if selected || resp.hovered() {
             ui.painter().rect_filled(
                 rect,
-                CornerRadius::same(10),
-                theme::with_alpha(if selected { accent } else { Color32::WHITE }, if selected { 0.14 } else { 0.05 }),
+                CornerRadius::same(12),
+                theme::with_alpha(if selected { accent } else { Color32::WHITE }, if selected { 0.14 } else { 0.07 }),
             );
+        } else {
+            ui.painter()
+                .rect_filled(rect, CornerRadius::same(12), theme::with_alpha(Color32::WHITE, 0.03));
         }
         if selected {
             ui.painter().rect_stroke(
                 rect,
-                CornerRadius::same(10),
+                CornerRadius::same(12),
                 Stroke::new(1.0, theme::with_alpha(accent, 0.5)),
                 egui::StrokeKind::Inside,
             );
         }
-        let logo_rect = egui::Rect::from_min_size(rect.min + Vec2::new(8.0, 6.0), Vec2::new(60.0, 40.0));
-        match self.images.get(&self.ctx, &game.logo_image) {
+        let logo_rect = egui::Rect::from_min_size(rect.min + Vec2::new(10.0, 8.0), Vec2::new(46.0, 68.0));
+        let cover = if game.poster_image.is_empty() {
+            &game.logo_image
+        } else {
+            &game.poster_image
+        };
+        match self.images.get(&self.ctx, cover) {
+            Some(tex) if !game.poster_image.is_empty() => paint_cover(ui, &tex, logo_rect, 6, Color32::WHITE),
             Some(tex) => paint_contain(ui, &tex, logo_rect, Color32::WHITE),
             None => {
                 ui.painter().text(
@@ -233,23 +270,28 @@ impl CairnApp {
                 );
             }
         }
-        let x = rect.left() + 78.0;
-        ui.painter().text(
-            egui::pos2(x, rect.top() + 16.0),
-            egui::Align2::LEFT_CENTER,
-            &game.display_name,
+        let x = rect.left() + 66.0;
+        // the name may take two lines
+        let mut job = egui::text::LayoutJob::simple(
+            game.display_name.clone(),
             egui::FontId::proportional(14.0),
             theme::PARCHMENT,
+            rect.right() - x - 26.0,
         );
+        job.wrap.max_rows = 2;
+        job.wrap.break_anywhere = false;
+        let name = ui.painter().layout_job(job);
+        let name_h = name.size().y;
+        ui.painter().galley(egui::pos2(x, rect.top() + 12.0), name, theme::PARCHMENT);
         ui.painter().text(
-            egui::pos2(x, rect.top() + 35.0),
+            egui::pos2(x, rect.top() + 14.0 + name_h + 8.0),
             egui::Align2::LEFT_CENTER,
             state,
             egui::FontId::proportional(12.0),
             tone,
         );
         if self.prefs.is_favorite(&game.id) {
-            icons::heart(ui.painter(), egui::pos2(rect.right() - 16.0, rect.center().y), 12.0, true, accent);
+            icons::heart(ui.painter(), egui::pos2(rect.right() - 16.0, rect.top() + 16.0), 11.0, true, accent);
         }
         if resp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
             self.select_game(&game.id);
@@ -268,7 +310,7 @@ impl CairnApp {
     // ---- the game's page ------------------------------------------------------------------------------------------------
 
     fn game_page(&mut self, ui: &mut egui::Ui, game: &GameProfile) {
-        let accent = self.accent_for(Some(game));
+        let accent = self.accent;
         let full = ui.available_rect_before_wrap();
         egui::ScrollArea::vertical()
             .id_salt(("page", &game.id))
@@ -276,36 +318,35 @@ impl CairnApp {
             .show(ui, |ui| {
                 // the picture is the top of the page: it scrolls with the content and fades into the dark below it
                 let top = ui.cursor().min;
-                let backdrop = egui::Rect::from_min_size(top, Vec2::new(full.width(), 560.0));
+                let backdrop = egui::Rect::from_min_size(top, Vec2::new(full.width(), (full.height() * 0.75).max(560.0)));
                 if let Some(tex) = self.images.get(&self.ctx, &game.background_image) {
-                    paint_cover(ui, &tex, backdrop, 0, Color32::from_white_alpha(235));
+                    paint_cover(ui, &tex, backdrop, 0, Color32::from_white_alpha(200));
                 } else {
                     ui.painter().rect_filled(backdrop, 0.0, theme::mix(theme::INK, accent, 0.08));
                 }
-                // a fade into the dark: bands of a few pixels that meet exactly (no overlap, so no seams)
-                let ppp = ui.ctx().pixels_per_point();
-                let snap = |y: f32| (y * ppp).round() / ppp;
-                let band_h = 4.0;
-                let n = (backdrop.height() / band_h).ceil() as i32;
-                for i in 0..n {
-                    let y0 = snap(backdrop.top() + i as f32 * band_h);
-                    let y1 = snap((backdrop.top() + (i + 1) as f32 * band_h).min(backdrop.bottom()));
-                    let t = (i as f32 + 0.5) / n as f32;
-                    let a = (t * t * 1.05).min(1.0) * 0.99;
-                    let band = egui::Rect::from_min_max(egui::pos2(backdrop.left(), y0), egui::pos2(backdrop.right(), y1));
-                    ui.painter().rect_filled(band, 0.0, theme::with_alpha(theme::GROUND, a));
-                }
+                // a fade into the dark, and a shade on the left under the title, the text and the buttons
+                fade(ui, backdrop, false, theme::GROUND, |t| (0.3 + t * t * 0.8).min(1.0) * 0.99);
+                let shade = egui::Rect::from_min_size(backdrop.min, Vec2::new((backdrop.width() * 0.7).min(900.0), backdrop.height()));
+                fade(ui, shade, true, theme::GROUND, |t| (1.0 - t).powf(1.5) * 0.7);
                 egui::Frame::new().inner_margin(Margin::symmetric(40, 28)).show(ui, |ui| {
-                    ui.set_max_width(980.0_f32.min(full.width() - 80.0));
-                    self.page_corner(ui, game, accent);
-                    ui.add_space(26.0);
-                    self.hero(ui, game, accent);
-                    ui.add_space(18.0);
+                    ui.set_max_width(full.width() - 80.0);
+                    // Remove and Favourite sit at the right edge of the page, not in the centred column
+                    let corner = egui::Rect::from_min_max(
+                        egui::pos2(full.left() + 24.0, top.y + 16.0),
+                        egui::pos2(full.right() - 24.0, top.y + 56.0),
+                    );
+                    let mut corner_ui = ui.new_child(egui::UiBuilder::new().max_rect(corner));
+                    self.page_corner(&mut corner_ui, game, accent);
+                    ui.add_space(0.0);
+                    // the picture is left free: the logo and everything else sit at the bottom of it
+                    ui.add_space((full.height() * 0.42).clamp(200.0, 520.0));
+                    self.hero(ui, game);
+                    ui.add_space(10.0);
+                    self.game_meta(ui, game, accent);
+                    ui.add_space(14.0);
                     self.actions(ui, game, accent);
-                    ui.add_space(18.0);
-                    self.mod_row(ui, game, accent);
                     self.page_notices(ui, game);
-                    ui.add_space(20.0);
+                    ui.add_space(18.0);
                     self.how_it_works(ui, game, accent);
                     ui.add_space(16.0);
                     self.features_card(ui, game, accent);
@@ -357,7 +398,7 @@ impl CairnApp {
         });
     }
 
-    fn hero(&mut self, ui: &mut egui::Ui, game: &GameProfile, accent: Color32) {
+    fn hero(&mut self, ui: &mut egui::Ui, game: &GameProfile) {
         match self.images.get(&self.ctx, &game.logo_image) {
             Some(tex) => {
                 let size = tex.size_vec2();
@@ -368,7 +409,10 @@ impl CairnApp {
                 ui.label(RichText::new(&game.display_name).size(40.0).strong());
             }
         }
-        ui.add_space(8.0);
+    }
+
+    /// The state chips and the description, under the picture.
+    fn game_meta(&mut self, ui: &mut egui::Ui, game: &GameProfile, accent: Color32) {
         ui.horizontal(|ui| {
             let (label, tone) = (
                 if game.is_supported { "Ready check" } else { "Coming soon" },
@@ -411,77 +455,113 @@ impl CairnApp {
         let external = self.is_external_mod(game);
         let mod_installed = self.is_mod_installed(game);
         let running = false;
-        card(ui, |ui| {
+        ui.scope(|ui| {
+            // the state on the left, what can be done about it on the right
+            let mut cancel = false;
+            let mut retry = false;
             ui.horizontal(|ui| {
-                ui.label(RichText::new("MOD").size(11.0).color(theme::MUTED).strong());
-                ui.add_space(8.0);
-                if let Some(item) = active {
-                    let pct = (item.progress * 100.0) as i32;
-                    ui.label(if item.state == crate::downloads::DownloadState::Installing {
-                        "Installing…".to_string()
-                    } else if item.is_waiting() {
-                        "Waiting in the queue".to_string()
+                ui.vertical(|ui| {
+                    ui.label(RichText::new("MOD").size(11.0).color(theme::MUTED).strong());
+                    if let Some(item) = &active {
+                        let pct = (item.progress * 100.0) as i32;
+                        ui.label(
+                            RichText::new(if item.state == crate::downloads::DownloadState::Installing {
+                                "Installing…".to_string()
+                            } else if item.is_waiting() {
+                                "Waiting in the queue".to_string()
+                            } else {
+                                format!("Downloading {pct}%")
+                            })
+                            .size(16.0)
+                            .strong(),
+                        );
+                    } else if let Some(pack) = &installed {
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new(&pack.version).size(16.0).strong().color(theme::ONLINE));
+                            if !mod_installed {
+                                chip(ui, "not installed", theme::WARN);
+                            }
+                        });
+                    } else if let Some(o) = &offered {
+                        ui.label(RichText::new("Not downloaded").size(16.0).strong());
+                        ui.label(
+                            RichText::new(format!("{} available · {}", o.version, super::drawer::size_text(o.size))).color(theme::MUTED),
+                        );
+                    } else if !self.offers.tried {
+                        ui.label(RichText::new("Checking for the mod…").size(16.0).color(theme::MUTED));
                     } else {
-                        format!("Downloading {pct}%")
-                    });
-                    let (rect, _) = ui.allocate_exact_size(Vec2::new(180.0, 6.0), Sense::hover());
-                    ui.painter().rect_filled(rect, CornerRadius::same(3), theme::TRACK);
-                    ui.painter().rect_filled(
-                        egui::Rect::from_min_size(rect.min, Vec2::new(rect.width() * item.progress as f32, rect.height())),
-                        CornerRadius::same(3),
-                        accent,
-                    );
-                    if ui.link("Cancel").clicked() {
-                        self.downloads.cancel(&item.id);
+                        ui.label(
+                            RichText::new(if self.offers.offline {
+                                "The mod catalog is not available right now."
+                            } else {
+                                "No mod for this game yet."
+                            })
+                            .size(16.0)
+                            .color(theme::MUTED),
+                        );
                     }
-                } else if let Some(pack) = &installed {
-                    ui.label(
-                        RichText::new(format!("{}{}", pack.version, if mod_installed { "" } else { " (not installed)" }))
-                            .color(theme::ONLINE),
-                    );
-                    let newer = offered
-                        .as_ref()
-                        .filter(|o| cairn_setup::packs::index::update_for(Some(pack), Some(o)).is_some());
-                    if ui.link("Remove").on_hover_text("Remove the downloaded mod").clicked() && !running {
-                        self.remove_pack(&game.id);
-                    }
-                    if let Some(prev) = self.store.read_previous(&game.id) {
-                        if ui
-                            .link(format!("Go back to {}", prev.version))
-                            .on_hover_text("Put the version before the last update back")
-                            .clicked()
-                        {
-                            self.rollback_pack(&game.id);
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if let Some(item) = &active {
+                        if secondary_button(ui, "Cancel", true).clicked() {
+                            cancel = true;
                         }
-                    }
-                    if external && !mod_installed && ui.link(RichText::new("Install").strong()).clicked() {
-                        self.install_mod(&game.id);
-                    }
-                    if let Some(n) = newer {
-                        if ui.link(format!("Update to {}", n.version)).clicked() {
+                        let _ = item;
+                    } else if let Some(pack) = &installed {
+                        let newer = offered
+                            .as_ref()
+                            .filter(|o| cairn_setup::packs::index::update_for(Some(pack), Some(o)).is_some());
+                        if let Some(n) = newer {
+                            if primary_button(ui, &format!("Update to {}", n.version), accent, true).clicked() {
+                                self.download_pack(&game.id);
+                            }
+                        }
+                        if external && !mod_installed && primary_button(ui, "Install", accent, true).clicked() {
+                            self.install_mod(&game.id);
+                        }
+                        if secondary_button(ui, "Remove", true)
+                            .on_hover_text("Remove the downloaded mod")
+                            .clicked()
+                            && !running
+                        {
+                            self.remove_pack(&game.id);
+                        }
+                        if let Some(prev) = self.store.read_previous(&game.id) {
+                            if secondary_button(ui, &format!("Go back to {}", prev.version), true)
+                                .on_hover_text("Put the version before the last update back")
+                                .clicked()
+                            {
+                                self.rollback_pack(&game.id);
+                            }
+                        }
+                    } else if let Some(o) = &offered {
+                        if primary_button(ui, "Download mod", accent, true).clicked() {
                             self.download_pack(&game.id);
                         }
+                        let _ = o;
+                    } else if self.offers.tried && self.offers.offline && secondary_button(ui, "Retry", true).clicked() {
+                        retry = true;
                     }
-                } else if let Some(o) = &offered {
-                    if primary_button(ui, &format!("Download mod ({} KB)", o.size / 1024), accent, true).clicked() {
-                        self.download_pack(&game.id);
-                    }
-                } else if !self.offers.tried {
-                    ui.label(RichText::new("Checking for the mod…").color(theme::MUTED));
-                } else {
-                    ui.label(
-                        RichText::new(if self.offers.offline {
-                            "The mod catalog is not available right now."
-                        } else {
-                            "No mod for this game yet."
-                        })
-                        .color(theme::MUTED),
-                    );
-                    if self.offers.offline && ui.link("Retry").clicked() {
-                        self.load_offers();
-                    }
-                }
+                });
             });
+            if let Some(item) = &active {
+                ui.add_space(8.0);
+                let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 6.0), Sense::hover());
+                ui.painter().rect_filled(rect, CornerRadius::same(3), theme::TRACK);
+                ui.painter().rect_filled(
+                    egui::Rect::from_min_size(rect.min, Vec2::new(rect.width() * item.progress as f32, rect.height())),
+                    CornerRadius::same(3),
+                    accent,
+                );
+            }
+            if cancel {
+                if let Some(item) = &active {
+                    self.downloads.cancel(&item.id);
+                }
+            }
+            if retry {
+                self.load_offers();
+            }
             if let Some(reason) = installed
                 .as_ref()
                 .and_then(|p| self.registry.catalog().block_of(&p.id, &p.version))
@@ -542,12 +622,23 @@ impl CairnApp {
             game.join_steps.clone()
         };
         card(ui, |ui| {
+            // the mod first: its state and the button to get it
+            self.mod_row(ui, game, accent);
+            ui.add_space(14.0);
+            let line = ui.available_width();
+            let (rect, _) = ui.allocate_exact_size(Vec2::new(line, 1.0), Sense::hover());
+            ui.painter().rect_filled(rect, 0.0, theme::with_alpha(Color32::WHITE, 0.08));
+            ui.add_space(14.0);
             ui.label(RichText::new("How it works").size(17.0).strong());
             ui.add_space(6.0);
-            steps(ui, if external && join.is_empty() { "To play" } else { "To host" }, &host, accent);
-            if !join.is_empty() {
-                ui.add_space(8.0);
-                steps(ui, "To join", &join, accent);
+            let host_title = if external && join.is_empty() { "To play" } else { "To host" };
+            if join.is_empty() {
+                steps(ui, host_title, &host, accent);
+            } else {
+                ui.columns(2, |cols| {
+                    steps(&mut cols[0], host_title, &host, accent);
+                    steps(&mut cols[1], "To join", &join, accent);
+                });
             }
         });
     }
@@ -556,12 +647,41 @@ impl CairnApp {
         if game.features.is_empty() {
             return;
         }
+        // the category chosen, kept for the page
+        let tab_id = ui.make_persistent_id(("feature-tab", &game.id));
+        let mut tab: usize = ui.data(|d| d.get_temp(tab_id)).unwrap_or(0);
+        if tab >= game.features.len() {
+            tab = 0;
+        }
         card(ui, |ui| {
-            ui.label(RichText::new("What the mod does").size(17.0).strong());
-            for group in &game.features {
-                ui.add_space(8.0);
-                ui.label(RichText::new(&group.title).size(13.0).color(accent).strong());
-                for f in &group.items {
+            ui.horizontal(|ui| {
+                ui.label(RichText::new("What the mod does").size(17.0).strong());
+                for (state, label, tone) in [
+                    (FeatureState::Ready, "ready", theme::ONLINE),
+                    (FeatureState::InTest, "in test", theme::WARN),
+                    (FeatureState::Planned, "planned", theme::MUTED),
+                ] {
+                    let n: usize = game.features.iter().flat_map(|f| &f.items).filter(|i| i.state == state).count();
+                    if n > 0 {
+                        chip(ui, &format!("{n} {label}"), tone);
+                    }
+                }
+            });
+            ui.add_space(8.0);
+            // the categories are buttons
+            ui.horizontal_wrapped(|ui| {
+                for (i, group) in game.features.iter().enumerate() {
+                    if filter_chip(ui, &format!("{}  {}", group.title, group.items.len()), i == tab, accent).clicked() {
+                        tab = i;
+                    }
+                }
+            });
+            ui.add_space(10.0);
+            // the chosen category's features, in two columns across the whole card
+            let items = &game.features[tab].items;
+            ui.columns(2, |cols| {
+                for (i, f) in items.iter().enumerate() {
+                    let ui = &mut cols[i % 2];
                     ui.horizontal_top(|ui| {
                         let (label, tone) = match f.state {
                             FeatureState::Ready => ("Ready", theme::ONLINE),
@@ -576,9 +696,11 @@ impl CairnApp {
                             }
                         });
                     });
+                    ui.add_space(8.0);
                 }
-            }
+            });
         });
+        ui.data_mut(|d| d.insert_temp(tab_id, tab));
     }
 
     fn screenshots(&mut self, ui: &mut egui::Ui, game: &GameProfile) {
@@ -669,6 +791,29 @@ fn filter_chip(ui: &mut egui::Ui, text: &str, on: bool, accent: Color32) -> egui
     );
     ui.painter().galley(rect.center() - galley.size() / 2.0, galley, color);
     resp.on_hover_cursor(egui::CursorIcon::PointingHand)
+}
+
+/// A small icon button for the list: two chevrons down to open every folder, two up to close them.
+fn tool_icon(ui: &mut egui::Ui, expand: bool, tip: &str) -> egui::Response {
+    let (rect, resp) = ui.allocate_exact_size(Vec2::new(26.0, 24.0), Sense::click());
+    if resp.hovered() {
+        ui.painter()
+            .rect_filled(rect, CornerRadius::same(6), theme::with_alpha(Color32::WHITE, 0.07));
+    }
+    let color = if resp.hovered() { theme::PARCHMENT } else { theme::MUTED };
+    let c = rect.center();
+    for dy in [-3.5_f32, 3.5] {
+        let (a, b) = if expand { (-3.0_f32, 3.0_f32) } else { (3.0, -3.0) };
+        ui.painter().add(egui::Shape::line(
+            vec![
+                egui::pos2(c.x - 4.5, c.y + dy + a / 2.0),
+                egui::pos2(c.x, c.y + dy + b / 2.0),
+                egui::pos2(c.x + 4.5, c.y + dy + a / 2.0),
+            ],
+            Stroke::new(1.6, color),
+        ));
+    }
+    resp.on_hover_text(tip).on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
 fn tool_button(ui: &mut egui::Ui, text: &str, active: bool, tip: &str) -> egui::Response {

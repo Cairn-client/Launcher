@@ -8,6 +8,11 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrayEvent {
     Open,
+    Library,
+    Store,
+    Settings,
+    CheckUpdates,
+    ReportProblem,
     Exit,
 }
 
@@ -59,9 +64,13 @@ mod imp {
     use std::sync::mpsc::Sender;
     use std::sync::{Arc, Mutex, RwLock};
     use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
-    use windows_sys::Win32::Graphics::Gdi::ClientToScreen;
+    use windows_sys::Win32::Graphics::Gdi::{
+        ClientToScreen, CreateFontW, CreateSolidBrush, DeleteObject, DrawTextW, FillRect, GetDC, GetDeviceCaps, GetStockObject, ReleaseDC,
+        RoundRect, SelectObject, SetBkMode, SetTextColor, DT_LEFT, DT_SINGLELINE, DT_VCENTER, LOGPIXELSY, NULL_PEN,
+    };
     use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows_sys::Win32::System::Threading::GetCurrentThreadId;
+    use windows_sys::Win32::UI::Controls::{DRAWITEMSTRUCT, MEASUREITEMSTRUCT};
     use windows_sys::Win32::UI::Shell::{
         Shell_NotifyIconW, NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIIF_INFO, NIM_ADD, NIM_DELETE, NIM_MODIFY, NOTIFYICONDATAW,
     };
@@ -209,6 +218,145 @@ mod imp {
     const CALLBACK: u32 = WM_APP + 1;
     const CMD_OPEN: usize = 1;
     const CMD_EXIT: usize = 2;
+    const CMD_LIBRARY: usize = 3;
+    const CMD_STORE: usize = 4;
+    const CMD_SETTINGS: usize = 5;
+    const CMD_UPDATES: usize = 6;
+    const CMD_REPORT: usize = 7;
+
+    /// How a menu row is drawn: the menu is owner-drawn so it wears Cairn's colours, not the system's.
+    #[derive(Clone, Copy, PartialEq)]
+    enum Row {
+        Item,
+        Danger,
+        Line,
+    }
+
+    /// The tray menu, top to bottom: (command, text, how it is drawn).
+    const MENU: [(usize, &str, Row); 9] = [
+        (CMD_OPEN, "Open Cairn", Row::Item),
+        (CMD_LIBRARY, "Library", Row::Item),
+        (CMD_STORE, "Store", Row::Item),
+        (CMD_SETTINGS, "Settings", Row::Item),
+        (0, "", Row::Line),
+        (CMD_UPDATES, "Check for updates", Row::Item),
+        (CMD_REPORT, "Report a problem", Row::Item),
+        (0, "", Row::Line),
+        (CMD_EXIT, "Exit", Row::Danger),
+    ];
+
+    const ODS_SELECTED: u32 = 1;
+    const MENU_WIDTH: i32 = 184;
+
+    /// A colour as the GDI wants it (blue, green, red).
+    const fn rgb(r: u8, g: u8, b: u8) -> u32 {
+        (r as u32) | ((g as u32) << 8) | ((b as u32) << 16)
+    }
+    const MENU_BG: u32 = rgb(0x1D, 0x21, 0x25);
+    const MENU_HOVER: u32 = rgb(0x2B, 0x30, 0x36);
+    const MENU_TEXT: u32 = rgb(0xFB, 0xFB, 0xFA);
+    const MENU_DANGER: u32 = rgb(0xF8, 0x71, 0x71);
+    const MENU_LINE: u32 = rgb(0x34, 0x39, 0x3F);
+
+    unsafe fn dpi_scale() -> f32 {
+        let dc = GetDC(null_mut());
+        let dpi = GetDeviceCaps(dc, LOGPIXELSY as i32);
+        ReleaseDC(null_mut(), dc);
+        if dpi > 0 {
+            dpi as f32 / 96.0
+        } else {
+            1.0
+        }
+    }
+
+    unsafe fn measure_row(m: &mut MEASUREITEMSTRUCT) {
+        let scale = dpi_scale();
+        let height = match MENU.get(m.itemData).map(|r| r.2) {
+            Some(Row::Line) => 9,
+            _ => 30,
+        };
+        m.itemWidth = (MENU_WIDTH as f32 * scale) as u32;
+        m.itemHeight = (height as f32 * scale) as u32;
+    }
+
+    unsafe fn draw_row(d: &DRAWITEMSTRUCT) {
+        let Some(&(_, text, row)) = MENU.get(d.itemData) else { return };
+        let scale = dpi_scale();
+        let px = |v: f32| (v * scale).round() as i32;
+        let hot = d.itemState & ODS_SELECTED != 0 && matches!(row, Row::Item | Row::Danger);
+        let back = CreateSolidBrush(MENU_BG);
+        FillRect(d.hDC, &d.rcItem, back);
+        DeleteObject(back);
+        if row == Row::Line {
+            let line = CreateSolidBrush(MENU_LINE);
+            let y = (d.rcItem.top + d.rcItem.bottom) / 2;
+            let r = RECT {
+                left: d.rcItem.left + px(10.0),
+                top: y,
+                right: d.rcItem.right - px(10.0),
+                bottom: y + 1.max(px(1.0)),
+            };
+            FillRect(d.hDC, &r, line);
+            DeleteObject(line);
+            return;
+        }
+        if hot {
+            // a soft rounded highlight, inset from the edges
+            let hover = CreateSolidBrush(MENU_HOVER);
+            let old_brush = SelectObject(d.hDC, hover);
+            let old_pen = SelectObject(d.hDC, GetStockObject(NULL_PEN));
+            RoundRect(
+                d.hDC,
+                d.rcItem.left + px(4.0),
+                d.rcItem.top + px(1.0),
+                d.rcItem.right - px(4.0),
+                d.rcItem.bottom - px(1.0),
+                px(8.0),
+                px(8.0),
+            );
+            SelectObject(d.hDC, old_pen);
+            SelectObject(d.hDC, old_brush);
+            DeleteObject(hover);
+        }
+        let font = CreateFontW(-px(14.0), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, wide("Segoe UI").as_ptr());
+        let old = SelectObject(d.hDC, font);
+        SetBkMode(d.hDC, 1);
+        SetTextColor(
+            d.hDC,
+            match row {
+                Row::Danger => MENU_DANGER,
+                _ => MENU_TEXT,
+            },
+        );
+        let mut r = RECT {
+            left: d.rcItem.left + px(16.0),
+            ..d.rcItem
+        };
+        let w = wide(text);
+        DrawTextW(d.hDC, w.as_ptr(), -1, &mut r, DT_SINGLELINE | DT_VCENTER | DT_LEFT);
+        SelectObject(d.hDC, old);
+        DeleteObject(font);
+    }
+
+    unsafe fn tray_menu() -> HMENU {
+        let menu = CreatePopupMenu();
+        for (i, (cmd, _, _)) in MENU.iter().enumerate() {
+            let flags = MF_OWNERDRAW | if *cmd == 0 { MF_GRAYED } else { 0 };
+            AppendMenuW(menu, flags, *cmd, i as *const u16);
+        }
+        let back = CreateSolidBrush(MENU_BG);
+        let info = MENUINFO {
+            cbSize: std::mem::size_of::<MENUINFO>() as u32,
+            fMask: MIM_BACKGROUND,
+            dwStyle: 0,
+            cyMax: 0,
+            hbrBack: back,
+            dwContextHelpID: 0,
+            dwMenuData: 0,
+        };
+        SetMenuInfo(menu, &info);
+        menu
+    }
     static TRAY_EVENTS: Mutex<Option<Sender<TrayEvent>>> = Mutex::new(None);
     static TRAY_WINDOW: AtomicUsize = AtomicUsize::new(0);
     static TRAY_THREAD: AtomicU32 = AtomicU32::new(0);
@@ -226,9 +374,7 @@ mod imp {
             match (lparam & 0xFFFF) as u32 {
                 WM_LBUTTONUP => send(TrayEvent::Open),
                 WM_RBUTTONUP => {
-                    let menu = CreatePopupMenu();
-                    AppendMenuW(menu, MF_STRING, CMD_OPEN, wide("Open Cairn").as_ptr());
-                    AppendMenuW(menu, MF_STRING, CMD_EXIT, wide("Exit").as_ptr());
+                    let menu = tray_menu();
                     let mut at = POINT { x: 0, y: 0 };
                     GetCursorPos(&mut at);
                     SetForegroundWindow(hwnd);
@@ -236,6 +382,11 @@ mod imp {
                     DestroyMenu(menu);
                     match cmd as usize {
                         CMD_OPEN => send(TrayEvent::Open),
+                        CMD_LIBRARY => send(TrayEvent::Library),
+                        CMD_STORE => send(TrayEvent::Store),
+                        CMD_SETTINGS => send(TrayEvent::Settings),
+                        CMD_UPDATES => send(TrayEvent::CheckUpdates),
+                        CMD_REPORT => send(TrayEvent::ReportProblem),
                         CMD_EXIT => send(TrayEvent::Exit),
                         _ => {}
                     }
@@ -244,6 +395,17 @@ mod imp {
                 _ => {}
             }
             return 0;
+        }
+        match msg {
+            WM_MEASUREITEM => {
+                measure_row(&mut *(lparam as *mut MEASUREITEMSTRUCT));
+                return 1;
+            }
+            WM_DRAWITEM => {
+                draw_row(&*(lparam as *const DRAWITEMSTRUCT));
+                return 1;
+            }
+            _ => {}
         }
         DefWindowProcW(hwnd, msg, wparam, lparam)
     }

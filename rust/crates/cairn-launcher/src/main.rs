@@ -14,6 +14,9 @@ fn main() -> eframe::Result {
         .with_title("Cairn")
         .with_inner_size([1400.0, 860.0])
         .with_min_inner_size([1000.0, 640.0]);
+    if let Ok(icon) = eframe::icon_data::from_png_bytes(include_bytes!("../assets/app.png")) {
+        viewport = viewport.with_icon(icon);
+    }
     if let Some(w) =
         WindowPrefs::load(&app_dirs::window_file()).filter(|w| w.is_usable(1.0, |x, y| (0..8000).contains(&x) && (0..5000).contains(&y)))
     {
