@@ -8,6 +8,14 @@ fn main() {
     let version = std::fs::read_to_string("../../../VERSION")
         .map(|v| v.trim().to_string())
         .unwrap_or_else(|_| env!("CARGO_PKG_VERSION").to_string());
+    let strict = version.split('.').count() == 3
+        && version
+            .split('.')
+            .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()) && (p == "0" || !p.starts_with('0')));
+    assert!(
+        strict,
+        "VERSION must be strict MAJOR.MINOR.PATCH (e.g. 0.1.4), got '{version}'. See docs/VERSIONING.md"
+    );
     println!("cargo:rerun-if-changed=../../../VERSION");
     println!("cargo:rustc-env=CAIRN_VERSION={version}");
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {

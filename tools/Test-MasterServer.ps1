@@ -1,12 +1,12 @@
-﻿# Starts a published master server (default: the Release publish of dotnet\Cairn.MasterServer) and exercises what it does, over its real sockets:
-# the server list, a relay announcing itself, and two friends seeing each other and inviting. Needed because the published server is trimmed,
-# and a trimmed ASP.NET app fails at run time (not at build time) when something it uses by reflection was cut out.
+﻿# Starts a built master server (default: the release build in rust\target\release; the release workflow passes the folder it is shipped in) and exercises what it does, over its real sockets:
+# the server list, a relay announcing itself, and two friends seeing each other and inviting. Run against the shipped copy, so what is
+# installed is what was tested.
 #   tools\Test-MasterServer.ps1 [-Dir <folder with CairnMasterServer.exe>]
-param([string]$Dir = (Join-Path $PSScriptRoot '..\dotnet\Cairn.MasterServer\bin\Release\net8.0\publish'))
+param([string]$Dir = (Join-Path $PSScriptRoot '..\release\Cairn\MasterServer'))
 
 $ErrorActionPreference = 'Stop'
 $exe = Join-Path $Dir 'CairnMasterServer.exe'
-if (-not (Test-Path $exe)) { throw "no CairnMasterServer.exe in $Dir (publish it first: dotnet publish dotnet\Cairn.MasterServer -c Release -p:PublishProfile=FolderProfile)" }
+if (-not (Test-Path $exe)) { throw "no CairnMasterServer.exe in $Dir (build the release first: tools\Publish-Release.ps1)" }
 if (Get-NetTCPConnection -LocalPort 5100 -State Listen -ErrorAction SilentlyContinue) { throw 'port 5100 is in use: close the launcher (it starts its own master server) and try again' }
 
 $none = [Threading.CancellationToken]::None

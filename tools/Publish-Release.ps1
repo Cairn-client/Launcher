@@ -2,12 +2,11 @@
 <#
 .SYNOPSIS
     Assembles release\Cairn: the launcher (one native Rust executable, named Cairn.Launcher.exe so shortcuts and upgrades keep working),
-    its icon, and the master server (in its own MasterServer\ folder, self-contained win-x64). The programs that run a game's session
+    its icon, and the master server (CairnMasterServer.exe and its appsettings.json, in their own MasterServer\ folder). The programs that run a game's session
     come with that game's mod pack, never with the launcher.
 
 .DESCRIPTION
-    The master server goes into its own folder: flat-merging it let a later copy overwrite one of its dependency DLLs with an
-    incompatible version from another project's bundle ("Could not load Microsoft.Extensions.Configuration.Abstractions").
+    The master server keeps its own folder, as before: the launcher starts it from MasterServer\CairnMasterServer.exe.
 #>
 param([string]$OutDir = (Join-Path $PSScriptRoot "..\release\Cairn"))
 
@@ -16,13 +15,13 @@ $root = Split-Path $PSScriptRoot -Parent
 if (Test-Path $OutDir) { Remove-Item $OutDir -Recurse -Force }
 New-Item -ItemType Directory -Path $OutDir | Out-Null
 
-Write-Output "Building the launcher (cargo build --release) ..."
+Write-Output "Building the launcher and the master server (cargo build --release) ..."
 Push-Location (Join-Path $root "rust")
 # cargo prints its progress on stderr, which PowerShell would turn into a terminating error under "Stop"
 $previous = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
 try {
-    & cargo build --release -p cairn-launcher --locked 2>&1 | ForEach-Object { Write-Output "$_" }
+    & cargo build --release -p cairn-launcher -p cairn-master-server --locked 2>&1 | ForEach-Object { Write-Output "$_" }
     $cargoExit = $LASTEXITCODE
 } finally { $ErrorActionPreference = $previous; Pop-Location }
 if ($cargoExit -ne 0) { throw "cargo build failed" }
@@ -31,14 +30,9 @@ if (-not (Test-Path $built)) { throw "expected build output not found: $built" }
 Copy-Item $built (Join-Path $OutDir "Cairn.Launcher.exe")
 Copy-Item (Join-Path $root "rust\crates\cairn-launcher\assets\app.ico") (Join-Path $OutDir "app.ico")
 
-Write-Output "Publishing the master server ..."
-$masterProj = Join-Path $root "dotnet\Cairn.MasterServer\Cairn.MasterServer.csproj"
-& dotnet publish $masterProj -c Release -p:PublishProfile=FolderProfile 2>&1 | ForEach-Object { Write-Output $_ }
-if ($LASTEXITCODE -ne 0) { throw "publish failed: $masterProj" }
-$masterDir = Join-Path (Split-Path $masterProj -Parent) "bin\Release\net8.0\publish"
-if (-not (Test-Path $masterDir)) { throw "expected publish output not found: $masterDir" }
 $masterOut = Join-Path $OutDir "MasterServer"
 New-Item -ItemType Directory -Path $masterOut -Force | Out-Null
-Copy-Item "$masterDir\*" $masterOut -Recurse -Force
+Copy-Item (Join-Path $root "rust\target\release\cairn-master-server.exe") (Join-Path $masterOut "CairnMasterServer.exe")
+Copy-Item (Join-Path $root "rust\crates\cairn-master-server\appsettings.json") (Join-Path $masterOut "appsettings.json")
 
 Write-Output "release payload: $OutDir"

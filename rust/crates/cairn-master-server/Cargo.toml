@@ -1,0 +1,23 @@
+[package]
+name = "cairn-master-server"
+description = "The Cairn master server: the server list, relays announcing themselves, and friend presence"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "cairn-master-server"
+path = "src/main.rs"
+
+[dependencies]
+cairn-protocol = { path = "../cairn-protocol" }
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio", "ws"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "sync", "signal"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+serde.workspace = true
+serde_json.workspace = true
+rand.workspace = true
+
+[dev-dependencies]
+tungstenite = { version = "0.28", default-features = false, features = ["handshake"] }

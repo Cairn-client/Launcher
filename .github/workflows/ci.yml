@@ -23,17 +23,6 @@ jobs:
         shell: pwsh
         run: ./tools/Test-VersionPolicy.ps1
 
-  master-server:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: 8.0.x }
-      - name: Build the master server
-        run: dotnet build Cairn.sln -c Release --nologo -v q
-      - name: Unit tests
-        run: dotnet test dotnet/Cairn.MasterServer.Tests/Cairn.MasterServer.Tests.csproj -c Release --nologo -v q
-
   rust:
     runs-on: windows-latest
     defaults:
@@ -54,11 +43,9 @@ jobs:
 
   installer:
     runs-on: windows-latest
-    needs: [rust, master-server]
+    needs: [rust]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: 8.0.x }
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with: { workspaces: rust }

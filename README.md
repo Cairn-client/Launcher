@@ -28,10 +28,9 @@ or publisher. See AUTHORS.md for the complete list of contributors and historica
 
 ### Built With
 
-* [![.NET](https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/) for the master server
 * [![C++](https://img.shields.io/badge/C++-native_plugin-00599C?logo=cplusplus&logoColor=white)](https://isocpp.org/)
 * [![Lua](https://img.shields.io/badge/Lua-game_scripts-2C2D72?logo=lua&logoColor=white)](https://www.lua.org/)
-* [![Rust](https://img.shields.io/badge/Rust-launcher-000000?logo=rust&logoColor=white)](https://www.rust-lang.org/) with [egui](https://github.com/emilk/egui) for the launcher's window
+* [![Rust](https://img.shields.io/badge/Rust-launcher_and_master_server-000000?logo=rust&logoColor=white)](https://www.rust-lang.org/) with [egui](https://github.com/emilk/egui) for the launcher's window and [axum](https://github.com/tokio-rs/axum) for the master server
 * [![Inno Setup](https://img.shields.io/badge/Inno_Setup-6-1F6FEB)](https://jrsoftware.org/isinfo.php)
 
 ## Getting Started
