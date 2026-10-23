@@ -6,13 +6,11 @@
 
 use crate::bridge_protocol::{self, BridgeIn, BridgeSaveSlot};
 use crate::catalog_limits as lim;
+use crate::process_runner;
 use serde_json::Value;
-use std::io::{BufRead, BufReader};
 use std::path::Path;
-use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc;
-use std::time::{Duration, Instant};
+use std::sync::atomic::AtomicBool;
+use std::time::Duration;
 
 pub const MAX_OPTIONS: usize = 8;
 pub const CHECK_TIMEOUT: Duration = Duration::from_secs(30);
@@ -92,107 +90,36 @@ impl Run {
 /// Starts the program with its arguments as a list, reads its output line by line (`say` gets each `{"say":"..."}` line) and stops it at the
 /// timeout or when `cancel` is set.
 pub fn run(program: &Path, args: &[String], timeout: Duration, say: &mut dyn FnMut(&str), cancel: &AtomicBool) -> Run {
-    if !program.is_file() {
-        return Run::failed("The program of the mod is not there.");
-    }
     if args.get(2).is_some_and(|a| !lim::is_id(a)) {
-        return Run::failed("Not a valid option.");
+        return if program.is_file() {
+            Run::failed("Not a valid option.")
+        } else {
+            Run::failed("The program of the mod is not there.")
+        };
     }
-    let mut cmd = Command::new(program);
-    cmd.args(args).stdout(Stdio::piped()).stderr(Stdio::null()).stdin(Stdio::null());
-    if let Some(dir) = program.parent() {
-        cmd.current_dir(dir);
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
-    }
-    let mut child = match spawn(&mut cmd) {
-        Ok(c) => c,
-        Err(e) => return Run::failed(&format!("The program of the mod did not start ({e}).")),
-    };
-    let Some(stdout) = child.stdout.take() else {
-        return Run::failed("The program of the mod did not start.");
-    };
-    let (tx, rx) = mpsc::channel::<String>();
-    let reader = std::thread::spawn(move || {
-        for line in BufReader::new(stdout).split(b'\n').map_while(Result::ok) {
-            if tx.send(String::from_utf8_lossy(&line).trim_end_matches('\r').to_string()).is_err() {
-                break;
-            }
-        }
-    });
-
-    let started = Instant::now();
     let mut out = Run::default();
-    loop {
-        if cancel.load(Ordering::Relaxed) {
-            out.cancelled = true;
-            break;
-        }
-        if started.elapsed() >= timeout {
-            out.timed_out = true;
-            break;
-        }
-        match rx.recv_timeout(Duration::from_millis(50)) {
-            Ok(line) => {
-                // a list of saves is one line (a hundred saves is about 10 KB); the cap is the protocol's
-                if line.is_empty() || line.len() > bridge_protocol::MAX_LINE {
-                    continue;
+    let outcome = process_runner::run_lines(
+        program,
+        args,
+        timeout,
+        bridge_protocol::MAX_LINE, // a list of saves is one line (a hundred saves is about 10 KB); the cap is the protocol's
+        &mut |line| {
+            if let Ok(Value::Object(o)) = serde_json::from_str::<Value>(line) {
+                if let Some(s) = o.get("say").and_then(Value::as_str) {
+                    say(&lim::text(s, 300));
                 }
-                if let Ok(Value::Object(o)) = serde_json::from_str::<Value>(&line) {
-                    if let Some(s) = o.get("say").and_then(Value::as_str) {
-                        say(&lim::text(s, 300));
-                    }
-                }
-                if out.lines.len() < 50 {
-                    out.lines.push(line.clone());
-                }
-                out.last = Some(line);
             }
-            Err(mpsc::RecvTimeoutError::Timeout) => {}
-            Err(mpsc::RecvTimeoutError::Disconnected) => break, // the program closed its output: it is done
-        }
-    }
-    if out.timed_out || out.cancelled {
-        kill_tree(&mut child);
-    }
-    let _ = child.wait();
-    // a program stopped early may have left a child of its own holding the output open: do not wait for it
-    if !(out.timed_out || out.cancelled) {
-        let _ = reader.join();
-    }
+            if out.lines.len() < 50 {
+                out.lines.push(line.to_string());
+            }
+            out.last = Some(line.to_string());
+        },
+        cancel,
+    );
+    out.timed_out = outcome.timed_out;
+    out.cancelled = outcome.cancelled;
+    out.start_error = outcome.start_error;
     out
-}
-
-/// Stops the program and, on Windows, everything it started.
-fn kill_tree(child: &mut std::process::Child) {
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        let _ = Command::new("taskkill")
-            .args(["/PID", &child.id().to_string(), "/T", "/F"])
-            .creation_flags(0x0800_0000)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
-    }
-    let _ = child.kill();
-}
-
-/// Starts the program; a program that was only just written can be "busy" for a moment while another thread forks, so that is retried.
-fn spawn(cmd: &mut Command) -> std::io::Result<std::process::Child> {
-    let mut tries = 0;
-    loop {
-        match cmd.spawn() {
-            Err(e) if e.kind() == std::io::ErrorKind::ExecutableFileBusy && tries < 20 => {
-                tries += 1;
-                std::thread::sleep(Duration::from_millis(25));
-            }
-            other => return other,
-        }
-    }
 }
 
 /// `options check <id> --game-dir <dir>`: whether the option is available and on; `None` when the program gave no answer.
@@ -415,7 +342,7 @@ mod tests {
         #[test]
         fn a_program_that_hangs_is_stopped_at_the_timeout() {
             let p = program("hang", "sleep 30");
-            let t = Instant::now();
+            let t = std::time::Instant::now();
             let r = apply(&p, "ray", true, "/g", &mut |_| {}, Some(Duration::from_millis(300)), &never());
             assert_eq!(
                 r,
