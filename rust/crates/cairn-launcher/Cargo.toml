@@ -1,0 +1,26 @@
+[package]
+name = "cairn-launcher"
+description = "The Cairn launcher: a native window that turns single-player games into shared ones"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+name = "cairn_launcher"
+path = "src/lib.rs"
+
+[[bin]]
+name = "cairn"
+path = "src/main.rs"
+
+[dependencies]
+cairn-protocol = { path = "../cairn-protocol" }
+cairn-setup = { path = "../cairn-setup" }
+eframe = { version = "0.37", default-features = false, features = ["accesskit", "default_fonts", "glow", "persistence", "wayland", "x11"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+unicode-normalization = "0.1"
+
