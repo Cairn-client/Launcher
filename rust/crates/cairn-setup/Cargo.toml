@@ -1,0 +1,18 @@
+[package]
+name = "cairn-setup"
+description = "Where Steam and the games are, the pack store, the catalog and the clients of the pack program"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+regex.workspace = true
+roxmltree.workspace = true
+sha2.workspace = true
+cairn-protocol = { path = "../cairn-protocol" }
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"
