@@ -58,6 +58,21 @@ pub fn mix(a: Color32, b: Color32, t: f32) -> Color32 {
 }
 
 /// Installs the dark visuals and the type sizes on the context.
+/// Plus Jakarta Sans (SIL Open Font License 1.1) first, egui's own fonts after it for the glyphs it lacks.
+pub fn install_fonts(ctx: &egui::Context) {
+    let mut fonts = egui::FontDefinitions::default();
+    fonts.font_data.insert(
+        "jakarta".into(),
+        std::sync::Arc::new(egui::FontData::from_static(include_bytes!("../fonts/PlusJakartaSans-Regular.ttf"))),
+    );
+    fonts
+        .families
+        .entry(egui::FontFamily::Proportional)
+        .or_default()
+        .insert(0, "jakarta".into());
+    ctx.set_fonts(fonts);
+}
+
 pub fn install(ctx: &egui::Context, accent: Color32) {
     let mut v = egui::Visuals::dark();
     v.panel_fill = GROUND;

@@ -8,6 +8,7 @@ pub mod app_dirs;
 pub mod changelog;
 pub mod dev;
 pub mod downloads;
+pub mod game_extras;
 pub mod game_finder;
 pub mod game_list;
 pub mod games;

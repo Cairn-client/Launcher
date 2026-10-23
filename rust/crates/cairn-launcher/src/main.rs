@@ -4,15 +4,34 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 use cairn_launcher::app::CairnApp;
+use cairn_launcher::app_dirs;
+use cairn_launcher::prefs::WindowPrefs;
+use cairn_launcher::ui::theme;
 use eframe::egui;
 
 fn main() -> eframe::Result {
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_title("Cairn")
+        .with_inner_size([1400.0, 860.0])
+        .with_min_inner_size([1000.0, 640.0]);
+    if let Some(w) =
+        WindowPrefs::load(&app_dirs::window_file()).filter(|w| w.is_usable(1.0, |x, y| (0..8000).contains(&x) && (0..5000).contains(&y)))
+    {
+        viewport = viewport
+            .with_inner_size([w.width as f32, w.height as f32])
+            .with_position([w.x as f32, w.y as f32])
+            .with_maximized(w.maximized);
+    }
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_title("Cairn")
-            .with_inner_size([1400.0, 860.0])
-            .with_min_inner_size([1000.0, 640.0]),
+        viewport,
         ..Default::default()
     };
-    eframe::run_native("Cairn", options, Box::new(|cc| Ok(Box::new(CairnApp::new(cc.egui_ctx.clone())))))
+    eframe::run_native(
+        "Cairn",
+        options,
+        Box::new(|cc| {
+            theme::install_fonts(&cc.egui_ctx);
+            Ok(Box::new(CairnApp::new(cc.egui_ctx.clone())))
+        }),
+    )
 }
