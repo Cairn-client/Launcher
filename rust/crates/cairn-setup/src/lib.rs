@@ -5,6 +5,7 @@
 
 pub mod app_manifest;
 pub mod bridge_protocol;
+pub mod bridge_server;
 pub mod catalog;
 pub mod catalog_client;
 pub mod catalog_limits;

@@ -15,7 +15,11 @@ sha2.workspace = true
 zip.workspace = true
 ureq.workspace = true
 sysinfo.workspace = true
+interprocess.workspace = true
+tokio.workspace = true
+rand.workspace = true
 cairn-protocol = { path = "../cairn-protocol" }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.55"
+widestring = "1"
