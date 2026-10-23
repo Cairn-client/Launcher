@@ -35,7 +35,7 @@
 #define Disclaimer "Unofficial. Not affiliated with or endorsed by the studios or publishers of the games it supports."
 #define AppExeName "Cairn.Launcher.exe"
 #define AppPublisher "Cairn"
-#define AppUrl "https://github.com/Cairn-client/launcher"
+#define AppUrl "https://github.com/Cairn-client/Launcher"
 
 
 ; Evergreen WebView2 Runtime bootstrapper. Microsoft's documented permanent

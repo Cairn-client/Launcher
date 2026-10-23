@@ -55,6 +55,8 @@ jobs:
 
       # The launcher asks for this file to see whether a newer release is out. A plain download has no hourly limit, unlike api.github.com
       # (60 requests an hour for one address, used up by a few launches on a shared connection).
+      # The repository is named Launcher, but launchers up to 0.3.38 only accept download addresses that start with the old lower-case name (a
+      # case-sensitive check); GitHub redirects the old spelling, so the manifest keeps it. Newer launchers compare without case.
       - name: Update manifest
         shell: pwsh
         env:
@@ -64,6 +66,6 @@ jobs:
           $exe = "release/Cairn-Setup-$env:GITHUB_REF_NAME.exe"
           $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
           foreach ($a in $rel.assets) { if ($a.name -eq (Split-Path $exe -Leaf)) { $a | Add-Member -NotePropertyName digest -NotePropertyValue "sha256:$hash" -Force } }
-          $one = [pscustomobject]@{ tag_name = $rel.tag_name; html_url = $rel.html_url; body = $rel.body; draft = $false; assets = @($rel.assets | ForEach-Object { [pscustomobject]@{ name = $_.name; browser_download_url = $_.browser_download_url; size = $_.size; digest = $_.digest } }) }
+          $one = [pscustomobject]@{ tag_name = $rel.tag_name; html_url = $rel.html_url; body = $rel.body; draft = $false; assets = @($rel.assets | ForEach-Object { [pscustomobject]@{ name = $_.name; browser_download_url = ($_.browser_download_url -replace '/Cairn-client/Launcher/', '/Cairn-client/launcher/'); size = $_.size; digest = $_.digest } }) }
           ConvertTo-Json -InputObject @($one) -Depth 6 | Set-Content -Encoding utf8 update.json
           gh release upload $env:GITHUB_REF_NAME update.json --clobber

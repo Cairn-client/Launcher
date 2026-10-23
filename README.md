@@ -45,7 +45,7 @@ or publisher. See AUTHORS.md for the complete list of contributors and historica
 
 ### Installation
 
-Download the latest installer (`.exe`) from the [Releases](https://github.com/Cairn-client/launcher/releases) page and run it.
+Download the latest installer (`.exe`) from the [Releases](https://github.com/Cairn-client/Launcher/releases) page and run it.
 
 The installer is not code-signed yet, so Windows may warn: click **More info**, then **Run anyway**.
 
