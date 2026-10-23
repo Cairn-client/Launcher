@@ -20,11 +20,11 @@ MAJOR.MINOR.PATCH
 - Valid: `0.1.4`, `0.2.0`, `1.0.0`. Invalid: `v0.1.4`, `0.1`, `0.1.4.0`, `0.1.4-beta`.
 
 This is the stable subset of the SemVer regex. Pre-release (`-beta.1`) and build metadata (`+sha`) are not used,
-because .NET's `System.Version`, which the projects use to read `VERSION`, cannot parse them.
+so the one rule is easy to check by hand and by every tool that reads `VERSION`.
 
 ## Enforcement
 
-- Every .NET build fails with a clear message if `VERSION` is not valid (`ValidateCairnVersionFile` in `Directory.Build.props`).
+- The launcher's build fails with a clear message if `VERSION` is not valid (`rust/crates/cairn-launcher/build.rs`).
 - `tools/Build-Installer.ps1` applies the same rule to `VERSION` and to an explicit `-Version`.
 
 ## When to bump
@@ -55,7 +55,7 @@ Releases are cut by CI from a tag. Do not build or upload installers by hand.
    `feat` / `fix` / `perf` / `refactor` commits since the previous release (`tools/New-ReleaseNotes.ps1`).
 
 `.github/workflows/ci.yml` runs on every push and pull request: `tools/Test-VersionPolicy.ps1` (VERSION is strict SemVer and
-at most one valid bump above the latest release), the .NET build and unit tests, the mod's synthetic suites and static
+at most one valid bump above the latest release), the Rust build and unit tests, the mod's synthetic suites and static
 checks, and the native build and tests.
 
 Commit titles follow Conventional Commits (`feat:`, `fix:`, `perf:`, `refactor:`, `chore:`, `docs:`, `test:`, `ci:`), because the

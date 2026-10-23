@@ -72,7 +72,7 @@ if ($signing) {
 $payload = Join-Path $root "release\Cairn"
 
 if (-not $SkipPublish) {
-    Write-Host "Unit tests (rust) ..."
+    Write-Host "Unit tests (cargo test --workspace) ..."
     Push-Location (Join-Path $root "rust")
     try {
         $previous = $ErrorActionPreference
@@ -82,9 +82,6 @@ if (-not $SkipPublish) {
         $ErrorActionPreference = $previous
     } finally { Pop-Location }
     if ($cargoExit -ne 0) { throw "the Rust tests FAILED. Not shipping." }
-    Write-Host "Unit tests (dotnet\Cairn.MasterServer.Tests) ..."
-    & dotnet test (Join-Path $root "dotnet\Cairn.MasterServer.Tests\Cairn.MasterServer.Tests.csproj") -c Release --nologo -v q
-    if ($LASTEXITCODE -ne 0) { throw "MasterServer.Tests FAILED. Not shipping." }
 
     & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "Publish-Release.ps1")
     if ($LASTEXITCODE -ne 0) { throw "Publish-Release.ps1 failed" }
