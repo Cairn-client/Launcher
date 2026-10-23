@@ -3,9 +3,15 @@
 // of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md).
 //! The Cairn launcher: the state and the logic behind the window (settings, the game library, downloads, the services) and, in `ui`, the window itself.
 
+pub mod app;
 pub mod app_dirs;
+pub mod dev;
+pub mod downloads;
+pub mod game_finder;
 pub mod game_list;
 pub mod games;
+pub mod mods;
+pub mod open;
 pub mod prefs;
 pub mod settings;
 pub mod ui;
