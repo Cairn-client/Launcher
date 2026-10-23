@@ -85,7 +85,7 @@ public class ExternalInstallTests : IDisposable
 
     private static string Hex(string t) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(t))).ToLowerInvariant();
 
-    private static byte[] Zip(Dictionary<string, string> modFiles, string version = "1.0.0", string installDir = "mods/quant.ew", string? companion = null, bool carryCompanion = true, string? installRoot = null, string? launch = null)
+    private static byte[] Zip(Dictionary<string, string> modFiles, string version = "1.0.0", string installDir = "mods/quant.ew", string? companion = null, bool carryCompanion = true, string? installRoot = null, string? launch = null, string? launchArgs = null)
     {
         using var ms = new MemoryStream();
         using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
@@ -96,6 +96,7 @@ public class ExternalInstallTests : IDisposable
             Add("manifest.txt", string.Join("\n", lines) + "\n");
             Add("pack.json", "{ \"schema\": 2, \"id\": \"noita\", \"version\": \"" + version + "\", \"kind\": \"external\", \"installDir\": \"" + installDir + "\""
                              + (launch is null ? "" : ", \"launch\": \"" + launch + "\"")
+                             + (launchArgs is null ? "" : ", \"launchArgs\": " + launchArgs)
                              + (installRoot is null ? "" : ", \"installRoot\": \"" + installRoot + "\"")
                              + (companion is null ? "" : ", \"companion\": \"" + companion + "\"") + " }");
             foreach (var kv in modFiles) Add("mod/" + kv.Key, kv.Value);
@@ -290,6 +291,36 @@ public class ExternalInstallTests : IDisposable
         Assert.Null(PackContract.Parse(Json(".hidden/run.exe")));
         Assert.Null(PackContract.Parse(Json("a/b/c/d/e/f/g/h/run.exe")));
         Assert.Null(PackContract.Parse("{ \"schema\": 2, \"id\": \"dc\", \"version\": \"1.0.0\", \"kind\": \"content\", \"launch\": \"run.exe\" }"));
+    }
+
+    [Fact]
+    public void TheLaunchProgramCanTakeAFewPlainArguments()
+    {
+        string Json(string args, string launch = "Bin32/FarCry.exe") => "{ \"schema\": 2, \"id\": \"fc\", \"version\": \"1.0.0\", \"kind\": \"external\", \"installDir\": \".\", \"launch\": \"" + launch + "\", \"launchArgs\": " + args + " }";
+        Assert.Equal(new[] { "-DEVMODE", "-MOD:FarCryCoop" }, PackContract.Parse(Json("[\"-DEVMODE\", \"-MOD:FarCryCoop\"]"))!.LaunchArgs);
+        Assert.Empty(PackContract.Parse(Json("[]"))!.LaunchArgs!);
+        Assert.Null(PackContract.Parse(Json("[\"a b\"]")));                       // a word, never a piece of a command line
+        Assert.Null(PackContract.Parse(Json("[\"\\\"x\"]")));
+        Assert.Null(PackContract.Parse(Json("[\"&calc\"]")));
+        Assert.Null(PackContract.Parse(Json("[\"\"]")));
+        Assert.Null(PackContract.Parse(Json("[1]")));
+        Assert.Null(PackContract.Parse(Json("\"-x\"")));                           // a list
+        Assert.Null(PackContract.Parse(Json("[\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\"]")));
+        Assert.Null(PackContract.Parse("{ \"schema\": 2, \"id\": \"fc\", \"version\": \"1.0.0\", \"kind\": \"external\", \"installDir\": \".\", \"launchArgs\": [\"-x\"] }"));   // arguments of nothing
+    }
+
+    [Fact]
+    public async Task TheLaunchArgumentsComeFromTheContract()
+    {
+        await Download(Zip(new Dictionary<string, string> { [LaunchExe] = "the launcher" }, installDir: ".", launch: LaunchExe, launchArgs: "[\"-MOD:x\"]"));
+        Assert.Equal(new[] { "-MOD:x" }, ExternalInstall.LaunchArguments(Packs, "noita"));
+    }
+
+    [Fact]
+    public async Task AModWithoutLaunchArgumentsHasNone()
+    {
+        await Download(Zip(new Dictionary<string, string> { [LaunchExe] = "the launcher" }, installDir: ".", launch: LaunchExe));
+        Assert.Empty(ExternalInstall.LaunchArguments(Packs, "noita"));
     }
 
     [Fact]

@@ -88,6 +88,9 @@ manifest.txt  MOD|<path>|<size>|<sha256> (placed in installDir) and BIN|<path>|.
 * `launch` (optional) -- a program the mod placed in the game's folder that starts the game: a relative path with plain segments, ending in `.exe` (a mod loader's launcher, such as
   `coremod/core/host/startup/DeadCellsModding.exe`). **Play** then starts that program, with its own folder as the working directory, instead of the game through Steam. A launcher older than
   the one that introduced it would start the game without the mod, so a pack that names one must say `launcherMin` of that launcher (0.3.24).
+* `launchArgs` (optional) -- the arguments `launch` is started with, for a game that needs a start option to load the mod (Far Cry: `Bin32/FarCry.exe` with `-DEVMODE` and `-MOD:FarCryCoop`).
+  A list of at most 8 words of letters, digits and `- _ = : + . , /` (no spaces or quotes: each is passed as one argument, never joined into a command line); only with `launch`. A launcher older than
+  the one that introduced it would start the program without them, so a pack that names some must say `launcherMin` of that launcher.
 * `companion` (optional) -- one program of the pack (a path inside it, carried in the pack) that is started with the game.
 * No `agent`, `relay`, `native`, `installTo` or `lua`: those belong to Cairn's own session (`kind: "mod"`).
 

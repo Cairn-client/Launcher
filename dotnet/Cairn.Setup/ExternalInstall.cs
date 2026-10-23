@@ -42,6 +42,10 @@ public static class ExternalInstall
         return exe.StartsWith(root, StringComparison.OrdinalIgnoreCase) && File.Exists(exe) ? exe : null;
     }
 
+    /// <summary>The arguments the launch program is started with (the contract's <c>launchArgs</c>); none when the contract names none.</summary>
+    public static IReadOnlyList<string> LaunchArguments(string packsRoot, string packId) =>
+        ContractOf(packsRoot, packId) is { Launch.Length: > 0, LaunchArgs: { } args } ? args : Array.Empty<string>();
+
     /// <summary>What the marker says is placed: the pack's id and version and the files, or null when there is no marker.</summary>
     public static (string Id, string Version, IReadOnlyList<string> Files)? ReadMarker(string target)
     {
