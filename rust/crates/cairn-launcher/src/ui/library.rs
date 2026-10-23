@@ -391,7 +391,7 @@ impl CairnApp {
         ui.horizontal(|ui| {
             if external {
                 if primary_button(ui, "Play", accent, game.is_supported && !needs_mod).clicked() {
-                    self.toast("Play is not wired up yet.", false);
+                    self.open_ready_check(&game.id);
                 }
             } else {
                 if primary_button(ui, "Host a game", accent, game.is_supported && !needs_mod).clicked() {
