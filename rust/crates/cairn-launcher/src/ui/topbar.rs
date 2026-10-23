@@ -33,6 +33,7 @@ impl CairnApp {
                         self.updates_button(ui);
                         ui.add_space(8.0);
                         self.account_button(ui);
+                        self.friends_button(ui);
                         for (label, view) in [("Settings", View::Settings), ("Help", View::Help), ("Versions", View::Versions)] {
                             if nav_button(ui, label, self.view == view, accent).clicked() {
                                 self.view = view;
