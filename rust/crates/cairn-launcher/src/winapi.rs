@@ -300,7 +300,7 @@ mod imp {
                     return;
                 }
                 // the executable's own icon (resource 1) when it has one, else the system's
-                let mut icon = LoadIconW(hinst, 1 as *const u16);
+                let mut icon = LoadIconW(hinst, std::ptr::without_provenance::<u16>(1));
                 if icon.is_null() {
                     icon = LoadIconW(null_mut(), IDI_APPLICATION);
                 }

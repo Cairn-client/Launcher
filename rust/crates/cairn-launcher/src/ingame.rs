@@ -300,7 +300,7 @@ impl CairnApp {
             .map(|(t, _)| t.clone());
         let rect = g.rect;
         let nav = g.nav.clone();
-        let settling = nav.state.blocked.len() > 0 && now.duration_since(g.opened_at) < Duration::from_millis(1500);
+        let settling = !nav.state.blocked.is_empty() && now.duration_since(g.opened_at) < Duration::from_millis(1500);
         let attached = g.attached();
         for s in sends {
             self.bridge_send(&s);
