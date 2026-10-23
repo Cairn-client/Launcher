@@ -1,9 +1,8 @@
 # Copyright (C) 2026 the Cairn contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
 # Draws Cairn's logo with System.Drawing, so no art tool is needed: three flat stones and one gold pebble, balanced, on a slate tile.
 #   assets\cairn-icon.png                      512 px master
-#   Cairn.Launcher\wwwroot\img\logo-128.png    the launcher's small logo
-#   Cairn.Launcher\wwwroot\img\cairn-banner.png
-#   Cairn.Launcher\app.ico                     multi-size icon (through Build-LauncherIcon.ps1)
+#   rust\crates\cairn-launcher\assets\app.ico   multi-size icon (through Build-LauncherIcon.ps1)
+#   installer\wizard-*.png                     the installer's side banners
 # Re-run after changing the drawing; it always overwrites.
 Add-Type -AssemblyName System.Drawing
 $root = Resolve-Path (Join-Path $PSScriptRoot '..')
@@ -70,22 +69,6 @@ function Save-Icon([int]$size, [string]$path) {
 }
 
 Save-Icon 512 (Join-Path $root 'assets\cairn-icon.png')
-Save-Icon 128 (Join-Path $root 'Cairn.Launcher\wwwroot\img\logo-128.png')
-
-# Banner 1280 x 320: emblem on the left, wordmark on the right, one flat background.
-$bw = 1280; $bh = 320
-$c = New-Canvas $bw $bh
-$c.G.Clear((C '#0E151C'))
-Set-RoundClip $c.G 40 40 240 240 52
-Draw-Emblem $c.G 40 40 240
-$c.G.ResetClip()
-$title = New-Object Drawing.Font('Segoe UI Semibold', 96, [Drawing.FontStyle]::Regular, [Drawing.GraphicsUnit]::Pixel)
-$sub = New-Object Drawing.Font('Segoe UI', 32, [Drawing.FontStyle]::Regular, [Drawing.GraphicsUnit]::Pixel)
-$c.G.DrawString('Cairn', $title, (New-Object Drawing.SolidBrush((C '#E3E0D6'))), 316, 62)
-$c.G.DrawString('Play single-player games together.', $sub, (New-Object Drawing.SolidBrush((C '#98A5B3'))), 324, 186)
-$bannerPath = Join-Path $root 'Cairn.Launcher\wwwroot\img\cairn-banner.png'
-$c.Bmp.Save($bannerPath, [Drawing.Imaging.ImageFormat]::Png); $c.G.Dispose(); $c.Bmp.Dispose()
-Write-Host "wrote $bannerPath"
 
 # Installer wizard side banners (328 x 628, ratio 164:314 for Inno Setup)
 $iw = 328; $ih = 628
@@ -132,5 +115,5 @@ $smallPath = Join-Path $root 'installer\wizard-small.png'
 $cs.Bmp.Save($smallPath, [Drawing.Imaging.ImageFormat]::Png); $cs.G.Dispose(); $cs.Bmp.Dispose()
 Write-Host "wrote $smallPath"
 
-& (Join-Path $PSScriptRoot 'Build-LauncherIcon.ps1') -SourcePng (Join-Path $root 'assets\cairn-icon.png') -OutputIco (Join-Path $root 'Cairn.Launcher\app.ico')
+& (Join-Path $PSScriptRoot 'Build-LauncherIcon.ps1') -SourcePng (Join-Path $root 'assets\cairn-icon.png') -OutputIco (Join-Path $root 'rust\crates\cairn-launcher\assets\app.ico')
 

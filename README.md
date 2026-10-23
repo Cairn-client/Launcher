@@ -28,10 +28,10 @@ or publisher. See AUTHORS.md for the complete list of contributors and historica
 
 ### Built With
 
-* [![.NET](https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+* [![.NET](https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/) for the master server
 * [![C++](https://img.shields.io/badge/C++-native_plugin-00599C?logo=cplusplus&logoColor=white)](https://isocpp.org/)
 * [![Lua](https://img.shields.io/badge/Lua-game_scripts-2C2D72?logo=lua&logoColor=white)](https://www.lua.org/)
-* [![Blazor](https://img.shields.io/badge/Blazor-launcher-512BD4?logo=blazor&logoColor=white)](https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor)
+* [![Rust](https://img.shields.io/badge/Rust-launcher-000000?logo=rust&logoColor=white)](https://www.rust-lang.org/) with [egui](https://github.com/emilk/egui) for the launcher's window
 * [![Inno Setup](https://img.shields.io/badge/Inno_Setup-6-1F6FEB)](https://jrsoftware.org/isinfo.php)
 
 ## Getting Started
@@ -39,7 +39,6 @@ or publisher. See AUTHORS.md for the complete list of contributors and historica
 ### Prerequisites
 
 * Windows 10 or 11
-* The **.NET 8 Desktop Runtime** and the **Microsoft Edge WebView2 Runtime** (the launcher's window is Blazor hosted in WebView2)
 * The **Visual C++ runtimes** the game and the native plugin need (the launcher's setup checklist tells you if one is missing)
 * Steam, with the game you want to play installed (see [Supported titles](#supported-titles))
 

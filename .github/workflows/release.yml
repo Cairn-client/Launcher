@@ -29,6 +29,10 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with: { dotnet-version: 8.0.x }
 
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: rust }
+
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --no-progress -y

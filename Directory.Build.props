@@ -11,9 +11,9 @@
     (observed, joiner app20260915.log). The concept read end gate built from a clone
     under the maintainer's temp folder, so the leak carried a real Windows
     username. PathMap rewrites the repo root to the conventional "/_/" at
-    compile time; stack traces then read "/_/Cairn.Launcher/Program.cs:line 79".
+    compile time; stack traces then read "/_/dotnet/Cairn.MasterServer/Program.cs:line 79".
 
-    Sits at the repo root so it covers Cairn.Launcher/ and every dotnet/*
+    Sits at the repo root so it covers every dotnet/*
     project alike (MSBuild walks up from each .csproj and imports the first
     Directory.Build.props it finds). The native CMake build is unaffected:
     CairnNative.dll carried no path strings in the 0.22.4 output (checked).

@@ -3,15 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cairn.Launcher", "Cairn.Launcher\Cairn.Launcher.csproj", "{41933507-BA08-4016-B052-74E2904D348C}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "dotnet", "dotnet", "{22BF91A1-CD67-4BAC-98E1-1CBDA118204B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cairn.Protocol", "dotnet\Cairn.Protocol\Cairn.Protocol.csproj", "{57BAB7B0-55C6-432E-B1BE-EADF4BA22456}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cairn.Setup", "dotnet\Cairn.Setup\Cairn.Setup.csproj", "{6D17E7E5-874C-4442-A99F-A306CDCE770D}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cairn.Setup.Tests", "dotnet\Cairn.Setup.Tests\Cairn.Setup.Tests.csproj", "{FD74E3C2-83E3-40C1-96C2-DA9D42F3BF7D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cairn.MasterServer", "dotnet\Cairn.MasterServer\Cairn.MasterServer.csproj", "{DABF9D91-3F01-4100-974B-0A96B65B8D30}"
 EndProject
@@ -26,22 +20,10 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{41933507-BA08-4016-B052-74E2904D348C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{41933507-BA08-4016-B052-74E2904D348C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{41933507-BA08-4016-B052-74E2904D348C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{41933507-BA08-4016-B052-74E2904D348C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{57BAB7B0-55C6-432E-B1BE-EADF4BA22456}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{57BAB7B0-55C6-432E-B1BE-EADF4BA22456}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{57BAB7B0-55C6-432E-B1BE-EADF4BA22456}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{57BAB7B0-55C6-432E-B1BE-EADF4BA22456}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6D17E7E5-874C-4442-A99F-A306CDCE770D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6D17E7E5-874C-4442-A99F-A306CDCE770D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6D17E7E5-874C-4442-A99F-A306CDCE770D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6D17E7E5-874C-4442-A99F-A306CDCE770D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{FD74E3C2-83E3-40C1-96C2-DA9D42F3BF7D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{FD74E3C2-83E3-40C1-96C2-DA9D42F3BF7D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{FD74E3C2-83E3-40C1-96C2-DA9D42F3BF7D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{FD74E3C2-83E3-40C1-96C2-DA9D42F3BF7D}.Release|Any CPU.Build.0 = Release|Any CPU
 		{DABF9D91-3F01-4100-974B-0A96B65B8D30}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{DABF9D91-3F01-4100-974B-0A96B65B8D30}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DABF9D91-3F01-4100-974B-0A96B65B8D30}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -53,8 +35,6 @@ Global
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{57BAB7B0-55C6-432E-B1BE-EADF4BA22456} = {22BF91A1-CD67-4BAC-98E1-1CBDA118204B}
-		{6D17E7E5-874C-4442-A99F-A306CDCE770D} = {22BF91A1-CD67-4BAC-98E1-1CBDA118204B}
-		{FD74E3C2-83E3-40C1-96C2-DA9D42F3BF7D} = {22BF91A1-CD67-4BAC-98E1-1CBDA118204B}
 		{DABF9D91-3F01-4100-974B-0A96B65B8D30} = {22BF91A1-CD67-4BAC-98E1-1CBDA118204B}
 		{F27987FA-DEBD-4548-B385-4306CD575287} = {22BF91A1-CD67-4BAC-98E1-1CBDA118204B}
 	EndGlobalSection

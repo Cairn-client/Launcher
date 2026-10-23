@@ -1,7 +1,7 @@
 # Copyright (C) 2026 the Kingdom Come: Together contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
 # GPLv3 section 7 additional terms: AUTHORS.md. This project's own code only; Kingdom Come: Deliverance II and its
 # content belong to Warhorse Studios and PLAION. Unofficial, free, not affiliated with or endorsed by them.
-# Builds Cairn.Launcher/app.ico from the branding PNG.
+# Builds rust/crates/cairn-launcher/assets/app.ico from the branding PNG.
 #
 # A single upscaled/renamed PNG is not a real .ico -- Windows picks a
 # resolution per context (taskbar, desktop, shortcut properties, Alt-Tab)
@@ -10,15 +10,12 @@
 # image, PNG-compressed inside the icon container (the Vista+ ICO format,
 # which every version of Windows this project targets supports).
 #
-# No new dependency: System.Drawing is already pulled into
-# Cairn.Launcher.csproj via <UseWindowsForms>true</UseWindowsForms>, and
-# this repo has neither ImageMagick nor Python installed (see
-# Phase 3). Re-run this any time the source artwork
+# No new dependency: it uses System.Drawing, which ships with Windows PowerShell. Re-run this any time the source artwork
 # changes; it always overwrites the output.
 
 param(
     [string]$SourcePng = (Join-Path $PSScriptRoot "..\assets\cairn-icon.png"),
-    [string]$OutputIco = (Join-Path $PSScriptRoot "..\Cairn.Launcher\app.ico"),
+    [string]$OutputIco = (Join-Path $PSScriptRoot "..\rust\crates\cairn-launcher\assets\app.ico"),
     [int[]]$Sizes = @(16, 32, 48, 64, 128, 256)
 )
 

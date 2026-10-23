@@ -21,7 +21,7 @@ TestResults/
 *.jpg
 *.jpeg
 *.ico
-Cairn.Launcher/wwwroot/img/
+rust/crates/cairn-launcher/src/seed/
 
 # lock files and generated packages
 *.nuget.g.props

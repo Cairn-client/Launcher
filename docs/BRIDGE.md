@@ -5,7 +5,7 @@ lives in a program that ships **in the game's pack**: the pack's `companion` (do
 **bridge**, talks to the launcher over a local named pipe with a small, versioned protocol. When a game needs something new, its bridge
 and its pack change and are released; the launcher is released only when the protocol itself gains something.
 
-`Cairn.Setup/BridgeProtocol.cs` is the protocol, `Cairn.Setup/BridgeServer.cs` the launcher's end of the pipe.
+`rust/crates/cairn-setup/src/bridge_protocol.rs` is the protocol, `bridge_server.rs` beside it the launcher's end of the pipe.
 
 ## Connecting
 

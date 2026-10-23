@@ -46,7 +46,8 @@ Not part of this repository's own code; each keeps its own license.
 
 | Library | Used for |
 | --- | --- |
-| Photino.Blazor | Native window host for the Blazor launcher UI |
+| Photino.Blazor | Native window host for the Blazor launcher UI (the launcher up to 0.3.38) |
+| egui and eframe (MIT or Apache-2.0), with ureq, tungstenite, rustls, serde, sysinfo, rfd, zip and the other crates listed in `rust/Cargo.lock` | The launcher's window, networking and files (the Rust launcher) |
 | Serilog (with the Extensions, Settings.Configuration, Console and File sinks) | Logging |
 | DiscordRichPresence | Discord presence |
 | System.Text.Json | JSON |

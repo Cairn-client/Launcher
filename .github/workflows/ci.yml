@@ -23,21 +23,16 @@ jobs:
         shell: pwsh
         run: ./tools/Test-VersionPolicy.ps1
 
-  dotnet:
+  master-server:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with: { dotnet-version: 8.0.x }
-      - name: Build solution
+      - name: Build the master server
         run: dotnet build Cairn.sln -c Release --nologo -v q
       - name: Unit tests
-        shell: pwsh
-        run: |
-          foreach ($p in 'Setup.Tests', 'MasterServer.Tests') {
-            dotnet test "dotnet/Cairn.$p/Cairn.$p.csproj" -c Release --nologo -v q
-            if ($LASTEXITCODE -ne 0) { throw "$p failed" }
-          }
+        run: dotnet test dotnet/Cairn.MasterServer.Tests/Cairn.MasterServer.Tests.csproj -c Release --nologo -v q
 
   rust:
     runs-on: windows-latest
@@ -56,3 +51,23 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: Tests
         run: cargo test
+
+  installer:
+    runs-on: windows-latest
+    needs: [rust, master-server]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 8.0.x }
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: rust }
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+      - name: The installer builds (nothing is published)
+        shell: pwsh
+        run: |
+          ./tools/Build-Installer.ps1
+          $v = (Get-Content VERSION -TotalCount 1).Trim()
+          if (-not (Test-Path "release/Cairn-Setup-$v.exe")) { throw "installer missing" }
