@@ -3,6 +3,7 @@
 // of the games it supports. Portions derive from Kingdom Come: Together and kcd2-multiplayer (AUTHORS.md).
 //! The window: the theme, the pictures, and one module per page.
 
+pub mod drawer;
 pub mod friends;
 pub mod help;
 pub mod home;
@@ -17,6 +18,7 @@ pub mod store;
 pub mod theme;
 pub mod toasts;
 pub mod topbar;
+pub mod tour;
 pub mod update;
 pub mod versions;
 pub mod widgets;

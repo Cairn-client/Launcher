@@ -157,6 +157,10 @@ pub struct CairnApp {
     pub bridge: Option<BridgeServer>,
     pub bridge_game: String,
     pub bridge_saves: Vec<BridgeSaveSlot>,
+    pub confirm_exit: bool,
+    pub quit_ok: bool,
+    pub tour_step: usize,
+    pub tour_steam: (Instant, bool),
     pub session: Option<cairn_setup::pack_session::PackSession>,
     pub session_game: String,
     pub session_view: cairn_setup::pack_session::SessionView,
@@ -271,6 +275,10 @@ impl CairnApp {
             bridge: None,
             bridge_game: String::new(),
             bridge_saves: Vec::new(),
+            confirm_exit: false,
+            quit_ok: false,
+            tour_step: 0,
+            tour_steam: (Instant::now() - Duration::from_secs(10), false),
             session: None,
             session_game: String::new(),
             session_view: cairn_setup::pack_session::SessionView::idle(),
@@ -903,6 +911,9 @@ impl eframe::App for CairnApp {
         self.update_window(ui.ctx());
         self.ready_check_windows(ui.ctx());
         self.session_windows(ui.ctx());
+        self.updates_drawer(ui.ctx());
+        self.tour_window(ui.ctx());
+        self.exit_window(ui.ctx());
         self.poll_setup();
         self.friends_panel(ui.ctx());
         self.toasts_ui(ui);
