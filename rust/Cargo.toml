@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = ["crates/cairn-protocol"]
+
+[workspace.package]
+version = "0.4.0"
+edition = "2021"
+rust-version = "1.82"
+license = "GPL-3.0-only"
+repository = "https://github.com/Cairn-client/Launcher"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

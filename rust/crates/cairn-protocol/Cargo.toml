@@ -1,0 +1,11 @@
+[package]
+name = "cairn-protocol"
+description = "The API shared by the Cairn launcher and the master server, and the surgical settings.json editor"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
