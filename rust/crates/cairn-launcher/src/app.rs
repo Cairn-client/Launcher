@@ -76,6 +76,7 @@ pub enum Msg {
     BridgeConnected(String),
     Bridge(BridgeIn),
     Session(cairn_setup::pack_session::SessionEvent),
+    Presence(crate::presence::PresenceEvent),
     GameExtras {
         game: String,
         options: HashMap<String, cairn_setup::game_options::OptionStatus>,
@@ -178,6 +179,12 @@ pub struct CairnApp {
     pub saves_loading: bool,
     pub confirm_delete_save: String,
     pub confirm_delete_all: bool,
+    pub presence: Option<crate::presence::PresenceClient>,
+    pub presence_tried: bool,
+    pub presence_sent: bool,
+    pub presence_connected: bool,
+    pub friends_seen: HashMap<String, cairn_protocol::presence_api::PresenceFriend>,
+    pub pending_invite: Option<cairn_protocol::presence_api::PresenceInvited>,
     pub confirm_exit: bool,
     pub quit_ok: bool,
     pub tour_step: usize,
@@ -303,6 +310,12 @@ impl CairnApp {
             saves_loading: false,
             confirm_delete_save: String::new(),
             confirm_delete_all: false,
+            presence: None,
+            presence_tried: false,
+            presence_sent: false,
+            presence_connected: false,
+            friends_seen: HashMap::new(),
+            pending_invite: None,
             confirm_exit: false,
             quit_ok: false,
             tour_step: 0,
@@ -467,6 +480,8 @@ impl CairnApp {
 
     /// Takes what the background tasks have finished.
     fn receive(&mut self) {
+        self.start_presence();
+        let was_running = self.running.as_ref().map(|r| r.game_id.clone());
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
                 Msg::Catalog(snapshot) => {
@@ -528,6 +543,7 @@ impl CairnApp {
                 }
                 Msg::OptionsApplied { game, results } => self.on_options_applied(&game, results),
                 Msg::SavesChanged { ok, message, slots } => self.on_saves_changed(ok, message, slots),
+                Msg::Presence(e) => self.on_presence(e),
                 Msg::Session(ev) => self.on_session_event(ev),
                 Msg::SetupLines { game, lines, game_exe } => {
                     self.setup_checking = false;
@@ -620,6 +636,11 @@ impl CairnApp {
                 self.installed_cache.remove(&item.game_id.to_lowercase());
                 self.placed_cache.remove(&item.game_id.to_lowercase());
             }
+        }
+        let now_running = self.running.as_ref().map(|r| r.game_id.clone());
+        if now_running != was_running || (self.presence_connected && !self.presence_sent) {
+            self.presence_sent = self.presence_connected;
+            self.publish_presence();
         }
     }
 
@@ -983,6 +1004,7 @@ impl eframe::App for CairnApp {
         self.update_window(ui.ctx());
         self.ready_check_windows(ui.ctx());
         self.session_windows(ui.ctx());
+        self.invite_window(ui.ctx());
         self.updates_drawer(ui.ctx());
         self.tour_window(ui.ctx());
         self.exit_window(ui.ctx());
