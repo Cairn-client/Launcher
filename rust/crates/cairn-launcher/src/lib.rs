@@ -19,6 +19,7 @@ pub mod open;
 pub mod play;
 pub mod preflight;
 pub mod prefs;
+pub mod presence;
 pub mod runtime;
 pub mod session;
 pub mod settings;

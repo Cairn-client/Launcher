@@ -199,6 +199,22 @@ impl CairnApp {
             egui::FontId::proportional(14.0),
             dim,
         );
+        if self.can_invite() && self.friends_seen.contains_key(&f.id) {
+            let r = egui::Rect::from_center_size(egui::pos2(rect.right() - 36.0, rect.center().y), Vec2::new(60.0, 26.0));
+            let resp = ui.interact(r, ui.make_persistent_id(("invite", &f.id)), Sense::click());
+            ui.painter()
+                .rect_stroke(r, CornerRadius::same(6), Stroke::new(1.0, self.accent), egui::StrokeKind::Inside);
+            ui.painter().text(
+                r.center(),
+                Align2::CENTER_CENTER,
+                "INVITE",
+                egui::FontId::proportional(11.5),
+                self.accent,
+            );
+            if resp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+                self.invite_friend(&f.id);
+            }
+        }
         let line_color = match f.state.as_str() {
             "in-game" => theme::ONLINE,
             "online" => theme::FOCUS,
