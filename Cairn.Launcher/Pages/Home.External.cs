@@ -93,7 +93,9 @@ namespace Cairn.Launcher.Pages
                 {
                     // the mod starts the game with a program of its own in the game's folder (a mod loader's launcher)
                     if (ExternalInstall.LaunchPath(folder, PacksRoot, game.Id) is not { } launch) { SetPackMessage("The mod's launch program is not in the game's folder yet. Open Check setup (or press Play again) so the launcher can finish the setup.", error: true); return; }
-                    Process.Start(new ProcessStartInfo(launch) { WorkingDirectory = Path.GetDirectoryName(launch)!, UseShellExecute = false })?.Dispose();
+                    var start = new ProcessStartInfo(launch) { WorkingDirectory = Path.GetDirectoryName(launch)!, UseShellExecute = false };
+                    foreach (var arg in ExternalInstall.LaunchArguments(PacksRoot, game.Id)) start.ArgumentList.Add(arg);
+                    Process.Start(start)?.Dispose();
                 }
                 else if (game.SteamAppId != 0) UrlLauncher.Open($"steam://rungameid/{game.SteamAppId}");
                 else

@@ -38,7 +38,7 @@ public sealed record PackContract(
     string Agent, string Relay, string Native, string BrandPak, string AgentConfig, string LauncherMin,
     IReadOnlyList<string> ReplacesFolders, IReadOnlyDictionary<string, string>? Lua = null,
     string Kind = PackKinds.Mod, IReadOnlyList<PackDependency>? DependsOn = null, int MenuProtocol = 1, string InstallTo = "",
-    string InstallDir = "", string Companion = "", bool CompanionStartsGame = false, string OptionsProgram = "", bool Setup = false, bool Session = false, string InstallRoot = "", string Launch = "")
+    string InstallDir = "", string Companion = "", bool CompanionStartsGame = false, string OptionsProgram = "", bool Setup = false, bool Session = false, string InstallRoot = "", string Launch = "", IReadOnlyList<string>? LaunchArgs = null)
 {
     public const string FileName = "pack.json";
     /// <summary>The version of the mod-menu messages (the launcher draws the menu; the mod sends its items) this launcher speaks; a pack that needs a newer one is refused.</summary>
@@ -76,19 +76,20 @@ public sealed record PackContract(
             string kind = S("kind", PackKinds.Mod);
             var deps = ParseDependencies(r);
             int menuProtocol = r.TryGetProperty("menuProtocol", out var mp) && mp.ValueKind == JsonValueKind.Number && mp.TryGetInt32(out var mpv) ? mpv : 1;
+            var launchArgs = ParseLaunchArgs(r);
             var c = new PackContract(S("id"), S("version"), S("upstream"), S("modFolder"), S("luaPrefix"),
                 S("agent"), S("relay"), S("native"), S("brandPak"), S("agentConfig"), S("launcherMin"), replaces, lua,
                 kind, deps, menuProtocol, S("installTo"), S("installDir"), S("companion"),
                 r.TryGetProperty("companionStartsGame", out var csg) && csg.ValueKind == JsonValueKind.True, S("optionsProgram"),
                 r.TryGetProperty("setup", out var su) && su.ValueKind == JsonValueKind.True,
-                r.TryGetProperty("session", out var se) && se.ValueKind == JsonValueKind.True, S("installRoot"), S("launch"));
+                r.TryGetProperty("session", out var se) && se.ValueKind == JsonValueKind.True, S("installRoot"), S("launch"), launchArgs);
             bool common = IsPlainName(c.Id) && c.Version.Length > 0 && PackKinds.IsKnown(kind) && deps is not null && menuProtocol >= 1
                           && (c.InstallTo.Length == 0 || c.InstallTo == StartSaveTarget) && replaces.All(IsPlainName) && luaOk;
             bool noPrograms = c.Agent.Length == 0 && c.Relay.Length == 0 && c.Native.Length == 0;
             // a game's mod names its programs and its mod folder (and may carry a companion: its bridge to the launcher, docs/BRIDGE.md); content is
             // only files; an external mod names a folder inside the game's own folder (and may carry a companion to start with the game); only
             // an external mod has an install folder, and content has no companion
-            bool ok = common && (c.InstallDir.Length == 0 || kind == PackKinds.External) && (c.Launch.Length == 0 || (kind == PackKinds.External && IsGameRelativeProgram(c.Launch))) && (c.Companion.Length == 0 || kind != PackKinds.Content) && (!c.CompanionStartsGame || kind == PackKinds.External) && (c.OptionsProgram.Length == 0 || (kind != PackKinds.Content && IsPackPath(c.OptionsProgram))) && (!c.Setup || c.OptionsProgram.Length > 0) && (!c.Session || (c.OptionsProgram.Length > 0 && kind == PackKinds.Mod)) && kind switch
+            bool ok = common && (c.InstallDir.Length == 0 || kind == PackKinds.External) && (c.Launch.Length == 0 || (kind == PackKinds.External && IsGameRelativeProgram(c.Launch))) && launchArgs is not null && (launchArgs.Count == 0 || c.Launch.Length > 0) && (c.Companion.Length == 0 || kind != PackKinds.Content) && (!c.CompanionStartsGame || kind == PackKinds.External) && (c.OptionsProgram.Length == 0 || (kind != PackKinds.Content && IsPackPath(c.OptionsProgram))) && (!c.Setup || c.OptionsProgram.Length > 0) && (!c.Session || (c.OptionsProgram.Length > 0 && kind == PackKinds.Mod)) && kind switch
             {
                 PackKinds.Content => noPrograms,
                 PackKinds.External => noPrograms && c.InstallTo.Length == 0 && InstallDirOk(c)
@@ -153,6 +154,20 @@ public sealed record PackContract(
         InstallRootLocalAppData => c.InstallDir != GameRoot && IsRelativeDir(c.InstallDir, 6),
         _ => false,
     };
+
+    /// <summary>The arguments the <c>launch</c> program is started with (<c>launchArgs</c>): at most 8 plain words, passed as a list and never joined into a command line. Empty when there are none; null when the list is malformed.</summary>
+    internal static IReadOnlyList<string>? ParseLaunchArgs(JsonElement parent)
+    {
+        if (!parent.TryGetProperty("launchArgs", out var a)) return Array.Empty<string>();
+        if (a.ValueKind != JsonValueKind.Array || a.GetArrayLength() > 8) return null;
+        var list = new List<string>();
+        foreach (var e in a.EnumerateArray())
+        {
+            if (e.ValueKind != JsonValueKind.String || e.GetString() is not { Length: > 0 and <= 80 } v || !v.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '-' or '_' or '=' or ':' or '+' or '.' or ',' or '/')) return null;
+            list.Add(v);
+        }
+        return list;
+    }
 
     /// <summary>A program inside the game's folder an external mod starts the game with (<c>launch</c>): a relative path with plain segments, ending in .exe.</summary>
     internal static bool IsGameRelativeProgram(string s) => s.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) && IsRelativeDir(s, 8);
