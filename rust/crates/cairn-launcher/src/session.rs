@@ -39,6 +39,58 @@ fn resolve_against_launcher(p: &str) -> String {
 }
 
 impl CairnApp {
+    /// The first game whose pack runs a session: the one whose Steam friends Home and the friends menu look at.
+    pub fn friends_game(&self) -> Option<GameProfile> {
+        self.registry.all().into_iter().find(|g| self.is_session_game(&g.id)).cloned()
+    }
+
+    /// Asks the pack's program which Steam friends host the game right now (at most once a minute).
+    pub fn refresh_home_friends(&mut self, force: bool) {
+        if self.home_friends_busy
+            || (!force
+                && self
+                    .home_friends_at
+                    .is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(60)))
+        {
+            return;
+        }
+        let Some(game) = self.friends_game() else { return };
+        let Some(program) = self.session_program(&game.id) else { return };
+        let exe = self
+            .finder
+            .exe_of(&game, &self.settings.game_path)
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let app = if self.settings.steam_app_id != 0 {
+            self.settings.steam_app_id
+        } else {
+            game.steam_app_id
+        };
+        self.home_friends_busy = true;
+        self.home_friends_at = Some(std::time::Instant::now());
+        let (tx, ctx, id) = (self.tx.clone(), self.ctx.clone(), game.id.clone());
+        std::thread::spawn(move || {
+            let r = cairn_setup::pack_session::friends_once(&program, app, &exe, &std::sync::atomic::AtomicBool::new(false));
+            let _ = tx.send(Msg::HomeFriends {
+                game: id,
+                friends: r.map(|f| f.friends).unwrap_or_default(),
+            });
+            ctx.request_repaint();
+        });
+    }
+
+    /// The hosting friend whose name is this Steam friend's.
+    pub fn hosting_as(&self, name: &str) -> Option<&cairn_setup::pack_session::SessionFriend> {
+        self.home_friends.iter().find(|h| h.name.eq_ignore_ascii_case(name))
+    }
+
+    /// The Join button of a hosting friend: the join window opens with their code.
+    pub fn join_hosting_friend(&mut self, code: &str) {
+        let Some(game) = self.friends_game() else { return };
+        self.open_join(&game.id);
+        self.session_ui.steam_code = code.to_string();
+    }
+
     /// The pack's program when the game's pack runs its session.
     pub fn session_program(&self, game_id: &str) -> Option<PathBuf> {
         self.store.read_contract(game_id).filter(|c| c.session)?;
@@ -116,7 +168,7 @@ impl CairnApp {
     /// Host: the relay is started, then the host window shows how friends join.
     pub fn open_host(&mut self, game_id: &str) {
         let Some(game) = self.registry.get(game_id).cloned() else { return };
-        if !self.ensure_session(&game) {
+        if !self.setup_ready(&game.id, crate::play::After::Host) || !self.ensure_session(&game) {
             return;
         }
         self.configure_session(&game);
@@ -131,7 +183,7 @@ impl CairnApp {
 
     pub fn open_join(&mut self, game_id: &str) {
         let Some(game) = self.registry.get(game_id).cloned() else { return };
-        if !self.ensure_session(&game) {
+        if !self.setup_ready(&game.id, crate::play::After::Join) || !self.ensure_session(&game) {
             return;
         }
         self.session_ui.open = Some(false);

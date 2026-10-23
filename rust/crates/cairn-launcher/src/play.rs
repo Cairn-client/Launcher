@@ -66,7 +66,52 @@ pub fn free_disk_mb(path: &Path) -> Option<i64> {
         .map(|d| (d.available_space() / (1024 * 1024)) as i64)
 }
 
+/// What goes on once the setup checklist is done.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum After {
+    Play,
+    Host,
+    Join,
+}
+
 impl CairnApp {
+    /// `true` when the game's setup (if its pack has one) is done; otherwise the checklist opens and `then` runs by itself when it is.
+    pub fn setup_ready(&mut self, game_id: &str, then: After) -> bool {
+        if self.setup_program(game_id).is_none() {
+            return true;
+        }
+        let done = self.setup_game.eq_ignore_ascii_case(game_id) && !self.setup_lines.is_empty() && setup_list::all_done(&self.setup_lines);
+        if done {
+            return true;
+        }
+        self.setup_then = Some((game_id.to_string(), then));
+        self.open_setup(game_id);
+        false
+    }
+
+    /// Called every frame: when the checklist that was opened for an action is done, the window closes and the action goes on.
+    pub fn continue_after_setup(&mut self) {
+        let Some((id, then)) = self.setup_then.clone() else { return };
+        if !self.setup_open {
+            self.setup_then = None; // closed by hand
+            return;
+        }
+        if self.setup_checking
+            || !self.setup_game.eq_ignore_ascii_case(&id)
+            || self.setup_lines.is_empty()
+            || !setup_list::all_done(&self.setup_lines)
+        {
+            return;
+        }
+        self.setup_then = None;
+        self.setup_open = false;
+        match then {
+            After::Play => self.play_external(&id),
+            After::Host => self.open_host(&id),
+            After::Join => self.open_join(&id),
+        }
+    }
+
     // ---- the setup checklist ---------------------------------------------------------------------------------------------
 
     /// The pack program of a game when its pack runs the game's setup (`setup` in its contract).
@@ -351,10 +396,7 @@ impl CairnApp {
             return;
         };
         // a mod with a setup list of its own is checked first: what is missing is shown and done there
-        if self.setup_program(&game.id).is_some()
-            && !(self.setup_game.eq_ignore_ascii_case(&game.id) && setup_list::all_done(&self.setup_lines) && !self.setup_lines.is_empty())
-        {
-            self.open_setup(&game.id);
+        if !self.setup_ready(&game.id, After::Play) {
             return;
         }
         let contract = self.store.read_contract(&game.id);
