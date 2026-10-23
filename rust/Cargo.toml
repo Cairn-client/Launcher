@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/cairn-protocol", "crates/cairn-setup"]
+members = ["crates/cairn-protocol", "crates/cairn-setup", "crates/cairn-launcher"]
 
 [workspace.package]
 version = "0.4.0"
