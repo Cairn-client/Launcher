@@ -11,6 +11,7 @@ pub mod images;
 pub mod library;
 pub mod profile;
 pub mod ready_check;
+pub mod session;
 pub mod settings;
 pub mod store;
 pub mod theme;

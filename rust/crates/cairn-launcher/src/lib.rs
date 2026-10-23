@@ -19,6 +19,7 @@ pub mod play;
 pub mod preflight;
 pub mod prefs;
 pub mod runtime;
+pub mod session;
 pub mod settings;
 pub mod setup_list;
 pub mod steam_service;

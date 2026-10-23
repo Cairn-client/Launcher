@@ -395,10 +395,10 @@ impl CairnApp {
                 }
             } else {
                 if primary_button(ui, "Host a game", accent, game.is_supported && !needs_mod).clicked() {
-                    self.toast("Hosting is not wired up yet.", false);
+                    self.open_host(&game.id);
                 }
                 if secondary_button(ui, "Join a game", game.is_supported && !needs_mod).clicked() {
-                    self.toast("Joining is not wired up yet.", false);
+                    self.open_join(&game.id);
                 }
             }
         });
