@@ -159,3 +159,99 @@ pub fn card<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> R {
         .show(ui, add)
         .inner
 }
+
+/// What a poster of a game shows.
+pub struct PosterInfo<'a> {
+    pub name: &'a str,
+    pub sub: &'a str,
+    pub flag: Option<&'a str>,
+    pub favorite: bool,
+    pub accent: Color32,
+}
+
+/// A tall poster: the game's picture with its name over a shade at the bottom. `art` is the picture when it is there. Returns (opened, heart pressed).
+pub fn poster(ui: &mut Ui, art: Option<&TextureHandle>, info: &PosterInfo) -> (bool, bool) {
+    let size = Vec2::new(172.0, 258.0);
+    let (rect, resp) = ui.allocate_exact_size(size, Sense::click());
+    let round = CornerRadius::same(12);
+    ui.painter().rect_filled(rect, round, theme::INK);
+    if let Some(tex) = art {
+        paint_cover(ui, tex, rect, 12, Color32::WHITE);
+    }
+    // the shade under the name
+    let shade = Rect::from_min_max(egui::pos2(rect.left(), rect.bottom() - 96.0), rect.max);
+    let steps = 12;
+    for i in 0..steps {
+        let t = i as f32 / steps as f32;
+        let y0 = shade.top() + shade.height() * t;
+        let y1 = shade.top() + shade.height() * (t + 1.0 / steps as f32);
+        let band = Rect::from_min_max(egui::pos2(shade.left(), y0), egui::pos2(shade.right(), y1));
+        let bottom_round = if i == steps - 1 {
+            CornerRadius {
+                nw: 0,
+                ne: 0,
+                sw: 12,
+                se: 12,
+            }
+        } else {
+            CornerRadius::ZERO
+        };
+        ui.painter()
+            .rect_filled(band, bottom_round, theme::with_alpha(Color32::BLACK, (t * 0.86 + 0.04).min(0.9)));
+    }
+    ui.painter().text(
+        egui::pos2(rect.left() + 12.0, rect.bottom() - 36.0),
+        egui::Align2::LEFT_CENTER,
+        info.name,
+        egui::FontId::proportional(14.5),
+        theme::PARCHMENT,
+    );
+    ui.painter().text(
+        egui::pos2(rect.left() + 12.0, rect.bottom() - 16.0),
+        egui::Align2::LEFT_CENTER,
+        info.sub,
+        egui::FontId::proportional(12.0),
+        theme::PARCHMENT_DIM,
+    );
+    if resp.hovered() {
+        ui.painter()
+            .rect_stroke(rect, round, Stroke::new(2.0, info.accent), egui::StrokeKind::Inside);
+    } else {
+        ui.painter().rect_stroke(
+            rect,
+            round,
+            Stroke::new(1.0, theme::with_alpha(Color32::WHITE, 0.1)),
+            egui::StrokeKind::Inside,
+        );
+    }
+    if let Some(flag) = info.flag {
+        let galley = ui
+            .painter()
+            .layout_no_wrap(flag.to_string(), egui::FontId::proportional(11.0), Color32::BLACK);
+        let tag = Rect::from_min_size(
+            egui::pos2(rect.left() + 8.0, rect.top() + 8.0),
+            galley.size() + Vec2::new(14.0, 8.0),
+        );
+        ui.painter().rect_filled(tag, CornerRadius::same(255), info.accent);
+        ui.painter().galley(tag.center() - galley.size() / 2.0, galley, Color32::BLACK);
+    }
+    let heart = Rect::from_center_size(egui::pos2(rect.right() - 22.0, rect.top() + 22.0), Vec2::splat(30.0));
+    let heart_resp = ui.interact(heart, ui.make_persistent_id(("heart", info.name)), Sense::click());
+    ui.painter().circle_filled(
+        heart.center(),
+        15.0,
+        theme::with_alpha(Color32::BLACK, if heart_resp.hovered() { 0.75 } else { 0.5 }),
+    );
+    super::icons::heart(
+        ui.painter(),
+        heart.center(),
+        13.0,
+        info.favorite,
+        if info.favorite { info.accent } else { theme::PARCHMENT },
+    );
+    let heart_clicked = heart_resp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked();
+    (
+        resp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() && !heart_clicked,
+        heart_clicked,
+    )
+}

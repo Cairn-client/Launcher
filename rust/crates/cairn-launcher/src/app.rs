@@ -4,9 +4,11 @@
 //! The application: what the window shows and the state behind it. The pages are in `ui`; each page is another `impl` of [`CairnApp`].
 
 use crate::app_dirs;
+use crate::changelog::{self, ReleaseNote};
 use crate::downloads::{DownloadItem, DownloadManager};
 use crate::game_finder::GameFinder;
 use crate::games::{GameProfile, GameRegistry};
+use crate::home_data::RecentSessions;
 use crate::mods::{self, JobEnv, Offers, RepoGame};
 use crate::prefs::{GameListPrefs, GamePathStore};
 use crate::settings::{migrate_stale, AppSettings, SettingsStore};
@@ -44,6 +46,7 @@ pub enum View {
 pub enum Msg {
     Catalog(Option<CatalogSnapshot>),
     Offers(Offers),
+    Changelog(Option<Vec<ReleaseNote>>),
     /// The pack of a game changed on disk (downloaded, removed, placed): forget what was read about it.
     PackChanged(String),
     Toast(String, bool),
@@ -83,6 +86,15 @@ pub struct CairnApp {
     pub pack_message: (String, bool),
     pub toasts: Vec<Toast>,
     pub updates_open: bool,
+    // home
+    pub recent: RecentSessions,
+    pub release_notes: Option<Vec<ReleaseNote>>,
+    pub slide: usize,
+    pub slide_since: Instant,
+    // store
+    pub store_chosen: Option<String>,
+    pub store_query: String,
+    pub store_feature_tab: String,
 }
 
 impl CairnApp {
@@ -141,12 +153,20 @@ impl CairnApp {
             pack_message: (String::new(), false),
             toasts: Vec::new(),
             updates_open: false,
+            recent: RecentSessions::load(app_dirs::local_data().join("recent.json")),
+            release_notes: None,
+            slide: 0,
+            slide_since: Instant::now(),
+            store_chosen: None,
+            store_query: String::new(),
+            store_feature_tab: String::new(),
         };
         for p in problems {
             app.toast(&p, true);
         }
         let _ = app.store.remove_broken(); // a pack with holes is downloaded again
         app.refresh_catalog_and_packs();
+        app.load_changelog();
         app
     }
 
@@ -175,6 +195,16 @@ impl CairnApp {
             let client = CatalogClient::new(app_dirs::catalog_cache(), std::env::var("CAIRN_GAMES_URL").ok().as_deref(), None)
                 .with_follows_beta(move |g| beta.contains(&g.to_lowercase()));
             let _ = tx.send(Msg::Catalog(client.load(http.as_ref())));
+            ctx.request_repaint();
+        });
+    }
+
+    /// Reads the launcher's release notes on a worker thread.
+    pub fn load_changelog(&mut self) {
+        let (tx, http, ctx) = (self.tx.clone(), self.http.clone(), self.ctx.clone());
+        std::thread::spawn(move || {
+            let notes = changelog::fetch(http.as_ref(), Some(&app_dirs::local_data().join("changelog-cache.json")));
+            let _ = tx.send(Msg::Changelog(notes));
             ctx.request_repaint();
         });
     }
@@ -224,6 +254,7 @@ impl CairnApp {
                     }
                     self.load_offers();
                 }
+                Msg::Changelog(n) => self.release_notes = n,
                 Msg::Offers(o) => {
                     self.offers_loading = false;
                     self.offers = o;
@@ -569,6 +600,8 @@ impl eframe::App for CairnApp {
         self.top_bar(ui);
         match self.view {
             View::Library => self.library(ui),
+            View::Home => self.home(ui),
+            View::Store => self.store(ui),
             _ => self.placeholder(ui),
         }
         self.toasts_ui(ui);
