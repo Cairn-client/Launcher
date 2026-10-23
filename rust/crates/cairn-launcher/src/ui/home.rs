@@ -23,6 +23,8 @@ const TIPS: [(&str, &str); 5] = [
 ];
 
 /// What the page shows, worked out once per frame.
+type Tile = Box<dyn FnOnce(&mut CairnApp, &mut egui::Ui)>;
+
 struct HomeSnapshot {
     slides: Vec<GameProfile>,
     favorites: Vec<GameProfile>,
@@ -267,7 +269,7 @@ impl CairnApp {
         let width = ui.available_width();
         let cols = if width > 1000.0 { 3 } else { 2 };
         let tile_w = (width - 16.0 * (cols as f32 - 1.0)) / cols as f32;
-        let tiles: Vec<Box<dyn FnOnce(&mut CairnApp, &mut egui::Ui)>> = {
+        let tiles: Vec<Tile> = {
             let last = self.recent.last().cloned();
             let recent_game = last.as_ref().and_then(|l| self.registry.get(&l.game_id).cloned());
             let total_sessions: i32 = self.recent.entries.iter().map(|e| e.sessions).sum();

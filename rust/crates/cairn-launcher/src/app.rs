@@ -12,14 +12,17 @@ use crate::home_data::RecentSessions;
 use crate::mods::{self, JobEnv, Offers, RepoGame};
 use crate::prefs::{GameListPrefs, GamePathStore};
 use crate::settings::{migrate_stale, AppSettings, SettingsStore};
+use crate::steam_service::{self, SteamSelf};
 use crate::ui::images::ImageCache;
 use crate::ui::theme;
+use crate::update_check::{self, Check, UpdateInfo};
 use cairn_setup::catalog_client::{CatalogClient, CatalogSnapshot};
 use cairn_setup::external_install;
 use cairn_setup::http::{Http, UreqHttp};
 use cairn_setup::packs::index::launcher_is_enough;
 use cairn_setup::packs::plan;
 use cairn_setup::packs::{InstalledPack, PackKinds, PackStore};
+use cairn_setup::steam_profile_status::{ProfileInfo, Status};
 use eframe::egui;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -47,6 +50,12 @@ pub enum Msg {
     Catalog(Option<CatalogSnapshot>),
     Offers(Offers),
     Changelog(Option<Vec<ReleaseNote>>),
+    Steam(SteamSelf),
+    ProfileInfo(Option<ProfileInfo>),
+    FriendStatus(String, Status),
+    UpdateChecked(Check, bool),
+    UpdateProgress(f64),
+    UpdateDownloaded(Result<std::path::PathBuf, String>),
     /// The pack of a game changed on disk (downloaded, removed, placed): forget what was read about it.
     PackChanged(String),
     Toast(String, bool),
@@ -95,6 +104,34 @@ pub struct CairnApp {
     pub store_chosen: Option<String>,
     pub store_query: String,
     pub store_feature_tab: String,
+    // settings
+    pub settings_tab: String,
+    pub settings_query: String,
+    pub game_settings_open: Option<String>,
+    pub game_settings_tab: String,
+    pub confirm_uninstall: bool,
+    // steam and friends
+    pub steam: SteamSelf,
+    pub steam_loaded: bool,
+    pub profile_info: Option<ProfileInfo>,
+    pub friend_status: HashMap<String, (Instant, Status)>,
+    pub friends_open: bool,
+    pub friends_query: String,
+    // updates of the launcher
+    pub update: Option<UpdateInfo>,
+    pub update_checking: bool,
+    pub update_last_failed: bool,
+    pub update_modal: Option<UpdateModal>,
+}
+
+/// The window that offers the launcher's own update.
+#[derive(Debug, Clone)]
+pub struct UpdateModal {
+    /// `offer`, `busy`, `error`, `current` or `unreachable`.
+    pub stage: String,
+    pub text: String,
+    pub progress: Option<f64>,
+    pub cancel: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl CairnApp {
@@ -160,6 +197,21 @@ impl CairnApp {
             store_chosen: None,
             store_query: String::new(),
             store_feature_tab: String::new(),
+            settings_tab: "general".into(),
+            settings_query: String::new(),
+            game_settings_open: None,
+            game_settings_tab: "settings".into(),
+            confirm_uninstall: false,
+            steam: SteamSelf::default(),
+            steam_loaded: false,
+            profile_info: None,
+            friend_status: HashMap::new(),
+            friends_open: false,
+            friends_query: String::new(),
+            update: None,
+            update_checking: false,
+            update_last_failed: false,
+            update_modal: None,
         };
         for p in problems {
             app.toast(&p, true);
@@ -167,6 +219,8 @@ impl CairnApp {
         let _ = app.store.remove_broken(); // a pack with holes is downloaded again
         app.refresh_catalog_and_packs();
         app.load_changelog();
+        app.load_steam();
+        app.check_for_update(false);
         app
     }
 
@@ -195,6 +249,80 @@ impl CairnApp {
             let client = CatalogClient::new(app_dirs::catalog_cache(), std::env::var("CAIRN_GAMES_URL").ok().as_deref(), None)
                 .with_follows_beta(move |g| beta.contains(&g.to_lowercase()));
             let _ = tx.send(Msg::Catalog(client.load(http.as_ref())));
+            ctx.request_repaint();
+        });
+    }
+
+    /// Reads who is signed in to Steam, and then the player's own profile page.
+    pub fn load_steam(&mut self) {
+        let (tx, http, ctx, friend_status) = (self.tx.clone(), self.http.clone(), self.ctx.clone(), self.settings.friend_status);
+        std::thread::spawn(move || {
+            let me = steam_service::read_self();
+            let id = me.id().to_string();
+            let _ = tx.send(Msg::Steam(me));
+            ctx.request_repaint();
+            if friend_status && !id.is_empty() {
+                let _ = tx.send(Msg::ProfileInfo(steam_service::own_profile(http.as_ref(), &id)));
+                ctx.request_repaint();
+            }
+        });
+    }
+
+    /// Asks what the friends are doing (the ones not asked in the last minute), a few at a time.
+    pub fn load_friend_statuses(&mut self) {
+        if !self.settings.friend_status {
+            return;
+        }
+        let mut ids: Vec<String> = Vec::new();
+        if let Some(local) = &self.steam.local {
+            for n in &local.named {
+                if self
+                    .friend_status
+                    .get(&n.id)
+                    .is_none_or(|(at, _)| at.elapsed() > Duration::from_secs(60))
+                {
+                    ids.push(n.id.clone());
+                }
+            }
+        }
+        if ids.is_empty() {
+            return;
+        }
+        for id in &ids {
+            // mark them asked, so the next frame does not ask again
+            self.friend_status.insert(
+                id.clone(),
+                (
+                    Instant::now(),
+                    Status {
+                        state: "loading".into(),
+                        game: String::new(),
+                        message: String::new(),
+                    },
+                ),
+            );
+        }
+        let queue = Arc::new(std::sync::Mutex::new(ids));
+        for _ in 0..4 {
+            let (queue, tx, http, ctx) = (queue.clone(), self.tx.clone(), self.http.clone(), self.ctx.clone());
+            std::thread::spawn(move || loop {
+                let Some(id) = queue.lock().unwrap().pop() else { break };
+                let status = steam_service::friend_status(http.as_ref(), &id);
+                let _ = tx.send(Msg::FriendStatus(id, status));
+                ctx.request_repaint();
+            });
+        }
+    }
+
+    /// Looks for a newer launcher; `open` shows the answer in a window.
+    pub fn check_for_update(&mut self, open: bool) {
+        if self.update_checking || self.update_modal.as_ref().is_some_and(|m| m.stage == "busy") {
+            return;
+        }
+        self.update_checking = true;
+        let (tx, http, ctx) = (self.tx.clone(), self.http.clone(), self.ctx.clone());
+        std::thread::spawn(move || {
+            let _ = tx.send(Msg::UpdateChecked(update_check::check(http.as_ref(), VERSION), open));
             ctx.request_repaint();
         });
     }
@@ -255,6 +383,58 @@ impl CairnApp {
                     self.load_offers();
                 }
                 Msg::Changelog(n) => self.release_notes = n,
+                Msg::Steam(s) => {
+                    self.steam = s;
+                    self.steam_loaded = true;
+                }
+                Msg::ProfileInfo(i) => self.profile_info = i,
+                Msg::FriendStatus(id, st) => {
+                    self.friend_status.insert(id, (Instant::now(), st));
+                }
+                Msg::UpdateChecked(check, open) => {
+                    self.update_checking = false;
+                    self.update_last_failed = check == Check::Unreachable;
+                    match check {
+                        Check::Newer(info) => {
+                            self.update = Some(info);
+                            if open {
+                                self.open_update_modal("offer", "");
+                            }
+                        }
+                        Check::Current => {
+                            self.update = None;
+                            if open {
+                                self.open_update_modal("current", "");
+                            }
+                        }
+                        Check::Unreachable => {
+                            if open {
+                                self.open_update_modal("unreachable", "");
+                            }
+                        }
+                    }
+                }
+                Msg::UpdateProgress(p) => {
+                    if let (Some(m), Some(u)) = (self.update_modal.as_mut(), self.update.as_ref()) {
+                        m.progress = Some(p);
+                        m.text = format!("Downloading {}: {}%", u.tag, (p * 100.0) as i32);
+                    }
+                }
+                Msg::UpdateDownloaded(result) => match result {
+                    Ok(path) => {
+                        if let Some(m) = self.update_modal.as_mut() {
+                            m.text = "Installing... the launcher closes and opens again by itself.".into();
+                            m.progress = Some(1.0);
+                        }
+                        match update_check::start_installer(&path) {
+                            Ok(()) => self.ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+                            Err(e) => self.update_failed(&format!("The update could not be started: {e}")),
+                        }
+                    }
+                    Err(why) => self.update_failed(&format!(
+                        "The update could not be installed: {why}. You can download it by hand from the release page."
+                    )),
+                },
                 Msg::Offers(o) => {
                     self.offers_loading = false;
                     self.offers = o;
@@ -602,23 +782,18 @@ impl eframe::App for CairnApp {
             View::Library => self.library(ui),
             View::Home => self.home(ui),
             View::Store => self.store(ui),
-            _ => self.placeholder(ui),
+            View::Settings => self.settings_page(ui),
+            View::Versions => self.versions_page(ui),
+            View::Help => self.help_page(ui),
+            View::Profile => self.profile_page(ui),
         }
+        self.game_settings_window(ui.ctx());
+        self.update_window(ui.ctx());
+        self.friends_panel(ui.ctx());
         self.toasts_ui(ui);
         crate::dev::screenshot_tick(ui.ctx());
         if self.downloads.busy() || !self.toasts.is_empty() {
             ui.ctx().request_repaint_after(Duration::from_millis(100));
         }
-    }
-}
-
-impl CairnApp {
-    fn placeholder(&mut self, ui: &mut egui::Ui) {
-        egui::CentralPanel::default().show(ui, |ui| {
-            ui.add_space(40.0);
-            ui.vertical_centered(|ui| {
-                ui.heading(format!("{:?}", self.view));
-            });
-        });
     }
 }

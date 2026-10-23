@@ -151,12 +151,16 @@ pub fn paint_contain(ui: &Ui, texture: &TextureHandle, rect: Rect, tint: Color32
 
 /// A card: a near-black box with a white hairline.
 pub fn card<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> R {
+    let inner_w = (ui.available_width() - 38.0).max(0.0);
     egui::Frame::new()
         .fill(theme::with_alpha(theme::INK, 0.85))
         .stroke(Stroke::new(1.0, theme::with_alpha(Color32::WHITE, 0.08)))
         .corner_radius(CornerRadius::same(14))
         .inner_margin(egui::Margin::same(18))
-        .show(ui, add)
+        .show(ui, |ui| {
+            ui.set_min_width(inner_w);
+            add(ui)
+        })
         .inner
 }
 
