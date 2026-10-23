@@ -18,10 +18,14 @@ New-Item -ItemType Directory -Path $OutDir | Out-Null
 
 Write-Output "Building the launcher (cargo build --release) ..."
 Push-Location (Join-Path $root "rust")
+# cargo prints its progress on stderr, which PowerShell would turn into a terminating error under "Stop"
+$previous = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 try {
-    & cargo build --release -p cairn-launcher --locked 2>&1 | ForEach-Object { Write-Output $_ }
-    if ($LASTEXITCODE -ne 0) { throw "cargo build failed" }
-} finally { Pop-Location }
+    & cargo build --release -p cairn-launcher --locked 2>&1 | ForEach-Object { Write-Output "$_" }
+    $cargoExit = $LASTEXITCODE
+} finally { $ErrorActionPreference = $previous; Pop-Location }
+if ($cargoExit -ne 0) { throw "cargo build failed" }
 $built = Join-Path $root "rust\target\release\cairn.exe"
 if (-not (Test-Path $built)) { throw "expected build output not found: $built" }
 Copy-Item $built (Join-Path $OutDir "Cairn.Launcher.exe")
