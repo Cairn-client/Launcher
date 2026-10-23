@@ -420,7 +420,7 @@
                               Latest="@(changelog?.FirstOrDefault())" SetupReady="@(!setupChecked ? null : SystemSetupGood)"
                               Last="@HomeLast" FriendsState="@homeFriendsState" Friends="@homeFriends" SteamFriends="@homeSteamFriends" SteamFriendsLoaded="@homeSteamFriendsLoaded" HostingAs="@HostingAs" CanInvite="@CanInviteNow" Invited="@invitedFriends" OnInvite="@InviteFromHomeAsync" OnCairn="@CairnFriend" OnJoinFriend="@JoinFriendFromHomeAsync" History="@HomeHistory()" Notices="@HomeNotices()" OnDismissNotice="@DismissNotice" 
                               Favorites="@HomeFavorites" OnToggleFavorite="@ToggleFavorite"
-                              Suggestions="@HomeSuggestions()" ModNews="@modNews" RecentGames="@HomeRecentGames()" OnSaveLogs="@CollectMyLogs" OnReportBug="@(() => UrlLauncher.Open("https://github.com/Cairn-client/launcher/issues/new"))" OnReplayTour="@ReplayTour" OnDownloadMod="@(id => DownloadPackAsync(id))"
+                              Suggestions="@HomeSuggestions()" ModNews="@modNews" RecentGames="@HomeRecentGames()" OnSaveLogs="@CollectMyLogs" OnReportBug="@(() => UrlLauncher.Open("https://github.com/Cairn-client/Launcher/issues/new"))" OnReplayTour="@ReplayTour" OnDownloadMod="@(id => DownloadPackAsync(id))"
                               TotalSessions="@recent.Entries.Sum(e => e.Sessions)" TotalMinutes="@recent.Entries.Sum(e => e.Minutes)" MostPlayed="@HomeMostPlayed()"
                               OnOpenAccount="@(() => NavigateTo(AppView.Profile))" OnOpenNews="@(() => NavigateTo(AppView.Versions))"
                               OnOpenGame="@OpenGameFromHome" OnOpenLibrary="@(() => NavigateTo(AppView.Library))" OnOpenVersions="@(() => NavigateTo(AppView.Versions))"
@@ -703,7 +703,7 @@ else if (launchStage != LaunchStage.Idle && launchStage != LaunchStage.Connected
               ShowReportBug="@messageReportBug"
               ShowLaunchAnyway="@launchAnywayAvailable"
               OnLaunchAnyway="@LaunchAnywayAsync"
-              OnReportBug="@(() => { showMessage = false; Cairn.Launcher.Components.Shared.UrlLauncher.Open("https://github.com/Cairn-client/launcher/issues/new"); })"
+              OnReportBug="@(() => { showMessage = false; Cairn.Launcher.Components.Shared.UrlLauncher.Open("https://github.com/Cairn-client/Launcher/issues/new"); })"
               OnClose="@(() => showMessage = false)" />
 
 <ExitModal  IsVisible="@showExitConfirm"

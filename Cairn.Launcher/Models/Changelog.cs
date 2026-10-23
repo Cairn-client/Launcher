@@ -32,8 +32,8 @@ namespace Cairn.Launcher.Models
     /// </summary>
     public static class Changelog
     {
-        public const string Url = "https://api.github.com/repos/Cairn-client/launcher/releases?per_page=30";
-        public const string PageUrl = "https://github.com/Cairn-client/launcher/releases";
+        public const string Url = "https://api.github.com/repos/Cairn-client/Launcher/releases?per_page=30";
+        public const string PageUrl = "https://github.com/Cairn-client/Launcher/releases";
 
         /// <summary>Reads GitHub's releases JSON; drafts are skipped, the newest version comes first, a release without bullets has no items.</summary>
         public static IReadOnlyList<ReleaseNote> Parse(string json)

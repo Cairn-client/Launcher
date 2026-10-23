@@ -22,8 +22,8 @@ namespace Cairn.Launcher.Components.Shared
     /// </summary>
     public static class UpdateCheck
     {
-        private const string ReleasesUrl = "https://api.github.com/repos/Cairn-client/launcher/releases?per_page=8";
-        private const string DownloadPrefix = "https://github.com/Cairn-client/launcher/releases/download/";
+        private const string ReleasesUrl = "https://api.github.com/repos/Cairn-client/Launcher/releases?per_page=8";
+        private const string DownloadPrefix = "https://github.com/Cairn-client/Launcher/releases/download/";
 
         /// <summary>Both versions as four numbers, so 0.10 and 0.10.0 are the same (System.Version leaves a missing part at -1).</summary>
         public static Version? Normalize(string? s)
@@ -61,7 +61,7 @@ namespace Cairn.Launcher.Components.Shared
                         break;
                     }
                 sha ??= Regex.Match(body, "sha256 `([0-9a-fA-F]{64})`").Groups[1].Value is { Length: 64 } m ? m.ToLowerInvariant() : null;
-                if (url is not null && !url.StartsWith(DownloadPrefix, StringComparison.Ordinal)) url = null;   // only this repository's own files
+                if (url is not null && !url.StartsWith(DownloadPrefix, StringComparison.OrdinalIgnoreCase)) url = null;   // only this repository's own files
                 best = new UpdateInfo(tag, page, url, sha, size, ShortNotes(body)); bestV = v;
             }
             return best is not null && bestV > cur ? best : null;
@@ -82,7 +82,7 @@ namespace Cairn.Launcher.Components.Shared
         public static bool LastCheckFailed { get; private set; }
 
         // the newest release publishes this file (its release workflow); a plain download is not held to the API's 60 requests an hour for one address
-        private const string ManifestUrl = "https://github.com/Cairn-client/launcher/releases/latest/download/update.json";
+        private const string ManifestUrl = "https://github.com/Cairn-client/Launcher/releases/latest/download/update.json";
 
         /// <summary>The newest release as the manifest says (same shape as the API's list); the API itself when the manifest is not there (an older release has none) or cannot be read.</summary>
         private static async Task<string> ManifestOrReleasesAsync(HttpClient http)
