@@ -6,7 +6,9 @@
 pub mod app_manifest;
 pub mod bridge_protocol;
 pub mod catalog;
+pub mod catalog_client;
 pub mod catalog_limits;
+pub mod external_install;
 pub mod game_options;
 pub mod game_setup;
 pub mod http;

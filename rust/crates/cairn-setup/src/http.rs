@@ -39,8 +39,12 @@ impl std::fmt::Display for HttpError {
 impl std::error::Error for HttpError {}
 
 pub trait Http: Send + Sync {
-    /// A GET. A status other than 2xx is an answer, not an error.
-    fn get(&self, url: &str) -> Result<HttpResponse, HttpError>;
+    /// A GET, asking for `accept` when given. A status other than 2xx is an answer, not an error.
+    fn get_with(&self, url: &str, accept: Option<&str>) -> Result<HttpResponse, HttpError>;
+
+    fn get(&self, url: &str) -> Result<HttpResponse, HttpError> {
+        self.get_with(url, None)
+    }
 }
 
 /// The real network, with the launcher's user agent.
@@ -61,8 +65,12 @@ impl UreqHttp {
 }
 
 impl Http for UreqHttp {
-    fn get(&self, url: &str) -> Result<HttpResponse, HttpError> {
-        let resp = self.agent.get(url).call().map_err(|e| HttpError(e.to_string()))?;
+    fn get_with(&self, url: &str, accept: Option<&str>) -> Result<HttpResponse, HttpError> {
+        let mut req = self.agent.get(url);
+        if let Some(a) = accept {
+            req = req.header("Accept", a);
+        }
+        let resp = req.call().map_err(|e| HttpError(e.to_string()))?;
         let status = resp.status().as_u16();
         let content_length = resp.body().content_length();
         Ok(HttpResponse {
@@ -100,7 +108,7 @@ pub(crate) mod fake {
     }
 
     impl Http for FakeHttp {
-        fn get(&self, url: &str) -> Result<HttpResponse, HttpError> {
+        fn get_with(&self, url: &str, _accept: Option<&str>) -> Result<HttpResponse, HttpError> {
             self.asked.lock().unwrap().push(url.to_string());
             if self.unreachable {
                 return Err(HttpError("no network".into()));
